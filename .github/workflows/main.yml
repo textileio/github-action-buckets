@@ -1,9 +1,16 @@
-on: [push]
+name: bucket_push
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
-  hello_world_job:
+  bucket_push:
     runs-on: ubuntu-latest
-    name: A job to update a bucket
+    name: Update a Textile bucket
     steps:
     - name: Bucket push action
       id: push
