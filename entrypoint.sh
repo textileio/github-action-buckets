@@ -10,6 +10,7 @@ wget "https://github.com/textileio/textile/releases/download/v0.0.2/textile_v0.0
 tar -xf textile_v0.0.2_linux-amd64.tar.gz
 echo $(ls ./)
 chmod +x textile
+mv textile /bin/
 
 textile bucket push $2 $1
 
