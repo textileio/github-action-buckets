@@ -19,7 +19,7 @@ jobs:
       uses: textileio/github-action-bucket-push@v3
       with:
         bucket-name: 'bucket-push-action'
-        path: '*'
+        path: '.textile/*'
         token: ${{ secrets.TEXTILE_AUTH_TOKEN }}
     # Use the output from the `hello` step
     - name: Get the output CID
