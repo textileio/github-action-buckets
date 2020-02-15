@@ -14,10 +14,10 @@ jobs:
     steps:
     - name: Bucket push action
       id: push
-      uses: textileio/github-action-bucket-push@v57
+      uses: textileio/github-action-bucket-push@v58
       with:
         bucket-name: 'bucket-push-action'
-        path: './*'
+        path: '*'
         token: ${{ secrets.TEXTILE_AUTH_TOKEN }}
     # Use the output from the `hello` step
     - name: Get the output CID
