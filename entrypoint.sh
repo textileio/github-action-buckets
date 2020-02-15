@@ -10,6 +10,8 @@ echo "token: $3" > $HOME/.textile/auth.yml
 
 cd /home/repo
 
+echo $(ls ./)
+
 echo -ne '\n' | textile buckets push $2 $1
 wait
 HEAD=$(textile bucket ls $1 | grep ipfs | head -1)
