@@ -1,15 +1,14 @@
 # Container image that runs your code
 FROM alpine:3.10
 
-RUN apk add --no-cache 
 RUN apk add --no-cache \
         bash \
         wget \
     && wget https://github.com/textileio/textile/releases/download/v0.0.2/textile_v0.0.2_linux-amd64.tar.gz \
     && tar -xvf textile_v0.0.2_linux-amd64.tar.gz \
-    && chmod +x textile
+    && chmod +x ./textile
 
-COPY --from=0 textile /usr/local/bin/textile
+COPY --from=0 ./textile /usr/local/bin/textile
 
 # Copies your code file from your action repository to the filesystem path `/` of the container
 COPY entrypoint.sh /entrypoint.sh
