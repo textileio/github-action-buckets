@@ -6,8 +6,8 @@ mkdir $HOME/.textile
 
 echo "token: $3" > $HOME/.textile/auth.yml
 
-/target/install
+# /target/install
 
-textile bucket push $2 $1
+/target/textile bucket push $2 $1
 
 echo ::set-output name=cid::INCOMPLETE
