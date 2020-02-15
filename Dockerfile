@@ -18,7 +18,7 @@ ENV SRC_DIR /textile
 COPY --from=0 /target/textile /usr/local/bin/textile
 COPY --from=0 /etc/ssl/certs /etc/ssl/certs
 
-COPY / /home/repo
+COPY . /home/repo
 # COPY entrypoint.sh /entrypoint.sh
 
 # Code file to execute when the docker container starts up (`entrypoint.sh`)

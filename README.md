@@ -23,7 +23,7 @@ jobs:
     steps:
     - name: Bucket push action
       id: push
-      uses: textileio/github-action-bucket-push@v2
+      uses: textileio/github-action-bucket-push@v3
       with:
         bucket-name: 'bucket-push-action'
         path: '*'
@@ -32,3 +32,5 @@ jobs:
     - name: Get the output CID
       run: echo "The CID was ${{ steps.push.outputs.cid }}"
 ```
+
+For more information on using this Action or creating your Textile auth token, read [our blog post here](https://blog.textile.io/ethden-2-pin-projects-to-ipfs-right-from-github/).
