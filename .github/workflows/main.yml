@@ -14,16 +14,12 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v1
-    - name: Create file
-      run: |
-        mkdir -p stuff
-        echo "hello test" > stuff/index.html
     - name: Bucket push action
       id: push
-      uses: textileio/github-action-bucket-push@v3-rc1
+      uses: textileio/github-action-bucket-push@v3
       with:
         bucket-name: 'bucket-push-action'
-        path: 'stuff/*'
+        path: '*'
         token: ${{ secrets.TEXTILE_AUTH_TOKEN }}
     # Use the output from the `hello` step
     - name: Get the output CID
