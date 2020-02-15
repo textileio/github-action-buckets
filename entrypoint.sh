@@ -6,9 +6,10 @@ mkdir $HOME/.textile
 
 echo "token: $3" > $HOME/.textile/auth.yml
 
-wget https://github.com/textileio/textile/releases/download/v0.0.2/textile_v0.0.2_linux-amd64.tar.gz
+wget "https://github.com/textileio/textile/releases/download/v0.0.2/textile_v0.0.2_linux-amd64.tar.gz"
 tar -xf textile_v0.0.2_linux-amd64.tar.gz
-sh install
+echo $(ls ./)
+./install
 
 textile bucket push $2 $1
 
