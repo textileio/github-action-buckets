@@ -1,5 +1,5 @@
 
-#!/bin/bash
+#!/bin/sh
 set -e
 set -o pipefail
 
@@ -8,7 +8,7 @@ main() {
   time=$(date)
   mkdir $HOME/.textile
   echo "token: $3" > $HOME/.textile/auth.yml
-  /target/textile bucket push $2 $1
+  ./textile bucket push $2 $1
   echo ::set-output name=cid::INCOMPLETE
 }
 main
