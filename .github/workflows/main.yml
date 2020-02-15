@@ -13,9 +13,9 @@ jobs:
     name: Update a Textile bucket
     steps:
     - name: Create file
-    - run: |
-      mkdir -p stuff
-      echo "hello test" > stuff/index.html
+      run: |
+        mkdir -p stuff
+        echo "hello test" > stuff/index.html
     - name: Bucket push action
       id: push
       uses: textileio/github-action-bucket-push@v3
