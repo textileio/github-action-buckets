@@ -1,22 +1,13 @@
-#!/bin/sh -l
 
-echo "Updating Bucket $1 from $2"
-time=$(date)
-mkdir $HOME/.textile
+#!/bin/bashset -e
+set -o pipefail
 
-echo "token: $3" > $HOME/.textile/auth.yml
-
-echo "start"
-echo $(ls ./)
-echo "target"
-echo $(ls /target)
-
-# $(/target/install)
-# $(chmod +x ./textile)
-
-echo "after"
-echo $(/target/textile --help)
-
-$(/target/textile bucket push $2 $1)
-
-echo ::set-output name=cid::INCOMPLETE
+main() {
+  echo "Updating Bucket $1 from $2"
+  time=$(date)
+  mkdir $HOME/.textile
+  echo "token: $3" > $HOME/.textile/auth.yml
+  /target/textile bucket push $2 $1
+  echo ::set-output name=cid::INCOMPLETE
+}
+main
