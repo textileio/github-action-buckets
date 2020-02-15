@@ -7,9 +7,12 @@ mkdir $HOME/.textile
 echo "token: $3" > $HOME/.textile/auth.yml
 
 echo "after"
-echo $(ls .)
-echo $(textile --help)
+ls /target
+echo $(ls /target)
+echo $(/target/textile --help)
 
-$(./textile bucket push $2 $1)
+$(/target/textile bucket push $2 $1)
+
+sh /target/textile --help 
 
 echo ::set-output name=cid::INCOMPLETE
