@@ -9,9 +9,9 @@ mkdir $HOME/.textile
 echo "token: $3" > $HOME/.textile/auth.yml
 
 
-echo $(textile --help)
+textile --help
 
-echo $(textile bucket push $2 $1)
+textile bucket push $2 $1
 
 
 
