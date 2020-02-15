@@ -23,7 +23,7 @@ jobs:
     steps:
     - name: Bucket push action
       id: push
-      uses: textileio/github-action-bucket-push@v58
+      uses: textileio/github-action-bucket-push@v2
       with:
         bucket-name: 'bucket-push-action'
         path: '*'
