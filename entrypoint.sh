@@ -11,7 +11,7 @@ echo $(ls ./)
 echo "target"
 echo $(ls /target)
 
-$(mv /target/textile /textile)
+$(mv /target/textile ./)
 $(chmod +x ./textile)
 
 echo "after"
