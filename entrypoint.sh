@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eux
+set -e
 
 echo "Updating Bucket $1 from $2"
 time=$(date)
