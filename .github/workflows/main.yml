@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Update a Textile bucket
     steps:
-    steps:
     - name: Checkout
       uses: actions/checkout@v1
     - name: Create file
