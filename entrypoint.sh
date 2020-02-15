@@ -13,6 +13,6 @@ echo "token: $3" > $HOME/.textile/auth.yml
 
 echo $(ls /target)
 
-echo $(textile bucket push $2 $1)
+echo $(/target/textile bucket push $2 $1)
 
 echo ::set-output name=cid::INCOMPLETE
