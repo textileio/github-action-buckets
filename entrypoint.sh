@@ -1,15 +1,15 @@
-#!/bin/sh -l
+#!/bin/sh
+
+set -e
 
 echo "Updating Bucket $1 from $2"
 time=$(date)
-mkdir $HOME/.textile
+mkdir -p $HOME/.textile
 
 echo "token: $3" > $HOME/.textile/auth.yml
 
-wget https://github.com/textileio/textile/releases/download/v0.0.2/textile_v0.0.2_linux-amd64.tar.gz
-tar -xf textile_v0.0.2_linux-amd64.tar.gz
-sh install
+cd /home/repo
 
-textile bucket push $2 $1
-
+echo -ne '\n' | textile buckets push $2 $1
+wait
 echo ::set-output name=cid::INCOMPLETE
