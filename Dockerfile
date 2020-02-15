@@ -8,6 +8,7 @@ RUN set -x \
   && tar -xvzf textile_v0.0.2_linux-amd64.tar.gz \
   && ./install
 
+COPY --from=builder /usr/local/bin/textile /usr/local/bin/textile
 # Copies your code file from your action repository to the filesystem path `/` of the container
 COPY entrypoint.sh /entrypoint.sh
 
