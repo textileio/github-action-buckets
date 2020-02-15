@@ -8,7 +8,7 @@ mkdir -p $HOME/.textile
 
 echo "token: $3" > $HOME/.textile/auth.yml
 
-cd /home/repo
+# cd /home/repo
 
 echo $(ls ./)
 
