@@ -11,12 +11,12 @@ echo $(ls ./)
 echo "target"
 echo $(ls /target)
 
-$(mv /target/textile ./)
-$(chmod +x ./textile)
+# $(/target/install)
+# $(chmod +x ./textile)
 
 echo "after"
-echo $(ls ./)
+echo $(/target/textile --help)
 
-$(./textile bucket push $2 $1)
+$(/target/textile bucket push $2 $1)
 
 echo ::set-output name=cid::INCOMPLETE
