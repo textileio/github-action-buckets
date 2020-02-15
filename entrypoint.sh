@@ -1,5 +1,6 @@
 
-#!/bin/bashset -e
+#!/bin/bash
+set -e
 set -o pipefail
 
 main() {
