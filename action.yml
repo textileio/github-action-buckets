@@ -1,0 +1,24 @@
+# action.yml
+name: 'Textile Bucket Push'
+description: 'Update a Textile Bucket with CI'
+inputs:
+  bucket-name:  # name of bucket in your project
+    description: 'Name of Bucket to update'
+    required: true
+  path:  # path of file or dir to push
+    description: 'Path of file or dir to push'
+    required: true
+    default: '.'
+  token:  # admin auth token for textile
+    description: 'Auth token from $HOME/.textile/auth.yml'
+    required: true
+outputs:
+  cid: # cid of latest
+    description: 'CID of latest head'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.bucket-name }}
+    - ${{ inputs.path }}
+    - ${{ inputs.token }}

@@ -1,0 +1,17 @@
+on: [push]
+
+jobs:
+  hello_world_job:
+    runs-on: ubuntu-latest
+    name: A job to update a bucket
+    steps:
+    - name: Bucket push action
+      id: push
+      uses: textileio/github-action-bucket-push@v1
+      with:
+        bucket-name: 'bucket-push-action'
+        path: '.'
+        token: ${{ secrets.TEXTILE_AUTH_TOKEN }}
+    # Use the output from the `hello` step
+    - name: Get the output CID
+      run: echo "The CID was ${{ steps.push.outputs.cid }}"
