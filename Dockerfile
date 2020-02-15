@@ -5,10 +5,9 @@ RUN apk add --no-cache bash
 
 RUN set -x \
   && wget https://github.com/textileio/textile/releases/download/v0.0.2/textile_v0.0.2_linux-amd64.tar.gz \
-  && tar -xvzf textile_v0.0.2_linux-amd64.tar.gz \
-  && ./install
+  && tar -xvzf textile_v0.0.2_linux-amd64.tar.gz 
 
-COPY --from=builder /usr/local/bin/textile /usr/local/bin/textile
+COPY textile /usr/local/bin/textile
 # Copies your code file from your action repository to the filesystem path `/` of the container
 COPY entrypoint.sh /entrypoint.sh
 
