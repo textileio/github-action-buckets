@@ -21,11 +21,10 @@ COPY --from=0 /target/textile /usr/local/bin/textile
 COPY --from=0 /etc/ssl/certs /etc/ssl/certs
 
 # Create the repo directory and switch to a non-privileged user.
-ENV TEXTILE_PATH /target
+ENV TEXTILE_PATH /txtl
 RUN mkdir -p $TEXTILE_PATH \
   && adduser -D -h $TEXTILE_PATH -u 1000 -G users textile \
   && chown -R textile:users $TEXTILE_PATH
-
 # Switch to a non-privileged user
 USER textile
 
@@ -33,8 +32,8 @@ USER textile
 # Important this happens after the USER directive so permission are correct.
 VOLUME $TEXTILE_PATH
 
-COPY / /repo
+COPY / /txtl/repo
 # COPY entrypoint.sh /entrypoint.sh
 
 # Code file to execute when the docker container starts up (`entrypoint.sh`)
-ENTRYPOINT ["/repo/entrypoint.sh"]
+ENTRYPOINT ["/txtl/repo/entrypoint.sh"]
