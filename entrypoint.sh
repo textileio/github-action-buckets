@@ -11,6 +11,8 @@ echo "token: $3" > $HOME/.textile/auth.yml
 # chmod +x textile
 # mv textile /bin/
 
+echo $(ls /target)
+
 echo $(textile bucket push $2 $1)
 
 echo ::set-output name=cid::INCOMPLETE
