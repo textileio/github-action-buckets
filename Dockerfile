@@ -12,7 +12,7 @@ FROM alpine:3.10
 #     && cp textile /usr/local/bin/
 
 # Copies your code file from your action repository to the filesystem path `/` of the container
-COPY textile /textile
+COPY textile /usr/local/bin/textile
 COPY entrypoint.sh /entrypoint.sh
 
 # Code file to execute when the docker container starts up (`entrypoint.sh`)
