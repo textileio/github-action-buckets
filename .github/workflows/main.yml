@@ -16,7 +16,7 @@ jobs:
       uses: actions/checkout@v1
     - name: Bucket push action
       id: push
-      uses: textileio/github-action-bucket-push@v3
+      uses: textileio/github-action-bucket-push@master
       with:
         bucket-name: 'bucket-push-action'
         path: '*'
