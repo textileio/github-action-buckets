@@ -18,4 +18,6 @@ HEAD=$(textile bucket ls $1 | grep ipfs | head -1)
 wait
 CID=$(echo $HEAD | sed -e 's/.*ipfs\/\(.*\)\/.*/\1/')
 echo $CID
+URL="https://$1.textile.cafe/"
 echo ::set-output name=cid::$CID
+echo ::set-output name=url::$URL

@@ -15,6 +15,8 @@ inputs:
 outputs:
   cid: # cid of latest
     description: 'CID of latest head'
+  url: # cid of latest
+    description: 'URL of Textile Gateway'
 runs:
   using: 'docker'
   image: 'Dockerfile'
