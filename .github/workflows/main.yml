@@ -21,6 +21,7 @@ jobs:
         bucket-name: 'bucket-push-action'
         path: '*'
         token: ${{ secrets.TEXTILE_AUTH_TOKEN }}
-    # Use the output from the `hello` step
     - name: Get the output CID
       run: echo "The CID was ${{ steps.push.outputs.cid }}"
+    - name: Get the Bucket URL
+      run: echo "The Bucket URL is ${{ steps.push.outputs.url }}"
