@@ -1,6 +1,9 @@
 # action.yml
 name: 'Textile Bucket Push'
 description: 'Update a Textile Bucket with CI'
+branding:
+  icon: 'type'  
+  color: 'blue'
 inputs:
   bucket-name:  # name of bucket in your project
     description: 'Name of Bucket to update'
