@@ -11,20 +11,29 @@ jobs:
   build: # make sure build/ci work properly
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - run: |
+    - name: checkout
+      uses: actions/checkout@v1
+    - name: test
+      run: |
         npm install
         npm run all
-    - env:
+      env:
         key: ${{ secrets.INPUT_KEY }}
         secret: ${{ secrets.INPUT_SECRET }}
         path: 'bucket'
         bucket: 'files'
         thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
+  
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - uses: ./
+    - name: checkout
+      uses: actions/checkout@v1
+    - name: run
+      uses: ./
       with: 
-        milliseconds: 1000
+        key: ${{ secrets.INPUT_KEY }}
+        secret: ${{ secrets.INPUT_SECRET }}
+        path: 'bucket'
+        bucket: 'files'
+        thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
