@@ -18,8 +18,8 @@ jobs:
         npm install
         npm run all
       env:
-        key: ${{ secrets.INPUT_KEY }}
-        secret: ${{ secrets.INPUT_SECRET }}
+        key: ${{ secrets.ACCOUNT_KEY }}
+        secret: ${{ secrets.ACCOUNT_SECRET }}
         path: 'bucket'
         bucket: 'files'
         thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
@@ -32,8 +32,8 @@ jobs:
     - name: run
       uses: ./
       with: 
-        key: ${{ secrets.INPUT_KEY }}
-        secret: ${{ secrets.INPUT_SECRET }}
+        key: ${{ secrets.ACCOUNT_KEY }}
+        secret: ${{ secrets.ACCOUNT_SECRET }}
         path: 'bucket'
         bucket: 'files'
         thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
