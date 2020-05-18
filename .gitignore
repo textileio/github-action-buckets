@@ -3,7 +3,7 @@
 *-debug.log
 *-error.log
 /.nyc_output
-lib
+dist
 tmp
 build/
 .vscode/
@@ -11,3 +11,5 @@ build/
 .jest/
 coverage/
 binary
+.env
+.textile

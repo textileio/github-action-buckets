@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "declaration": true,
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "outDir": "./lib",
+    "baseUrl": "."
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "scripts",
+    "node_modules",
+    "examples",
+    "docs",
+    "dist"
+  ],
+  "compileOnSave": true
+}
