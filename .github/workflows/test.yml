@@ -43,5 +43,5 @@ jobs:
         secret: ${{ secrets.ACCOUNT_SECRET }}
         bucket: 'files'
         thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
-        path: 'website'
+        path: '.'
         pattern: '**/*'
