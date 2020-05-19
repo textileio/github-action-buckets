@@ -16,10 +16,14 @@ async function run(): Promise<void> {
   try {
     const key: string = core.getInput('key')
     const secret: string = core.getInput('secret')
+    if (!key || key === '' || !secret || secret === '') {
+      core.setFailed('Invalid credentials')
+      return
+    }
+    let host = core.getInput('host')
+    host = !host || host === '' ? 'https://api.staging.textile.io:3447' : host
+    const ctx = new Context(host)
 
-    const ctx = new Context(
-      core.getInput('host') || 'https://api.textile.io:3447'
-    )
     await ctx.withUserKey({
       key,
       secret,
@@ -83,10 +87,6 @@ async function run(): Promise<void> {
         `https://${thread}.thread.hub.textile.io/${bucketKey}`
       )
       core.setOutput('http', `https://${bucketKey}.textile.space`)
-
-      core.debug(`https://${thread}.thread.hub.textile.io/buckets/${bucketKey}`)
-      core.debug(`https://ipfs.io/ipns/${bucketKey}`)
-      core.debug(`https://${bucketKey}.textile.space`)
     } catch (error) {
       core.setFailed(error.message)
     }
