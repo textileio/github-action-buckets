@@ -31,7 +31,7 @@ jobs:
         thread: '<THREAD_ID>'
         path: '<DIRECTORY_PATH>'
         pattern: '<FILE_PATTERN>'
-        boolean: '<REMOVE_BUCKET?>'
+        remove: '<REMOVE_BUCKET?>'
     # Use the output from the `hello` step
     - name: http link
       run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
