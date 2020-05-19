@@ -9137,6 +9137,7 @@ const threads_id_1 = __webpack_require__(879);
 const readFile = util_1.default.promisify(fs_1.default.readFile);
 const globDir = util_1.default.promisify(glob_1.default);
 function run() {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const key = core.getInput('key');
@@ -9175,25 +9176,15 @@ function run() {
                 }
                 const pattern = core.getInput('pattern');
                 const target = core.getInput('path');
-                // const debug = core.getInput('debug') === 'true'
-                const cwd = path_1.default.join('./', target);
+                const home = (_a = core.getInput('home'), (_a !== null && _a !== void 0 ? _a : './'));
+                const cwd = path_1.default.join(home, target);
                 const options = {
                     cwd,
                     nodir: true
                 };
-                // path = path === '' ? '.' : path
-                if (true) {
-                    const home = core.getInput('home');
-                    const files = yield globDir(pattern, {
-                        cwd: home,
-                        nodir: true
-                    });
-                    core.setFailed(`No files found: ${home} ${files.join(', ')}`);
-                    return;
-                }
                 const files = yield globDir(pattern, options);
                 if (files.length === 0) {
-                    core.setFailed(`No files found: ${cwd} ${pattern}`);
+                    core.setFailed(`No files found: ${target} ${pattern}`);
                     return;
                 }
                 let raw;
