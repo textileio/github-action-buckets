@@ -60,10 +60,14 @@ async function run(): Promise<void> {
         cwd,
         nodir: true
       }
-
       const files = await globDir(pattern, options)
       if (files.length === 0) {
-        core.setFailed(`No files found: ${target} ${pattern}`)
+        const two = {
+          home,
+          nodir: true
+        }
+        const all = await globDir(pattern, two)
+        core.setFailed(`No files found: ${home} ${target} ${all.join(', ')}`)
         return
       }
       let raw
