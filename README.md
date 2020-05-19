@@ -51,7 +51,7 @@ jobs:
 - **thread**: thread id for thread holding bucket. ([docs](https://docs.textile.io/hub/cli/tt_bucket_push/) see output of _bucket create_ or `cat .textile/config.yml`).
 - **bucket**: remote bucket path name. ([docs](https://docs.textile.io/hub/cli/tt_bucket_push/) see _path_).
 - **path**: (optional) the path within the repo that you want pushed to your bucket (default: '.').
-- **glob**: (optional) file search filter to limit which files you push to the remote bucket (default: '**/*').
+- **pattern**: (optional) file search filter to limit which files you push to the remote bucket (default: '**/*').
 
 You must use an existing ThreadID (_thread_) to push your Bucket. If you use an existing Bucket name (_bucket_) it will update that bucket, if you use a new name it will create a new bucket in the thread. 
 
