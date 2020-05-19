@@ -53,7 +53,7 @@ async function run(): Promise<void> {
       }
 
       const pattern = core.getInput('pattern')
-      let target = core.getInput('path')
+      const target = core.getInput('path')
       const debug = core.getInput('debug') === 'true'
       const rel = debug ? './' : '/home/repo/'
       const cwd = path.join(rel, target)
@@ -64,7 +64,7 @@ async function run(): Promise<void> {
       // path = path === '' ? '.' : path
       const files = await globDir(pattern, options)
       if (files.length === 0) {
-        core.setFailed(`No files found: ${target} ${pattern}`)
+        core.setFailed(`No files found: ${cwd} ${pattern}`)
         return
       }
       let raw
