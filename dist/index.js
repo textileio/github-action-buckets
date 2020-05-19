@@ -9144,9 +9144,9 @@ function run() {
                 core.setFailed('Invalid credentials');
                 return;
             }
-            let host = core.getInput('host');
-            host = !host || host === '' ? 'https://api.textile.io:3447' : host;
-            const ctx = new textile_1.Context(host);
+            // let host = core.getInput('host')
+            // host = !host || host === '' ? 'https://api.staging.textile.io:3447' : host
+            const ctx = new textile_1.Context('https://api.staging.textile.io:3447');
             yield ctx.withUserKey({
                 key,
                 secret,
@@ -9201,9 +9201,6 @@ function run() {
                 core.setOutput('ipnsLink', `https://${bucketKey}.ipns.hub.textile.io`);
                 core.setOutput('threadLink', `https://${thread}.thread.hub.textile.io/${bucketKey}`);
                 core.setOutput('http', `https://${bucketKey}.textile.space`);
-                core.debug(`https://${thread}.thread.hub.textile.io/buckets/${bucketKey}`);
-                core.debug(`https://ipfs.io/ipns/${bucketKey}`);
-                core.debug(`https://${bucketKey}.textile.space`);
             }
             catch (error) {
                 core.setFailed(error.message);

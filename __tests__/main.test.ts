@@ -10,5 +10,11 @@ test('test runs', () => {
   const options: cp.ExecSyncOptions = {
     env: process.env
   }
-  console.log(cp.execSync(`node ${ip}`, options).toString())
+  try {
+    const res = cp.execSync(`node ${ip}`, options).toString()
+    console.log(res)
+    throw new Error('okay')
+  } catch (error) {
+    expect(error.message).toEqual('okay')
+  }
 })
