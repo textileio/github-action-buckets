@@ -30,13 +30,6 @@ jobs:
         thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
         path: 'website'
         pattern: '**/*'
-      with:
-        key: ${{ secrets.ACCOUNT_KEY }}
-        secret: ${{ secrets.ACCOUNT_SECRET }}
-        bucket: 'files'
-        thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
-        path: 'website'
-        pattern: '**/*'
   
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
