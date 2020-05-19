@@ -1,8 +1,7 @@
 // @ts-ignore
 ;(global as any).WebSocket = require('ws')
 
-import {resolve} from 'path'
-import fs, {readdir, PathLike} from 'fs'
+import fs from 'fs'
 import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
@@ -20,9 +19,9 @@ async function run(): Promise<void> {
       core.setFailed('Invalid credentials')
       return
     }
-    let host = core.getInput('host')
-    host = !host || host === '' ? 'https://api.staging.textile.io:3447' : host
-    const ctx = new Context(host)
+    // let host = core.getInput('host')
+    // host = !host || host === '' ? 'https://api.staging.textile.io:3447' : host
+    const ctx = new Context('https://api.staging.textile.io:3447')
 
     await ctx.withUserKey({
       key,

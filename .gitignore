@@ -4,6 +4,7 @@
 *-error.log
 /.nyc_output
 tmp
+dist
 .vscode/
 .idea/
 .jest/

@@ -20,9 +20,10 @@ jobs:
       env:
         INPUT_KEY: ${{ secrets.ACCOUNT_KEY }}
         INPUT_SECRET: ${{ secrets.ACCOUNT_SECRET }}
-        INPUT_PATH: 'bucket'
         INPUT_BUCKET: 'files'
         INPUT_THREAD: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
+        INPUT_PATH: 'website'
+        INPUT_PATTERN: '**/*'
   
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
