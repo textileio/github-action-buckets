@@ -36,4 +36,4 @@ outputs:
     description: 'HTTP link to Textile Hub'
 runs:
   using: 'node12'
-  main: 'lib/index.js'
+  main: 'lib/main.js'

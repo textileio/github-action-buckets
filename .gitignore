@@ -5,6 +5,7 @@
 /.nyc_output
 tmp
 dist
+node_modules
 .vscode/
 .idea/
 .jest/
