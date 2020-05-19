@@ -30,7 +30,7 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: run
+    - name: bucket
       uses: ./
       with: 
         key: ${{ secrets.ACCOUNT_KEY }}
@@ -40,12 +40,12 @@ jobs:
         path: 'website'
         pattern: '**/*'
     - name: http link
-      run: echo "bucket now live at ${{ steps.push.outputs.http }}"
+      run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
     - name: ipns
-      run: echo "IPNS ${{ steps.push.outputs.ipns }}"
+      run: echo "IPNS ${{ steps.bucket.outputs.ipns }}"
     - name: ipns link
-      run: echo "IPNS link ${{ steps.push.outputs.ipnsLink }}"
+      run: echo "IPNS link ${{ steps.bucket.outputs.ipnsLink }}"
     - name: ipfs
-      run: echo "IPFS ${{ steps.push.outputs.ipfs }}"
+      run: echo "IPFS ${{ steps.bucket.outputs.ipfs }}"
     - name: ipfs link
-      run: echo "IPFS link ${{ steps.push.outputs.ipfsLink }}"
+      run: echo "IPFS link ${{ steps.bucket.outputs.ipfsLink }}"

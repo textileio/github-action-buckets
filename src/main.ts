@@ -20,9 +20,11 @@ async function run(): Promise<void> {
       core.setFailed('Invalid credentials')
       return
     }
-    // let host = core.getInput('host')
-    // host = !host || host === '' ? 'https://api.staging.textile.io:3447' : host
-    const ctx = new Context('https://api.staging.textile.io:3447')
+    // const debug = core.getInput('debug')
+    // const host =
+    //   debug === 'true' ? 'https://api.staging.textile.io:3447' : undefined
+    const host = 'https://api.staging.textile.io:3447'
+    const ctx = new Context(host)
 
     await ctx.withUserKey({
       key,
@@ -62,12 +64,7 @@ async function run(): Promise<void> {
       }
       const files = await globDir(pattern, options)
       if (files.length === 0) {
-        const two = {
-          home,
-          nodir: true
-        }
-        const all = await globDir(pattern, two)
-        core.setFailed(`No files found: ${home} ${target} ${all.join(', ')}`)
+        core.setFailed(`No files found: ${target}`)
         return
       }
       let raw

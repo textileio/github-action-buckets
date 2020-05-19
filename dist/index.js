@@ -9146,9 +9146,11 @@ function run() {
                 core.setFailed('Invalid credentials');
                 return;
             }
-            // let host = core.getInput('host')
-            // host = !host || host === '' ? 'https://api.staging.textile.io:3447' : host
-            const ctx = new textile_1.Context('https://api.staging.textile.io:3447');
+            // const debug = core.getInput('debug')
+            // const host =
+            //   debug === 'true' ? 'https://api.staging.textile.io:3447' : undefined
+            const host = 'https://api.staging.textile.io:3447';
+            const ctx = new textile_1.Context(host);
             yield ctx.withUserKey({
                 key,
                 secret,
@@ -9184,12 +9186,7 @@ function run() {
                 };
                 const files = yield globDir(pattern, options);
                 if (files.length === 0) {
-                    const two = {
-                        home,
-                        nodir: true
-                    };
-                    const all = yield globDir(pattern, two);
-                    core.setFailed(`No files found: ${home} ${target} ${all.join(', ')}`);
+                    core.setFailed(`No files found: ${target}`);
                     return;
                 }
                 let raw;
