@@ -30,7 +30,8 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: bucket
+    - name: push
+      id: bucket
       uses: ./
       with: 
         key: ${{ secrets.ACCOUNT_KEY }}
