@@ -20,10 +20,9 @@ async function run(): Promise<void> {
       core.setFailed('Invalid credentials')
       return
     }
-    // const debug = core.getInput('debug')
-    // const host =
-    //   debug === 'true' ? 'https://api.staging.textile.io:3447' : undefined
-    const host = 'https://api.staging.textile.io:3447'
+    const debug = core.getInput('debug')
+    const host =
+      debug === 'true' ? 'https://api.staging.textile.io:3447' : undefined
     const ctx = new Context(host)
 
     await ctx.withUserKey({

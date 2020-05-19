@@ -20,8 +20,8 @@ jobs:
       env:
         INPUT_KEY: ${{ secrets.ACCOUNT_KEY }}
         INPUT_SECRET: ${{ secrets.ACCOUNT_SECRET }}
-        INPUT_BUCKET: 'files'
-        INPUT_THREAD: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
+        INPUT_BUCKET: 'actions'
+        INPUT_THREAD: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         INPUT_PATH: 'website'
         INPUT_PATTERN: '**/*'
   
@@ -36,8 +36,8 @@ jobs:
       with: 
         key: ${{ secrets.ACCOUNT_KEY }}
         secret: ${{ secrets.ACCOUNT_SECRET }}
-        bucket: 'files'
-        thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
+        bucket: 'actions'
+        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
         pattern: '**/*'
     - name: http link
