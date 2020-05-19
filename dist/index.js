@@ -9139,17 +9139,11 @@ const globDir = util_1.default.promisify(glob_1.default);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const debug = core.getInput('debug');
-            const host = debug === 'true'
-                ? 'https://api.staging.textile.io:3447'
-                : 'https://api.textile.io:3447';
-            const ctx = new textile_1.Context(host);
+            const api = core.getInput('api');
+            const target = api.trim() != '' ? api.trim() : 'api.textile.io:3447';
+            const ctx = new textile_1.Context(`https://${target}`);
             const key = core.getInput('key').trim();
             const secret = core.getInput('secret').trim();
-            if (true) {
-                core.setOutput('ipns', `${host} ${debug} ${key[0]} ${secret[0]}`);
-                return;
-            }
             if (!key || key === '' || !secret || secret === '') {
                 core.setFailed('Invalid credentials');
                 return;
@@ -9162,57 +9156,72 @@ function run() {
             const thread = core.getInput('thread');
             const threadID = threads_id_1.ThreadID.fromString(thread);
             ctx.withThread(threadID);
-            try {
+            const remove = core.getInput('remove') || '';
+            if (remove === 'true') {
                 const buckets = new textile_1.Buckets(ctx);
                 const roots = yield buckets.list();
                 const name = core.getInput('bucket');
                 const existing = roots.find(bucket => bucket.name === name);
-                let bucketKey = '';
                 if (existing) {
-                    bucketKey = existing.key;
+                    yield buckets.remove(existing.key);
+                    core.setOutput('success', 'true');
                 }
                 else {
-                    const created = yield buckets.init(name);
-                    if (!created.root) {
-                        core.setFailed('Failed to create bucket');
-                        return;
-                    }
-                    bucketKey = created.root.key;
+                    core.setFailed('Bucket not found');
                 }
-                const pattern = core.getInput('pattern') || '**/*';
-                const target = core.getInput('path');
-                const home = core.getInput('home') || './';
-                const cwd = path_1.default.join(home, target);
-                const options = {
-                    cwd,
-                    nodir: true
-                };
-                const files = yield globDir(pattern, options);
-                if (files.length === 0) {
-                    core.setFailed(`No files found: ${target}`);
+                // success
+                return;
+            }
+            const buckets = new textile_1.Buckets(ctx);
+            const roots = yield buckets.list();
+            const name = core.getInput('bucket');
+            const existing = roots.find(bucket => bucket.name === name);
+            let bucketKey = '';
+            if (existing) {
+                bucketKey = existing.key;
+            }
+            else {
+                const created = yield buckets.init(name);
+                if (!created.root) {
+                    core.setFailed('Failed to create bucket');
                     return;
                 }
-                let raw;
-                for (let file of files) {
-                    const filePath = `${cwd}/${file}`;
-                    const buffer = yield readFile(filePath);
-                    const upload = {
-                        path: `/${file}`,
-                        content: buffer
-                    };
-                    raw = yield buckets.pushPath(bucketKey, `/${file}`, upload);
-                }
-                const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
-                core.setOutput('ipfs', ipfs);
-                core.setOutput('ipfsLink', `https://ipfs.io${ipfs}`);
-                core.setOutput('ipns', `${bucketKey}`);
-                core.setOutput('ipnsLink', `https://${bucketKey}.ipns.hub.textile.io`);
-                core.setOutput('threadLink', `https://${thread}.thread.hub.textile.io/buckets/${bucketKey}`);
-                core.setOutput('http', `https://${bucketKey}.textile.space`);
+                bucketKey = created.root.key;
             }
-            catch (error) {
-                core.setFailed(error.message);
+            const pattern = core.getInput('pattern') || '**/*';
+            const dir = core.getInput('path');
+            const home = core.getInput('home') || './';
+            const cwd = path_1.default.join(home, dir);
+            const options = {
+                cwd,
+                nodir: true
+            };
+            const files = yield globDir(pattern, options);
+            if (files.length === 0) {
+                core.setFailed(`No files found: ${dir}`);
+                return;
             }
+            let raw;
+            for (let file of files) {
+                const filePath = `${cwd}/${file}`;
+                const buffer = yield readFile(filePath);
+                const upload = {
+                    path: `/${file}`,
+                    content: buffer
+                };
+                raw = yield buckets.pushPath(bucketKey, `/${file}`, upload);
+            }
+            const gateway = core.getInput('gateway');
+            const url = gateway.trim() != '' ? gateway.trim() : 'hub.textile.io';
+            const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
+            core.setOutput('ipfs', ipfs);
+            core.setOutput('ipfsLink', `https://ipfs.io${ipfs}`);
+            core.setOutput('ipns', `${bucketKey}`);
+            core.setOutput('ipnsLink', `https://${bucketKey}.ipns.${url}`);
+            core.setOutput('threadLink', `https://${thread}.thread.${url}/buckets/${bucketKey}`);
+            const domain = core.getInput('domain');
+            const dns = domain.trim() != '' ? domain.trim() : 'textile.space';
+            core.setOutput('http', `https://${bucketKey}.${dns}`);
         }
         catch (error) {
             core.setFailed(error.message);

@@ -1,13 +1,13 @@
-# github-action-bucket-push
+# github-action-buckets
 
-Use buckets to push a directory to a remote IPFS node on the Textile Hub
+Use buckets to create, udpate or remove a directory on a remote IPFS node of the Textile Hub.
 
 ## Usage
 
 Add a step to your github actions.
 
 ```yml
-name: bucket_push
+name: bucket_update
 on:
   push:
     branches:
@@ -31,6 +31,7 @@ jobs:
         thread: '<THREAD_ID>'
         path: '<DIRECTORY_PATH>'
         pattern: '<FILE_PATTERN>'
+        boolean: '<REMOVE_BUCKET?>'
     # Use the output from the `hello` step
     - name: http link
       run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
@@ -52,6 +53,7 @@ jobs:
 - **bucket**: remote bucket path name. ([docs](https://docs.textile.io/hub/cli/tt_bucket_push/) see _path_).
 - **path**: (optional) the path within the repo that you want pushed to your bucket (default: '.').
 - **pattern**: (optional) file search filter to limit which files you push to the remote bucket (default: '**/*').
+- **remove**: (optional) set to 'true' if you wish to remove the bucket not update/create it. this cannot be undone.
 
 You must use an existing ThreadID (_thread_) to push your Bucket. If you use an existing Bucket name (_bucket_) it will update that bucket, if you use a new name it will create a new bucket in the thread. 
 

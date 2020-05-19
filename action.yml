@@ -1,4 +1,4 @@
-name: 'Textile Bucket Push'
+name: 'Textile Buckets'
 description: 'Create, update, destroy folders on IPFS, IPNS and HTTP.'
 author: 'textile.io'
 branding:
@@ -23,6 +23,9 @@ inputs:
   pattern:
     description: 'File pattern matching.'
     default: '**/*'
+  remove:
+    description: 'Remove the bucket by name (WARNING).'
+    default: 'false'
 outputs:
   ipfs:
     description: 'IPFS Address'
