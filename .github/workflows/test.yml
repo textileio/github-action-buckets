@@ -30,7 +30,7 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: push
+    - name: push # push to a known bucket
       id: bucket
       uses: ./
       with: 
@@ -50,3 +50,19 @@ jobs:
       run: echo "IPFS ${{ steps.bucket.outputs.ipfs }}"
     - name: ipfs link
       run: echo "IPFS link ${{ steps.bucket.outputs.ipfsLink }}"
+    - name: push-new # push to a new bucket
+      uses: ./
+      with: 
+        key: ${{ secrets.ACCOUNT_KEY }}
+        secret: ${{ secrets.ACCOUNT_SECRET }}
+        bucket: 'newbucket'
+        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        path: 'website'
+    - name: remove # remove bucket
+      uses: ./
+      with: 
+        key: ${{ secrets.ACCOUNT_KEY }}
+        secret: ${{ secrets.ACCOUNT_SECRET }}
+        bucket: 'newbucket'
+        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        remove: 'true'

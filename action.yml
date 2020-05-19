@@ -1,4 +1,4 @@
-name: 'Textile Bucket Push'
+name: 'Textile Buckets'
 description: 'Create, update, destroy folders on IPFS, IPNS and HTTP.'
 author: 'textile.io'
 branding:
