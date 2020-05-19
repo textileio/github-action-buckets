@@ -9128,6 +9128,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 ;
 global.WebSocket = __webpack_require__(237);
 const fs_1 = __importDefault(__webpack_require__(747));
+const path_1 = __importDefault(__webpack_require__(622));
 const util_1 = __importDefault(__webpack_require__(669));
 const glob_1 = __importDefault(__webpack_require__(402));
 const core = __importStar(__webpack_require__(470));
@@ -9173,20 +9174,23 @@ function run() {
                     bucketKey = created.root.key;
                 }
                 const pattern = core.getInput('pattern');
-                let path = core.getInput('path');
-                path = path === '' ? '.' : path;
+                let target = core.getInput('path');
+                const debug = core.getInput('debug');
+                const rel = debug ? './' : '/home/repo/';
+                const cwd = path_1.default.join(rel, target);
                 const options = {
-                    cwd: path,
+                    cwd,
                     nodir: true
                 };
+                // path = path === '' ? '.' : path
                 const files = yield globDir(pattern, options);
                 if (files.length === 0) {
-                    core.setFailed(`No files found: ${path} ${pattern}`);
+                    core.setFailed(`No files found: ${target} ${pattern}`);
                     return;
                 }
                 let raw;
                 for (let file of files) {
-                    const filePath = `${path}/${file}`;
+                    const filePath = `${cwd}/${file}`;
                     const buffer = yield readFile(filePath);
                     const upload = {
                         path: `/${file}`,

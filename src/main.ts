@@ -2,6 +2,7 @@
 ;(global as any).WebSocket = require('ws')
 
 import fs from 'fs'
+import path from 'path'
 import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
@@ -52,20 +53,23 @@ async function run(): Promise<void> {
       }
 
       const pattern = core.getInput('pattern')
-      let path = core.getInput('path')
-      path = path === '' ? '.' : path
+      let target = core.getInput('path')
+      const debug = core.getInput('debug')
+      const rel = debug ? './' : '/home/repo/'
+      const cwd = path.join(rel, target)
       const options = {
-        cwd: path,
+        cwd,
         nodir: true
       }
+      // path = path === '' ? '.' : path
       const files = await globDir(pattern, options)
       if (files.length === 0) {
-        core.setFailed(`No files found: ${path} ${pattern}`)
+        core.setFailed(`No files found: ${target} ${pattern}`)
         return
       }
       let raw
       for (let file of files) {
-        const filePath = `${path}/${file}`
+        const filePath = `${cwd}/${file}`
         const buffer = await readFile(filePath)
         const upload = {
           path: `/${file}`,
