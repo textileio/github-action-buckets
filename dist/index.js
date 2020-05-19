@@ -9184,10 +9184,10 @@ function run() {
                 // path = path === '' ? '.' : path
                 if (true) {
                     const files = yield globDir(pattern, {
-                        cwd: '../',
+                        cwd: '/home',
                         nodir: true
                     });
-                    core.setFailed(`No files found: ${__dirname}`);
+                    core.setFailed(`No files found: ${files.join(', ')}`);
                     return;
                 }
                 const files = yield globDir(pattern, options);
