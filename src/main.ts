@@ -67,7 +67,7 @@ async function run(): Promise<void> {
           cwd: '../',
           nodir: true
         })
-        core.setFailed(`No files found: ${__dirname} ${files.join(', ')}`)
+        core.setFailed(`No files found: ${__dirname}`)
         return
       }
 

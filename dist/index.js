@@ -9187,7 +9187,7 @@ function run() {
                         cwd: '../',
                         nodir: true
                     });
-                    core.setFailed(`No files found: ${__dirname} ${files.join(', ')}`);
+                    core.setFailed(`No files found: ${__dirname}`);
                     return;
                 }
                 const files = yield globDir(pattern, options);
