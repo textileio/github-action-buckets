@@ -54,7 +54,7 @@ async function run(): Promise<void> {
 
       const pattern = core.getInput('pattern')
       let target = core.getInput('path')
-      const debug = core.getInput('debug')
+      const debug = core.getInput('debug') === 'true'
       const rel = debug ? './' : '/home/repo/'
       const cwd = path.join(rel, target)
       const options = {
