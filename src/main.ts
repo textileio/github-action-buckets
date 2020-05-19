@@ -60,7 +60,7 @@ async function run(): Promise<void> {
       }
       const files = await globDir(pattern, options)
       if (files.length === 0) {
-        core.setFailed('No files found')
+        core.setFailed(`No files found: ${path} ${pattern}`)
         return
       }
       let raw
