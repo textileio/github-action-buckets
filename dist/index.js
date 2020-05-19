@@ -9181,7 +9181,7 @@ function run() {
                 };
                 const files = yield globDir(pattern, options);
                 if (files.length === 0) {
-                    core.setFailed('No files found');
+                    core.setFailed(`No files found: ${path} ${pattern}`);
                     return;
                 }
                 let raw;
