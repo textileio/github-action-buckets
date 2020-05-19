@@ -24,12 +24,6 @@ jobs:
         INPUT_THREAD: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
         INPUT_PATH: 'website'
         INPUT_PATTERN: '**/*'
-        key: ${{ secrets.ACCOUNT_KEY }}
-        secret: ${{ secrets.ACCOUNT_SECRET }}
-        bucket: 'files'
-        thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
-        path: 'website'
-        pattern: '**/*'
   
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
@@ -45,3 +39,13 @@ jobs:
         thread: 'bafkri4uy2qkte2hrcqjy5iqjqhhn5rmazr33v4v6b3jxekd6rvx263a'
         path: 'website'
         pattern: '**/*'
+    - name: http link
+      run: echo "bucket now live at ${{ steps.push.outputs.http }}"
+    - name: ipns
+      run: echo "IPNS ${{ steps.push.outputs.ipns }}"
+    - name: ipns link
+      run: echo "IPNS link ${{ steps.push.outputs.ipnsLink }}"
+    - name: ipfs
+      run: echo "IPFS ${{ steps.push.outputs.ipfs }}"
+    - name: ipfs link
+      run: echo "IPFS link ${{ steps.push.outputs.ipfsLink }}"
