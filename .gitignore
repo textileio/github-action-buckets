@@ -3,11 +3,13 @@
 *-debug.log
 *-error.log
 /.nyc_output
-lib
 tmp
-build/
+lib
+node_modules
 .vscode/
 .idea/
 .jest/
 coverage/
 binary
+.env
+.textile

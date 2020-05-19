@@ -1,0 +1,52 @@
+name: "build-test"
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build: # make sure build/ci work properly
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v1
+    - name: test
+      run: |
+        npm install
+        npm run all
+      env:
+        INPUT_KEY: ${{ secrets.ACCOUNT_KEY }}
+        INPUT_SECRET: ${{ secrets.ACCOUNT_SECRET }}
+        INPUT_BUCKET: 'actions'
+        INPUT_THREAD: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        INPUT_PATH: 'website'
+        INPUT_PATTERN: '**/*'
+  
+  test: # make sure the action works on a clean machine without building
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+    - name: push
+      id: bucket
+      uses: ./
+      with: 
+        key: ${{ secrets.ACCOUNT_KEY }}
+        secret: ${{ secrets.ACCOUNT_SECRET }}
+        bucket: 'actions'
+        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        path: 'website'
+        pattern: '**/*'
+    - name: http link
+      run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
+    - name: ipns
+      run: echo "IPNS ${{ steps.bucket.outputs.ipns }}"
+    - name: ipns link
+      run: echo "IPNS link ${{ steps.bucket.outputs.ipnsLink }}"
+    - name: ipfs
+      run: echo "IPFS ${{ steps.bucket.outputs.ipfs }}"
+    - name: ipfs link
+      run: echo "IPFS link ${{ steps.bucket.outputs.ipfsLink }}"

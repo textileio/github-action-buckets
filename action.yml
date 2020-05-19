@@ -1,29 +1,39 @@
-# action.yml
 name: 'Textile Bucket Push'
-description: 'Update a Textile Bucket with CI'
+description: 'Create, update, destroy folders on IPFS, IPNS and HTTP.'
+author: 'textile.io'
 branding:
   icon: 'type'  
   color: 'blue'
 inputs:
-  bucket-name:  # name of bucket in your project
-    description: 'Name of Bucket to update'
+  key:
+    description: 'Textile Hub Account Key.'
     required: true
-  path:  # path of file or dir to push
-    description: 'Path of file or dir to push'
+  secret:
+    description: 'Textile Hub Account Secret.'
     required: true
+  thread:
+    description: 'Existing account ThreadID.'
+    required: true
+  bucket:
+    description: 'Bucket name.'
+    required: true
+  path:
+    description: 'Path to Bucket root.'
     default: '.'
-  token:  # admin auth token for textile
-    description: 'Auth token from $HOME/.textile/auth.yml'
-    required: true
+  pattern:
+    description: 'File pattern matching.'
+    default: '**/*'
 outputs:
-  cid: # cid of latest
-    description: 'CID of latest head'
-  url: # cid of latest
-    description: 'URL of Textile Gateway'
+  ipfs:
+    description: 'IPFS Address'
+  ipfsLink:
+    description: 'Public gateway IPFS link'
+  ipns:
+    description: 'IPNS Key'
+  ipnsLink:
+    description: 'Public gateway IPNS link'
+  http:
+    description: 'HTTP link to Textile Hub'
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.bucket-name }}
-    - ${{ inputs.path }}
-    - ${{ inputs.token }}
+  using: 'node12'
+  main: 'dist/index.js'
