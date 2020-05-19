@@ -23,6 +23,9 @@ inputs:
   pattern:
     description: 'File pattern matching.'
     default: '**/*'
+  remove:
+    description: 'Remove the bucket by name (WARNING).'
+    default: 'false'
 outputs:
   ipfs:
     description: 'IPFS Address'

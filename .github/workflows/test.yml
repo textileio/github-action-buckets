@@ -59,6 +59,7 @@ jobs:
         thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
     - name: remove # remove bucket
+      id: remove
       uses: ./
       with: 
         key: ${{ secrets.ACCOUNT_KEY }}
@@ -66,3 +67,5 @@ jobs:
         bucket: 'newbucket'
         thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         remove: 'true'
+    - name: success
+      run: echo "bucket remove ${{ steps.remove.outputs.success }}"

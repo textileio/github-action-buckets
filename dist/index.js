@@ -9164,7 +9164,7 @@ function run() {
                 const existing = roots.find(bucket => bucket.name === name);
                 if (existing) {
                     yield buckets.remove(existing.key);
-                    core.setOutput('status', 'success');
+                    core.setOutput('success', 'true');
                 }
                 else {
                     core.setFailed('Bucket not found');
