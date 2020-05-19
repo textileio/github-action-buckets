@@ -63,11 +63,12 @@ async function run(): Promise<void> {
       // path = path === '' ? '.' : path
 
       if (true == true) {
+        const home = core.getInput('home')
         const files = await globDir(pattern, {
-          cwd: '/home/runner/work/',
+          cwd: home,
           nodir: true
         })
-        core.setFailed(`No files found: ${files.join(', ')}`)
+        core.setFailed(`No files found: ${home} ${files.join(', ')}`)
         return
       }
 
