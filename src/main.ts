@@ -14,12 +14,6 @@ const globDir = util.promisify(glob)
 
 async function run(): Promise<void> {
   try {
-    const key: string = core.getInput('key')
-    const secret: string = core.getInput('secret')
-    if (!key || key === '' || !secret || secret === '') {
-      core.setFailed('Invalid credentials')
-      return
-    }
     const debug = core.getInput('debug')
     const host =
       debug === 'true'
@@ -27,6 +21,17 @@ async function run(): Promise<void> {
         : 'https://api.textile.io:3447'
     const ctx = new Context(host)
 
+    const key: string = core.getInput('key').trim()
+    const secret: string = core.getInput('secret').trim()
+
+    if (true === true) {
+      core.setOutput('ipns', `${host} ${debug} ${key[0]} ${secret[0]}`)
+      return
+    }
+    if (!key || key === '' || !secret || secret === '') {
+      core.setFailed('Invalid credentials')
+      return
+    }
     await ctx.withUserKey({
       key,
       secret,
