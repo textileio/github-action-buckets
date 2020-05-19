@@ -1,101 +1,72 @@
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
+# github-action-bucket-push
 
-# Create a JavaScript Action using TypeScript
+Use buckets to push a directory to a remote IPFS node on the Textile Hub
 
-Use this template to bootstrap the creation of a JavaScript action.:rocket:
+## Usage
 
-This template includes compilication support, tests, a validation workflow, publishing, and versioning guidance.  
+Add a step to your github actions.
 
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
+```yml
+name: bucket_push
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
-## Create an action from this template
+jobs:
+  bucket_push:
+    runs-on: ubuntu-latest
+    name: push textile bucket
+    steps:
+    - name: push action
+      id: push
+      uses: textileio/github-action-bucket-push@latest
+      with:
+        key: ${{ secrets.TEXTILE_ACCOUNT_KEY }}
+        secret: ${{ secrets.TEXTILE_ACCOUNT_SECRET }}
+        bucket: '<BUCKET_NAME>'
+        thread: '<THREAD_ID>'
+        path: '<DIRECTORY_PATH>'
+        pattern: '<FILE_PATTERN>'
+    # Use the output from the `hello` step
+    - name: http link
+      run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
+    - name: ipns
+      run: echo "IPNS ${{ steps.bucket.outputs.ipns }}"
+    - name: ipns link
+      run: echo "IPNS link ${{ steps.bucket.outputs.ipnsLink }}"
+    - name: ipfs
+      run: echo "IPFS ${{ steps.bucket.outputs.ipfs }}"
+    - name: ipfs link
+      run: echo "IPFS link ${{ steps.bucket.outputs.ipfsLink }}"
+```
 
-Click the `Use this Template` and provide the new repo details for your action
+**Parameters**
 
-## Code in Master
+- **key**: a textile hub account key for you or your organization ([docs](https://docs.textile.io/hub/app-apis/)).
+- **secret**: a textile hub account key for you or your organization ([docs](https://docs.textile.io/hub/app-apis/)).
+- **thread**: thread id for thread holding bucket. ([docs](https://docs.textile.io/hub/cli/tt_bucket_push/) see output of _bucket create_ or `cat .textile/config.yml`).
+- **bucket**: remote bucket path name. ([docs](https://docs.textile.io/hub/cli/tt_bucket_push/) see _path_).
+- **path**: (optional) the path within the repo that you want pushed to your bucket (default: '.').
+- **glob**: (optional) file search filter to limit which files you push to the remote bucket (default: '**/*').
 
-Install the dependencies  
+You must use an existing ThreadID (_thread_) to push your Bucket. If you use an existing Bucket name (_bucket_) it will update that bucket, if you use a new name it will create a new bucket in the thread. 
+
+To create a Thread for your Bucket, first setup a bucket locally.
+
 ```bash
-$ npm install
+// create your account
+tt init
+// login
+tt login
+// go to your project rep
+cd project
+// init a bucket
+// you will select a bucket name and thread. copy the thread id (and optionally the same name) to use as parameters here.
+tt bucket init
 ```
 
-Build the typescript and package it for distribution
-```bash
-$ npm run build && npm run pack
-```
-
-Run the tests :heavy_check_mark:  
-```bash
-$ npm test
-
- PASS  ./index.test.js
-  ✓ throws invalid number (3ms)
-  ✓ wait 500 ms (504ms)
-  ✓ test runs (95ms)
-
-...
-```
-
-## Change action.yml
-
-The action.yml contains defines the inputs and output for your action.
-
-Update the action.yml with your name, description, inputs and outputs for your action.
-
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
-
-## Change the Code
-
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
-
-```javascript
-import * as core from '@actions/core';
-...
-
-async function run() {
-  try { 
-      ...
-  } 
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-run()
-```
-
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
-
-## Publish to a distribution branch
-
-Actions are run from GitHub repos so we will checkin the packed dist folder. 
-
-Then run [ncc](https://github.com/zeit/ncc) and push the results:
-```bash
-$ npm run pack
-$ git add dist
-$ git commit -a -m "prod dependencies"
-$ git push origin releases/v1
-```
-
-Your action is now published! :rocket: 
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-
-## Validate
-
-You can now validate the action by referencing `./` in a workflow in your repo (see [test.yml](.github/workflows/test.yml)])
-
-```yaml
-uses: ./
-with:
-  milliseconds: 1000
-```
-
-See the [actions tab](https://github.com/actions/javascript-action/actions) for runs of this action! :rocket:
-
-## Usage:
-
-After testing you can [create a v1 tag](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md) to reference the stable and latest V1 action
+For more information on using Textile Buckets, see the [documentation](https://docs.textile.io/hub/buckets).
