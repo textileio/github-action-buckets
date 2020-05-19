@@ -64,7 +64,7 @@ async function run(): Promise<void> {
 
       if (true == true) {
         const files = await globDir(pattern, {
-          cwd: '/home',
+          cwd: '/',
           nodir: true
         })
         core.setFailed(`No files found: ${files.join(', ')}`)

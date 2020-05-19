@@ -9184,7 +9184,7 @@ function run() {
                 // path = path === '' ? '.' : path
                 if (true) {
                     const files = yield globDir(pattern, {
-                        cwd: '/home',
+                        cwd: '/',
                         nodir: true
                     });
                     core.setFailed(`No files found: ${files.join(', ')}`);
