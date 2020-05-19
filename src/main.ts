@@ -23,11 +23,6 @@ async function run(): Promise<void> {
 
     const key: string = core.getInput('key').trim()
     const secret: string = core.getInput('secret').trim()
-
-    if (true === true) {
-      core.setOutput('ipns', `${host} ${debug} ${key[0]} ${secret[0]}`)
-      return
-    }
     if (!key || key === '' || !secret || secret === '') {
       core.setFailed('Invalid credentials')
       return
