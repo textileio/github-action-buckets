@@ -22,7 +22,9 @@ async function run(): Promise<void> {
     }
     const debug = core.getInput('debug')
     const host =
-      debug === 'true' ? 'https://api.staging.textile.io:3447' : undefined
+      debug === 'true'
+        ? 'https://api.staging.textile.io:3447'
+        : 'https://api.textile.io:3447'
     const ctx = new Context(host)
 
     await ctx.withUserKey({
@@ -53,10 +55,11 @@ async function run(): Promise<void> {
         bucketKey = created.root.key
       }
 
-      const pattern = core.getInput('pattern')
+      const pattern = core.getInput('pattern') || '**/*'
       const target = core.getInput('path')
-      const home = core.getInput('home') ?? './'
+      const home = core.getInput('home') || './'
       const cwd = path.join(home, target)
+
       const options = {
         cwd,
         nodir: true
@@ -86,7 +89,7 @@ async function run(): Promise<void> {
 
       core.setOutput(
         'threadLink',
-        `https://${thread}.thread.hub.textile.io/${bucketKey}`
+        `https://${thread}.thread.hub.textile.io/buckets/${bucketKey}`
       )
       core.setOutput('http', `https://${bucketKey}.textile.space`)
     } catch (error) {
