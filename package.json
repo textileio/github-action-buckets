@@ -1,8 +1,8 @@
 {
-  "name": "typescript-action",
+  "name": "textile-bucket-push",
   "version": "0.0.0",
   "private": true,
-  "description": "Create, update, delete remote directories on IPFS",
+  "description": "Create and update remote directories on IPFS",
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
