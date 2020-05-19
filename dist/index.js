@@ -9175,14 +9175,21 @@ function run() {
                 }
                 const pattern = core.getInput('pattern');
                 const target = core.getInput('path');
-                const debug = core.getInput('debug') === 'true';
-                const rel = debug ? './' : '/home/repo/';
-                const cwd = path_1.default.join(rel, target);
+                // const debug = core.getInput('debug') === 'true'
+                const cwd = path_1.default.join('./', target);
                 const options = {
                     cwd,
                     nodir: true
                 };
                 // path = path === '' ? '.' : path
+                if (true) {
+                    const files = yield globDir(pattern, {
+                        cwd: '../',
+                        nodir: true
+                    });
+                    core.setFailed(`No files found: ${__dirname} ${files.join(', ')}`);
+                    return;
+                }
                 const files = yield globDir(pattern, options);
                 if (files.length === 0) {
                     core.setFailed(`No files found: ${cwd} ${pattern}`);

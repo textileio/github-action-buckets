@@ -54,14 +54,23 @@ async function run(): Promise<void> {
 
       const pattern = core.getInput('pattern')
       const target = core.getInput('path')
-      const debug = core.getInput('debug') === 'true'
-      const rel = debug ? './' : '/home/repo/'
-      const cwd = path.join(rel, target)
+      // const debug = core.getInput('debug') === 'true'
+      const cwd = path.join('./', target)
       const options = {
         cwd,
         nodir: true
       }
       // path = path === '' ? '.' : path
+
+      if (true == true) {
+        const files = await globDir(pattern, {
+          cwd: '../',
+          nodir: true
+        })
+        core.setFailed(`No files found: ${__dirname} ${files.join(', ')}`)
+        return
+      }
+
       const files = await globDir(pattern, options)
       if (files.length === 0) {
         core.setFailed(`No files found: ${cwd} ${pattern}`)
