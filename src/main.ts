@@ -34,7 +34,7 @@ async function run(): Promise<void> {
     const threadID = ThreadID.fromString(thread)
     ctx.withThread(threadID)
 
-    const remove: string = core.getInput('remove') || ''
+    const remove: string = core.getInput('remove')
     if (remove === 'true') {
       const buckets = new Buckets(ctx)
       const roots = await buckets.list()
@@ -45,9 +45,8 @@ async function run(): Promise<void> {
         await buckets.remove(existing.key)
         core.setOutput('success', 'true')
       } else {
-        core.setFailed('Bucket not found')
+        core.debug('Bucket not found')
       }
-      // success
       return
     }
 
@@ -93,24 +92,16 @@ async function run(): Promise<void> {
       raw = await buckets.pushPath(bucketKey, `/${file}`, upload)
     }
 
-    const gateway = core.getInput('gateway')
-    const url = gateway.trim() != '' ? gateway.trim() : 'hub.textile.io'
+    const links = await buckets.links(bucketKey)
 
     const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
     core.setOutput('ipfs', ipfs)
-    core.setOutput('ipfsLink', `https://ipfs.io${ipfs}`)
 
-    core.setOutput('ipns', `${bucketKey}`)
-    core.setOutput('ipnsLink', `https://${bucketKey}.ipns.${url}`)
+    core.setOutput('ipns', `${links.ipns}`)
 
-    core.setOutput(
-      'threadLink',
-      `https://${thread}.thread.${url}/buckets/${bucketKey}`
-    )
+    core.setOutput('url', `${links.url}`)
 
-    const domain = core.getInput('domain')
-    const dns = domain.trim() != '' ? domain.trim() : 'textile.space'
-    core.setOutput('http', `https://${bucketKey}.${dns}`)
+    core.setOutput('www', `${links.www}`)
   } catch (error) {
     core.setFailed(error.message)
   }

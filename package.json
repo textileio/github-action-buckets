@@ -11,6 +11,7 @@
     "lint": "eslint src/**/*.ts",
     "pack": "ncc build",
     "test": "jest",
+    "some": "npm run build && npm run pack && npm test",
     "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
   },
   "repository": {
@@ -26,7 +27,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/textile": "^0.1.5",
+    "@textile/textile": "^0.1.6",
     "@textile/threads-id": "0.0.7",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
