@@ -40,16 +40,10 @@ jobs:
         thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
         pattern: '**/*'
-    - name: http link
-      run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
-    - name: ipns
-      run: echo "IPNS ${{ steps.bucket.outputs.ipns }}"
-    - name: ipns link
-      run: echo "IPNS link ${{ steps.bucket.outputs.ipnsLink }}"
-    - name: ipfs
-      run: echo "IPFS ${{ steps.bucket.outputs.ipfs }}"
-    - name: ipfs link
-      run: echo "IPFS link ${{ steps.bucket.outputs.ipfsLink }}"
+    - run: echo "bucket ipfs - ${{ steps.bucket.outputs.ipfs }}"
+    - run: echo "bucket url - ${{ steps.bucket.outputs.url }}"
+    - run: echo "bucket ipns - ${{ steps.bucket.outputs.ipns }}"
+    - run: echo "bucket web - ${{ steps.bucket.outputs.www }}"
     - name: push-new # push to a new bucket
       id: new
       uses: ./

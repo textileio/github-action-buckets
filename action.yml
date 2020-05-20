@@ -29,14 +29,12 @@ inputs:
 outputs:
   ipfs:
     description: 'IPFS Address'
-  ipfsLink:
-    description: 'Public gateway IPFS link'
   ipns:
-    description: 'IPNS Key'
-  ipnsLink:
-    description: 'Public gateway IPNS link'
-  http:
-    description: 'HTTP link to Textile Hub'
+    description: 'IPNS Link'
+  url:
+    description: 'Bucket URL'
+  www:
+    description: 'Bucket webpage'
 runs:
   using: 'node12'
   main: 'dist/index.js'

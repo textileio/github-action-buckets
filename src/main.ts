@@ -92,25 +92,14 @@ async function run(): Promise<void> {
       }
       raw = await buckets.pushPath(bucketKey, `/${file}`, upload)
     }
-
-    const gateway = core.getInput('gateway')
-    const url = gateway.trim() != '' ? gateway.trim() : 'hub.textile.io'
+    const links = await buckets.links(bucketKey)
 
     const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
     core.setOutput('ipfs', ipfs)
-    core.setOutput('ipfsLink', `https://ipfs.io${ipfs}`)
 
-    core.setOutput('ipns', `${bucketKey}`)
-    core.setOutput('ipnsLink', `https://${bucketKey}.ipns.${url}`)
-
-    core.setOutput(
-      'threadLink',
-      `https://${thread}.thread.${url}/buckets/${bucketKey}`
-    )
-
-    const domain = core.getInput('domain')
-    const dns = domain.trim() != '' ? domain.trim() : 'textile.space'
-    core.setOutput('http', `https://${bucketKey}.${dns}`)
+    core.setOutput('ipns', `${links.ipns}`)
+    core.setOutput('url', `${links.url}`)
+    core.setOutput('www', `${links.www}`)
   } catch (error) {
     core.setFailed(error.message)
   }
