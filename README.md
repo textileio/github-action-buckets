@@ -1,4 +1,4 @@
-# github-action-buckets
+# Push to IPFS, IPNS, Textile Buckets from your Repo
 
 Use buckets to create, update or remove a directory on a remote IPFS node of the [Textile Hub](https://docs.textile.io/).
 
