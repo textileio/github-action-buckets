@@ -26,7 +26,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/textile": "^0.1.5",
+    "@textile/buckets": "0.0.2",
+    "@textile/context": "^0.2.2",
     "@textile/threads-id": "0.0.7",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
