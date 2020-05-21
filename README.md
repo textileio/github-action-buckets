@@ -7,7 +7,7 @@ Use buckets to create, update or remove a directory on a remote IPFS node of the
 Add a step to your github actions.
 
 ```yml
-name: bucket_update
+name: "Textile Bucket - Deploy"
 on:
   push:
     branches:

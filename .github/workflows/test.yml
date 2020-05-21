@@ -1,4 +1,4 @@
-name: "build-test"
+name: "Textile Bucket - Build & Test"
 on:
   push:
     branches:
