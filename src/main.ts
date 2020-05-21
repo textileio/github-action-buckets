@@ -6,7 +6,8 @@ import path from 'path'
 import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
-import {Buckets, Context} from '@textile/textile'
+import {Buckets} from '@textile/buckets'
+import {Context} from '@textile/context'
 import {ThreadID} from '@textile/threads-id'
 
 const readFile = util.promisify(fs.readFile)
