@@ -25,7 +25,7 @@ jobs:
     steps:
     - name: push action
       id: push
-      uses: textileio/github-action-bucket-push@latest
+      uses: textileio/github-action-buckets@latest
       with:
         key: ${{ secrets.TEXTILE_ACCOUNT_KEY }}
         secret: ${{ secrets.TEXTILE_ACCOUNT_SECRET }}
