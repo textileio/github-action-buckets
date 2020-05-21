@@ -33,8 +33,6 @@ jobs:
         pattern: '<FILE_PATTERN>'
         remove: '<REMOVE_BUCKET?>'
     # Use the output from the `hello` step
-    - name: http link
-      run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
     - run: echo "bucket - ${{ steps.bucket.outputs.bucket }}"
     - run: echo "ipfs - ${{ steps.bucket.outputs.ipfs }}"
     - run: echo "ipfs link - ${{ steps.bucket.outputs.ipfsUrl }}"
