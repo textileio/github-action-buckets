@@ -35,14 +35,13 @@ jobs:
     # Use the output from the `hello` step
     - name: http link
       run: echo "bucket now live at ${{ steps.bucket.outputs.http }}"
-    - name: ipns
-      run: echo "IPNS ${{ steps.bucket.outputs.ipns }}"
-    - name: ipns link
-      run: echo "IPNS link ${{ steps.bucket.outputs.ipnsLink }}"
-    - name: ipfs
-      run: echo "IPFS ${{ steps.bucket.outputs.ipfs }}"
-    - name: ipfs link
-      run: echo "IPFS link ${{ steps.bucket.outputs.ipfsLink }}"
+    - run: echo "bucket - ${{ steps.bucket.outputs.bucket }}"
+    - run: echo "ipfs - ${{ steps.bucket.outputs.ipfs }}"
+    - run: echo "ipfs link - ${{ steps.bucket.outputs.ipfsUrl }}"
+    - run: echo "ipns - ${{ steps.bucket.outputs.ipns }}"
+    - run: echo "ipns link - ${{ steps.bucket.outputs.ipnsUrl }}"
+    - run: echo "hub - ${{ steps.bucket.outputs.hub }}"
+    - run: echo "www - ${{ steps.bucket.outputs.www }}"
 ```
 
 **Parameters**
@@ -55,7 +54,7 @@ jobs:
 - **pattern**: (optional) file search filter to limit which files you push to the remote bucket (default: '**/*').
 - **remove**: (optional) set to 'true' if you wish to remove the bucket not update/create it. this cannot be undone.
 
-You must use an existing ThreadID (_thread_) to push your Bucket. If you use an existing Bucket name (_bucket_) it will update that bucket, if you use a new name it will create a new bucket in the thread. 
+You must use an existing ThreadID (_thread_) to push your Bucket. If you use an existing Bucket name (_bucket_) it will update that bucket, if you use a new name it will create a new bucket in the thread.
 
 To create a Thread for your Bucket, first setup a bucket locally.
 
@@ -70,5 +69,7 @@ cd project
 // you will select a bucket name and thread. copy the thread id (and optionally the same name) to use as parameters here.
 tt bucket init
 ```
+
+You can also keep ThreadID private by supplying it from your SECRETs.
 
 For more information on using Textile Buckets, see the [documentation](https://docs.textile.io/hub/buckets).

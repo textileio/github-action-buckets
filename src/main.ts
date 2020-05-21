@@ -97,10 +97,16 @@ async function run(): Promise<void> {
 
     const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
     core.setOutput('ipfs', ipfs)
+    core.setOutput('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`)
 
-    core.setOutput('ipns', `${links.ipns}`)
-    core.setOutput('url', `${links.url}`)
+    const ipns =
+      links.ipns.split('/').length > 0 ? links.ipns.split('/')[-1] : ''
+    core.setOutput('ipns', ipns)
+
+    core.setOutput('ipnsUrl', `${links.ipns}`)
     core.setOutput('www', `${links.www}`)
+    core.setOutput('hub', `${links.url}`)
+    core.setOutput('key', `${bucketKey}`)
   } catch (error) {
     core.setFailed(error.message)
   }
