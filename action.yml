@@ -27,14 +27,20 @@ inputs:
     description: 'Remove the bucket by name (WARNING).'
     default: 'false'
 outputs:
+  key:
+    description: 'Bucket Key'
   ipfs:
-    description: 'IPFS Address'
+    description: 'IPFS CID'
+  ipfsUrl:
+    description: 'IPFS Gateway URL'
   ipns:
-    description: 'IPNS Link'
-  url:
-    description: 'Bucket URL'
+    description: 'IPNS Address'
+  ipnsUrl:
+    description: 'IPNS Gateway URL'
+  hub:
+    description: 'Thread-Bucket URL on the Hub'
   www:
-    description: 'Bucket webpage'
+    description: 'WWW Domain URL'
 runs:
   using: 'node12'
   main: 'dist/index.js'

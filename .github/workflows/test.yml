@@ -40,10 +40,13 @@ jobs:
         thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
         pattern: '**/*'
-    - run: echo "bucket ipfs - ${{ steps.bucket.outputs.ipfs }}"
-    - run: echo "bucket url - ${{ steps.bucket.outputs.url }}"
-    - run: echo "bucket ipns - ${{ steps.bucket.outputs.ipns }}"
-    - run: echo "bucket web - ${{ steps.bucket.outputs.www }}"
+    - run: echo "bucket - ${{ steps.bucket.outputs.key }}"
+    - run: echo "ipfs - ${{ steps.bucket.outputs.ipfs }}"
+    - run: echo "ipfs link - ${{ steps.bucket.outputs.ipfsUrl }}"
+    - run: echo "ipns - ${{ steps.bucket.outputs.ipns }}"
+    - run: echo "ipns link - ${{ steps.bucket.outputs.ipnsUrl }}"
+    - run: echo "hub - ${{ steps.bucket.outputs.hub }}"
+    - run: echo "www - ${{ steps.bucket.outputs.www }}"
     - name: push-new # push to a new bucket
       id: new
       uses: ./
@@ -54,7 +57,7 @@ jobs:
         thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
     - name: new bucket link
-      run: echo "link ${{ steps.new.outputs.ipnsLink }}"
+      run: echo "link ${{ steps.new.outputs.ipnsUrl }}"
     - name: remove # remove bucket
       id: remove
       uses: ./
