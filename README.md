@@ -1,6 +1,8 @@
-# Push to IPFS, IPNS, Textile Buckets from your Repo
+# Push to IPFS, IPNS, Textile Buckets in CI
 
-Use buckets to create, update or remove a directory on a remote IPFS node of the [Textile Hub](https://docs.textile.io/).
+Use buckets to create, update or remove a directory on a remote IPFS node of the [Textile Hub](https://docs.textile.io/). 
+
+When you create a Bucket on the Textile Hub, you will get an IPFS hash of the latest content, an IPNS address that will update with each change, and a unique subdomain to share your latest updates. 
 
 ## Usage
 
