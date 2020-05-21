@@ -1,6 +1,6 @@
 # github-action-buckets
 
-Use buckets to create, udpate or remove a directory on a remote IPFS node of the Textile Hub.
+Use buckets to create, update or remove a directory on a remote IPFS node of the [Textile Hub](https://docs.textile.io/).
 
 ## Usage
 
