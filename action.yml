@@ -31,7 +31,7 @@ outputs:
     description: 'Bucket Key'
   ipfs:
     description: 'IPFS CID'
-  ipnsUrl:
+  ipfsUrl:
     description: 'IPFS Gateway URL'
   ipns:
     description: 'IPNS Address'
