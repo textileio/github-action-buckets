@@ -2,7 +2,16 @@
 
 Use buckets to create, update or remove a directory on a remote IPFS node of the [Textile Hub](https://docs.textile.io/). 
 
-When you create a Bucket on the Textile Hub, you will get an IPFS hash of the latest content, an IPNS address that will update with each change, and a unique subdomain to share your latest updates. 
+Buckets provide you easy access to multiple protocols for sharing or moving data. When you create a Bucket on the Textile Hub, you will get an IPFS hash of the latest content, an IPNS address that will update with each change, and a unique subdomain to share your latest updates.
+
+##### Example output
+
+- **ipfs**: bafybeigu4cekqzl6fs57svia63p4v4yvp6oanrsuktgwy7sc742dcp4yrm
+- **ipfs gateway link**: https://hub.textile.io/ipfs/bafybeigu4cekqzl6fs57svia63p4v4yvp6oanrsuktgwy7sc742dcp4yrm
+- **ipns**: bafzbeicg4zuixstnoubuvb4nvqfcgj7iqu4dm6l3fwiwgnac6nsrnfgzjm
+- **ipns link**: https://hub.textile.io/ipns/bafzbeicg4zuixstnoubuvb4nvqfcgj7iqu4dm6l3fwiwgnac6nsrnfgzjm
+- **hub link**: https://hub.textile.io/thread/bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy/buckets/bafzbeicg4zuixstnoubuvb4nvqfcgj7iqu4dm6l3fwiwgnac6nsrnfgzjm
+- **www link**: https://bafzbeicg4zuixstnoubuvb4nvqfcgj7iqu4dm6l3fwiwgnac6nsrnfgzjm.textile.space
 
 ## Usage
 

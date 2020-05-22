@@ -8434,7 +8434,8 @@ function run() {
             const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
             core.setOutput('ipfs', ipfs);
             core.setOutput('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`);
-            const ipns = links.ipns.split('/').length > 0 ? links.ipns.split('/')[-1] : '';
+            const ipnsData = links.ipns.split('/');
+            const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : '';
             core.setOutput('ipns', ipns);
             core.setOutput('ipnsUrl', `${links.ipns}`);
             core.setOutput('www', `${links.www}`);
