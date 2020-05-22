@@ -8371,7 +8371,7 @@ function run() {
                 key,
                 secret,
                 type: 0
-            });
+            }, new Date(Date.now() + 1000 * 300));
             const thread = core.getInput('thread');
             const threadID = threads_id_1.ThreadID.fromString(thread);
             ctx.withThread(threadID);

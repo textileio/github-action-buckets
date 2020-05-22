@@ -25,11 +25,14 @@ async function run(): Promise<void> {
       core.setFailed('Invalid credentials')
       return
     }
-    await ctx.withUserKey({
-      key,
-      secret,
-      type: 0
-    })
+    await ctx.withUserKey(
+      {
+        key,
+        secret,
+        type: 0
+      },
+      new Date(Date.now() + 1000 * 300)
+    )
 
     const thread: string = core.getInput('thread')
     const threadID = ThreadID.fromString(thread)
