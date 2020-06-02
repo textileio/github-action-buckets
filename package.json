@@ -11,6 +11,7 @@
     "lint": "eslint src/**/*.ts",
     "pack": "ncc build",
     "test": "jest",
+    "basic": "npm run build && npm run pack && npm test",
     "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
   },
   "repository": {
@@ -26,28 +27,27 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/buckets": "0.0.2",
-    "@textile/context": "^0.2.2",
-    "@textile/threads-id": "0.0.7",
+    "@textile/buckets": "^0.1.1",
+    "@textile/context": "^0.4.1",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
     "ws": "^7.3.0"
   },
   "devDependencies": {
     "@types/glob": "^7.1.1",
-    "@types/jest": "^24.0.23",
+    "@types/jest": "^25.2.3",
     "@types/node": "^12.7.12",
-    "@typescript-eslint/parser": "^2.8.0",
-    "@zeit/ncc": "^0.20.5",
+    "@typescript-eslint/parser": "^3.1.0",
+    "@zeit/ncc": "^0.22.3",
     "dotenv": "^8.2.0",
-    "eslint": "^5.16.0",
-    "eslint-plugin-github": "^2.0.0",
-    "eslint-plugin-jest": "^22.21.0",
-    "jest": "^24.9.0",
-    "jest-circus": "^24.9.0",
-    "js-yaml": "^3.13.1",
-    "prettier": "^1.19.1",
-    "ts-jest": "^24.2.0",
+    "eslint": "^7.1.0",
+    "eslint-plugin-github": "^4.0.1",
+    "eslint-plugin-jest": "^23.13.2",
+    "jest": "^26.0.1",
+    "jest-circus": "^26.0.1",
+    "js-yaml": "^3.14.0",
+    "prettier": "^2.0.5",
+    "ts-jest": "^26.1.0",
     "typescript": "^3.6.4"
   }
 }
