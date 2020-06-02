@@ -26,7 +26,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/buckets": "0.0.2",
+    "@textile/buckets": "0.1.1",
     "@textile/context": "^0.2.2",
     "@textile/threads-id": "0.0.7",
     "glob": "^7.1.6",
