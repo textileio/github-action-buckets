@@ -28,7 +28,7 @@
     "@actions/core": "^1.2.0",
     "@textile/buckets": "0.0.2",
     "@textile/context": "^0.2.2",
-    "@textile/threads-id": "0.0.7",
+    "@textile/threads-id": "0.1.1",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
     "ws": "^7.3.0"
