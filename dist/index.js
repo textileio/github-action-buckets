@@ -28482,7 +28482,7 @@ function run() {
                 return;
             }
             let raw;
-            for (let file of files) {
+            for (const file of files) {
                 const filePath = `${cwd}/${file}`;
                 const buffer = yield readFile(filePath);
                 const upload = {

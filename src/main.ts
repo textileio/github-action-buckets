@@ -84,7 +84,7 @@ async function run(): Promise<void> {
       return
     }
     let raw
-    for (let file of files) {
+    for (const file of files) {
       const filePath = `${cwd}/${file}`
       const buffer = await readFile(filePath)
       const upload = {
