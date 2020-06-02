@@ -6,9 +6,7 @@ import path from 'path'
 import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
-import {Buckets} from '@textile/buckets'
-import {Context} from '@textile/context'
-import {ThreadID} from '@textile/threads-id'
+import {Buckets, Context} from '@textile/textile'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -16,8 +14,8 @@ const globDir = util.promisify(glob)
 async function run(): Promise<void> {
   try {
     const api = core.getInput('api')
-    const target = api.trim() != '' ? api.trim() : 'api.textile.io:3447'
-    const ctx = new Context(`https://${target}`)
+    const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
+    const ctx = new Context(`${target}`)
 
     const key: string = core.getInput('key').trim()
     const secret: string = core.getInput('secret').trim()
@@ -35,8 +33,7 @@ async function run(): Promise<void> {
     )
 
     const thread: string = core.getInput('thread')
-    const threadID = ThreadID.fromString(thread)
-    ctx.withThread(threadID)
+    ctx.withThread(thread)
 
     const remove: string = core.getInput('remove') || ''
     if (remove === 'true') {
