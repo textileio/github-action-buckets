@@ -24,7 +24,7 @@ async function run(): Promise<void> {
       core.setFailed('Invalid credentials')
       return
     }
-    await ctx.withUserKey(
+    await ctx.withKeyInfo(
       {
         key,
         secret,
