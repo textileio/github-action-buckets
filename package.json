@@ -12,7 +12,9 @@
     "pack": "ncc build",
     "test": "jest",
     "basic": "npm run build && npm run pack && npm test",
-    "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
+    "all": "npm run build && npm run format && npm run lint && npm run pack && npm test",
+    "textile:check": "npx ncu '/^@textile/.*$/'",
+    "textile:upgrade": "npx ncu -u '/^@textile/.*$/'"
   },
   "repository": {
     "type": "git",
@@ -27,8 +29,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/buckets": "^0.1.1",
-    "@textile/context": "^0.4.1",
+    "@textile/buckets": "^0.2.3",
+    "@textile/context": "^0.4.6",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
     "ws": "^7.3.0"
@@ -46,6 +48,7 @@
     "jest": "^26.0.1",
     "jest-circus": "^26.0.1",
     "js-yaml": "^3.14.0",
+    "npm-check-updates": "^7.0.1",
     "prettier": "^2.0.5",
     "ts-jest": "^26.1.0",
     "typescript": "^3.6.4"
