@@ -34,8 +34,8 @@ jobs:
       id: bucket
       uses: ./
       with: 
-        key: ${{ secrets.ACCOUNT_KEY }}
-        secret: ${{ secrets.ACCOUNT_SECRET }}
+        key: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
+        secret: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
         bucket: 'actions'
         thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
