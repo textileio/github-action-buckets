@@ -18,10 +18,10 @@ jobs:
         npm install
         npm run all
       env:
-        INPUT_KEY: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
-        INPUT_SECRET: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
+        INPUT_KEY: ${{ secrets.ACCOUNT_KEY }}
+        INPUT_SECRET: ${{ secrets.ACCOUNT_SECRET }}
         INPUT_BUCKET: 'actions'
-        INPUT_THREAD: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
+        INPUT_THREAD: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         INPUT_PATH: 'website'
         INPUT_PATTERN: '**/*'
   
@@ -37,7 +37,7 @@ jobs:
         key: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
         secret: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
         bucket: 'actions'
-        thread: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
+        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
         path: 'website'
         pattern: '**/*'
     - run: echo "bucket - ${{ steps.bucket.outputs.key }}"
