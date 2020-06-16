@@ -21,7 +21,7 @@ jobs:
         INPUT_KEY: ${{ secrets.ACCOUNT_KEY }}
         INPUT_SECRET: ${{ secrets.ACCOUNT_SECRET }}
         INPUT_BUCKET: 'actions'
-        INPUT_THREAD: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        INPUT_THREAD: 'bafksj4iq6cl5mf42um5zpa47smrghrc3yodgcj46tsxvcccegcimbca'
         INPUT_PATH: 'website'
         INPUT_PATTERN: '**/*'
   
@@ -37,7 +37,7 @@ jobs:
         key: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
         secret: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
         bucket: 'actions'
-        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        thread: 'bafksj4iq6cl5mf42um5zpa47smrghrc3yodgcj46tsxvcccegcimbca'
         path: 'website'
         pattern: '**/*'
     - run: echo "bucket - ${{ steps.bucket.outputs.key }}"
