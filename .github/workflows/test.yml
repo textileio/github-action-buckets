@@ -39,6 +39,7 @@ jobs:
         bucket: 'actions'
         thread: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
         path: 'website'
+        pattern: '**/*'
     - run: echo "bucket - ${{ steps.bucket.outputs.key }}"
     - run: echo "ipfs - ${{ steps.bucket.outputs.ipfs }}"
     - run: echo "ipfs link - ${{ steps.bucket.outputs.ipfsUrl }}"
