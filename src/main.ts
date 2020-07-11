@@ -7,7 +7,6 @@ import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
 import {Buckets} from '@textile/buckets'
-import {Context} from '@textile/context'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -16,7 +15,6 @@ async function run(): Promise<void> {
   try {
     const api = core.getInput('api')
     const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
-    const ctx = new Context(`${target}`)
 
     const key: string = core.getInput('key').trim()
     const secret: string = core.getInput('secret').trim()
@@ -24,25 +22,22 @@ async function run(): Promise<void> {
       core.setFailed('Invalid credentials')
       return
     }
-    await ctx.withKeyInfo(
+
+    const buckets = await Buckets.withKeyInfo(
       {
         key,
-        secret,
-        type: 0
+        secret
       },
-      new Date(Date.now() + 1000 * 300)
+      target
     )
-
     const thread: string = core.getInput('thread')
-    ctx.withThread(thread)
+    const name: string = core.getInput('bucket')
+    buckets.context.withThread(thread)
+
+    const existing = await buckets.open(name)
 
     const remove: string = core.getInput('remove') || ''
     if (remove === 'true') {
-      const buckets = new Buckets(ctx)
-      const roots = await buckets.list()
-      const name: string = core.getInput('bucket')
-      const existing = roots.find(bucket => bucket.name === name)
-
       if (existing) {
         await buckets.remove(existing.key)
         core.setOutput('success', 'true')
@@ -52,11 +47,6 @@ async function run(): Promise<void> {
       // success
       return
     }
-
-    const buckets = new Buckets(ctx)
-    const roots = await buckets.list()
-    const name: string = core.getInput('bucket')
-    const existing = roots.find(bucket => bucket.name === name)
 
     let bucketKey = ''
     if (existing) {
