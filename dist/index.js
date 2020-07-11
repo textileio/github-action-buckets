@@ -51,6 +51,350 @@ module.exports =
 /************************************************************************/
 /******/ ({
 
+/***/ 2:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var merge = __webpack_require__(554);
+
+var isEqual = __webpack_require__(451);
+
+var helpers = __webpack_require__(460);
+
+var defaultOptions = {
+  required: false,
+  postProcessFnc: null,
+  strings: {
+    detectFormat: true,
+    preProcessFnc: null
+  },
+  arrays: {
+    mode: 'all'
+  },
+  objects: {
+    preProcessFnc: null,
+    postProcessFnc: null,
+    additionalProperties: true
+  }
+};
+var skipReverseFind = ['hostname', 'host-name', 'alpha', 'alphanumeric', 'regex', 'regexp', 'pattern'];
+var filteredFormats = helpers.stringFormats.filter(function (item) {
+  return skipReverseFind.indexOf(item) < 0;
+});
+
+function getCommonTypeFromArrayOfTypes(arrOfTypes) {
+  var lastVal;
+
+  for (var i = 0, length = arrOfTypes.length; i < length; i++) {
+    var currentType = arrOfTypes[i];
+
+    if (i > 0) {
+      if (currentType === 'integer' && lastVal === 'number') {
+        currentType = 'number';
+      } else if (currentType === 'number' && lastVal === 'integer') {
+        lastVal = 'number';
+      }
+
+      if (lastVal !== currentType) return null;
+    }
+
+    lastVal = currentType;
+  }
+
+  return lastVal;
+}
+
+function getCommonArrayItemsType(arr) {
+  return getCommonTypeFromArrayOfTypes(arr.map(function (item) {
+    return helpers.getType(item);
+  }));
+}
+
+var ToJsonSchema = /*#__PURE__*/function () {
+  function ToJsonSchema(options) {
+    _classCallCheck(this, ToJsonSchema);
+
+    this.options = merge({}, defaultOptions, options);
+    this.getObjectSchemaDefault = this.getObjectSchemaDefault.bind(this);
+    this.getStringSchemaDefault = this.getStringSchemaDefault.bind(this);
+    this.objectPostProcessDefault = this.objectPostProcessDefault.bind(this);
+    this.commmonPostProcessDefault = this.commmonPostProcessDefault.bind(this);
+    this.objectPostProcessDefault = this.objectPostProcessDefault.bind(this);
+  }
+  /**
+   * Tries to find the least common schema that would validate all items in the array. More details
+   * helpers.mergeSchemaObjs description
+   * @param {array} arr
+   * @returns {object|null}
+   */
+
+
+  _createClass(ToJsonSchema, [{
+    key: "getCommonArrayItemSchema",
+    value: function getCommonArrayItemSchema(arr) {
+      var _this = this;
+
+      var schemas = arr.map(function (item) {
+        return _this.getSchema(item);
+      }); // schemas.forEach(schema => console.log(JSON.stringify(schema, '\t')))
+
+      return schemas.reduce(function (acc, current) {
+        return helpers.mergeSchemaObjs(acc, current);
+      }, schemas.pop());
+    }
+  }, {
+    key: "getObjectSchemaDefault",
+    value: function getObjectSchemaDefault(obj) {
+      var _this2 = this;
+
+      var schema = {
+        type: 'object'
+      };
+      var objKeys = Object.keys(obj);
+
+      if (objKeys.length > 0) {
+        schema.properties = objKeys.reduce(function (acc, propertyName) {
+          acc[propertyName] = _this2.getSchema(obj[propertyName]); // eslint-disable-line no-param-reassign
+
+          return acc;
+        }, {});
+      }
+
+      return schema;
+    }
+  }, {
+    key: "getObjectSchema",
+    value: function getObjectSchema(obj) {
+      if (this.options.objects.preProcessFnc) {
+        return this.options.objects.preProcessFnc(obj, this.getObjectSchemaDefault);
+      }
+
+      return this.getObjectSchemaDefault(obj);
+    }
+  }, {
+    key: "getArraySchemaMerging",
+    value: function getArraySchemaMerging(arr) {
+      var schema = {
+        type: 'array'
+      };
+      var commonType = getCommonArrayItemsType(arr);
+
+      if (commonType) {
+        schema.items = {
+          type: commonType
+        };
+
+        if (commonType !== 'integer' && commonType !== 'number') {
+          var itemSchema = this.getCommonArrayItemSchema(arr);
+
+          if (itemSchema) {
+            schema.items = itemSchema;
+          }
+        } else if (this.options.required) {
+          schema.items.required = true;
+        }
+      }
+
+      return schema;
+    }
+  }, {
+    key: "getArraySchemaNoMerging",
+    value: function getArraySchemaNoMerging(arr) {
+      var schema = {
+        type: 'array'
+      };
+
+      if (arr.length > 0) {
+        schema.items = this.getSchema(arr[0]);
+      }
+
+      return schema;
+    }
+  }, {
+    key: "getArraySchemaTuple",
+    value: function getArraySchemaTuple(arr) {
+      var _this3 = this;
+
+      var schema = {
+        type: 'array'
+      };
+
+      if (arr.length > 0) {
+        schema.items = arr.map(function (item) {
+          return _this3.getSchema(item);
+        });
+      }
+
+      return schema;
+    }
+  }, {
+    key: "getArraySchemaUniform",
+    value: function getArraySchemaUniform(arr) {
+      var schema = this.getArraySchemaNoMerging(arr);
+
+      if (arr.length > 1) {
+        for (var i = 1; i < arr.length; i++) {
+          if (!isEqual(schema.items, this.getSchema(arr[i]))) {
+            throw new Error('Invalid schema, incompatible array items');
+          }
+        }
+      }
+
+      return schema;
+    }
+  }, {
+    key: "getArraySchema",
+    value: function getArraySchema(arr) {
+      if (arr.length === 0) {
+        return {
+          type: 'array'
+        };
+      }
+
+      switch (this.options.arrays.mode) {
+        case 'all':
+          return this.getArraySchemaMerging(arr);
+
+        case 'first':
+          return this.getArraySchemaNoMerging(arr);
+
+        case 'uniform':
+          return this.getArraySchemaUniform(arr);
+
+        case 'tuple':
+          return this.getArraySchemaTuple(arr);
+
+        default:
+          throw new Error("Unknown array mode option '".concat(this.options.arrays.mode, "'"));
+      }
+    }
+  }, {
+    key: "getStringSchemaDefault",
+    value: function getStringSchemaDefault(value) {
+      var schema = {
+        type: 'string'
+      };
+
+      if (!this.options.strings.detectFormat) {
+        return schema;
+      }
+
+      var index = filteredFormats.findIndex(function (item) {
+        return helpers.isFormat(value, item);
+      });
+
+      if (index >= 0) {
+        schema.format = filteredFormats[index];
+      }
+
+      return schema;
+    }
+  }, {
+    key: "getStringSchema",
+    value: function getStringSchema(value) {
+      if (this.options.strings.preProcessFnc) {
+        return this.options.strings.preProcessFnc(value, this.getStringSchemaDefault);
+      }
+
+      return this.getStringSchemaDefault(value);
+    }
+  }, {
+    key: "commmonPostProcessDefault",
+    value: function commmonPostProcessDefault(type, schema, value) {
+      // eslint-disable-line no-unused-vars
+      if (this.options.required) {
+        return merge({}, schema, {
+          required: true
+        });
+      }
+
+      return schema;
+    }
+  }, {
+    key: "objectPostProcessDefault",
+    value: function objectPostProcessDefault(schema, obj) {
+      if (this.options.objects.additionalProperties === false && Object.getOwnPropertyNames(obj).length > 0) {
+        return merge({}, schema, {
+          additionalProperties: false
+        });
+      }
+
+      return schema;
+    }
+    /**
+     * Gets JSON schema for provided value
+     * @param value
+     * @returns {object}
+     */
+
+  }, {
+    key: "getSchema",
+    value: function getSchema(value) {
+      var type = helpers.getType(value);
+
+      if (!type) {
+        throw new Error("Type of value couldn't be determined");
+      }
+
+      var schema;
+
+      switch (type) {
+        case 'object':
+          schema = this.getObjectSchema(value);
+          break;
+
+        case 'array':
+          schema = this.getArraySchema(value);
+          break;
+
+        case 'string':
+          schema = this.getStringSchema(value);
+          break;
+
+        default:
+          schema = {
+            type: type
+          };
+      }
+
+      if (this.options.postProcessFnc) {
+        schema = this.options.postProcessFnc(type, schema, value, this.commmonPostProcessDefault);
+      } else {
+        schema = this.commmonPostProcessDefault(type, schema, value);
+      }
+
+      if (type === 'object') {
+        if (this.options.objects.postProcessFnc) {
+          schema = this.options.objects.postProcessFnc(schema, value, this.objectPostProcessDefault);
+        } else {
+          schema = this.objectPostProcessDefault(schema, value);
+        }
+      }
+
+      return schema;
+    }
+  }]);
+
+  return ToJsonSchema;
+}();
+
+function toJsonSchema(value, options) {
+  var tjs = new ToJsonSchema(options);
+  return tjs.getSchema(value);
+}
+
+module.exports = toJsonSchema;
+
+/***/ }),
+
 /***/ 10:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -1657,6 +2001,23 @@ module.exports = eval("require")("bufferutil");
 
 /***/ }),
 
+/***/ 29:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const ipRegex = __webpack_require__(553);
+
+const isIp = string => ipRegex({exact: true}).test(string);
+isIp.v4 = string => ipRegex.v4({exact: true}).test(string);
+isIp.v6 = string => ipRegex.v6({exact: true}).test(string);
+isIp.version = string => isIp(string) ? (isIp.v4(string) ? 4 : 6) : undefined;
+
+module.exports = isIp;
+
+
+/***/ }),
+
 /***/ 49:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -1706,6 +2067,58 @@ function onceStrict (fn) {
 
 /***/ }),
 
+/***/ 63:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const { Buffer } = __webpack_require__(293)
+
+module.exports = function base64 (alphabet) {
+  // The alphabet is only used to know:
+  //   1. If padding is enabled (must contain '=')
+  //   2. If the output must be url-safe (must contain '-' and '_')
+  //   3. If the input of the output function is valid
+  // The alphabets from RFC 4648 are always used.
+  const padding = alphabet.indexOf('=') > -1
+  const url = alphabet.indexOf('-') > -1 && alphabet.indexOf('_') > -1
+
+  return {
+    encode (input) {
+      let output = ''
+
+      if (typeof input === 'string') {
+        output = Buffer.from(input).toString('base64')
+      } else {
+        output = input.toString('base64')
+      }
+
+      if (url) {
+        output = output.replace(/\+/g, '-').replace(/\//g, '_')
+      }
+
+      const pad = output.indexOf('=')
+      if (pad > 0 && !padding) {
+        output = output.substring(0, pad)
+      }
+
+      return output
+    },
+    decode (input) {
+      for (const char of input) {
+        if (alphabet.indexOf(char) < 0) {
+          throw new Error('invalid base64 character')
+        }
+      }
+
+      return Buffer.from(input, 'base64')
+    }
+  }
+}
+
+
+/***/ }),
+
 /***/ 66:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -1722,6 +2135,35 @@ for (const [name, code] of Object.entries(table)) {
 }
 
 module.exports = Object.freeze(constants)
+
+
+/***/ }),
+
+/***/ 72:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const { Buffer } = __webpack_require__(293)
+
+module.exports = function base16 (alphabet) {
+  return {
+    encode (input) {
+      if (typeof input === 'string') {
+        return Buffer.from(input).toString('hex')
+      }
+      return input.toString('hex')
+    },
+    decode (input) {
+      for (const char of input) {
+        if (alphabet.indexOf(char) < 0) {
+          throw new Error('invalid base16 character')
+        }
+      }
+      return Buffer.from(input, 'hex')
+    }
+  }
+}
 
 
 /***/ }),
@@ -1743,6 +2185,59 @@ var Variant;
     Variant[Variant["AccessControlled"] = 112] = "AccessControlled";
 })(Variant = exports.Variant || (exports.Variant = {}));
 //# sourceMappingURL=variant.js.map
+
+/***/ }),
+
+/***/ 84:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.toBuffer = exports.toString = void 0;
+const varint_1 = __importDefault(__webpack_require__(507));
+const threads_id_1 = __webpack_require__(879);
+const protocols_1 = __webpack_require__(757);
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Convert = __webpack_require__(668);
+function thread2buf(str) {
+    // const buf = Buffer.from(str)
+    const buf = threads_id_1.ThreadID.fromString(str).toBytes();
+    const size = Buffer.from(varint_1.default.encode(buf.length));
+    return Buffer.concat([size, buf]);
+}
+function buf2thread(buf) {
+    const size = varint_1.default.decode(buf);
+    buf = buf.slice(varint_1.default.decode.bytes);
+    if (buf.length !== size) {
+        throw new Error('inconsistent lengths');
+    }
+    return threads_id_1.ThreadID.fromBytes(buf).toString();
+}
+function toString(prt, buf) {
+    const proto = protocols_1.protocols(prt);
+    switch (proto.code) {
+        case 406:
+            return buf2thread(buf);
+        default:
+            return Convert.toString(prt, buf);
+    }
+}
+exports.toString = toString;
+function toBuffer(prt, str) {
+    const proto = protocols_1.protocols(prt);
+    switch (proto.code) {
+        case 406:
+            return thread2buf(str);
+        default:
+            return Convert.toBuffer(prt, str);
+    }
+}
+exports.toBuffer = toBuffer;
+//# sourceMappingURL=convert.js.map
 
 /***/ }),
 
@@ -10298,6 +10793,226 @@ module.exports = CIDUtil
 
 /***/ }),
 
+/***/ 111:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WriteTransaction = void 0;
+const threads_pb_1 = __webpack_require__(340);
+const Transaction_1 = __webpack_require__(947);
+/**
+ * WriteTransaction performs a mutating bulk transaction on the underlying store.
+ */
+class WriteTransaction extends Transaction_1.Transaction {
+    constructor(context, client, threadID, modelName) {
+        super(client, threadID, modelName);
+        this.context = context;
+        this.client = client;
+        this.threadID = threadID;
+        this.modelName = modelName;
+    }
+    /**
+     * start begins the transaction. All operations between start and end will be applied as a single transaction upon a call to end.
+     */
+    start() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const startReq = new threads_pb_1.StartTransactionRequest();
+            startReq.setDbid(this.threadID.toBytes());
+            startReq.setCollectionname(this.modelName);
+            const req = new threads_pb_1.WriteTransactionRequest();
+            req.setStarttransactionrequest(startReq);
+            const metadata = JSON.parse(JSON.stringify(this.context));
+            this.client.start(metadata);
+            this.client.send(req);
+        });
+    }
+    /**
+     * create creates a new model instance in the given store.
+     * @param values An array of model instances as JSON/JS objects.
+     */
+    create(values) {
+        const _super = Object.create(null, {
+            setReject: { get: () => super.setReject }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const createReq = new threads_pb_1.CreateRequest();
+                const list = [];
+                values.forEach((v) => {
+                    list.push(Buffer.from(JSON.stringify(v)));
+                });
+                createReq.setInstancesList(list);
+                const req = new threads_pb_1.WriteTransactionRequest();
+                req.setCreaterequest(createReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getCreatereply();
+                    if (reply === undefined) {
+                        resolve();
+                    }
+                    else {
+                        resolve(reply.toObject().instanceidsList);
+                    }
+                });
+                _super.setReject.call(this, reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * save saves changes to an existing model instance in the given store.
+     * @param values An array of model instances as JSON/JS objects. Each model instance must have a valid existing `ID` property.
+     */
+    save(values) {
+        const _super = Object.create(null, {
+            setReject: { get: () => super.setReject }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const saveReq = new threads_pb_1.SaveRequest();
+                const list = [];
+                values.forEach((v) => {
+                    if (!v.hasOwnProperty('ID')) {
+                        v['ID'] = ''; // The server will add an ID if empty.
+                    }
+                    list.push(Buffer.from(JSON.stringify(v)));
+                });
+                saveReq.setInstancesList(list);
+                const req = new threads_pb_1.WriteTransactionRequest();
+                req.setSaverequest(saveReq);
+                this.client.onMessage((_message) => {
+                    resolve();
+                });
+                _super.setReject.call(this, reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * delete deletes an existing model instance from the given store.
+     * @param IDs An array of instance ids to delete.
+     */
+    delete(IDs) {
+        const _super = Object.create(null, {
+            setReject: { get: () => super.setReject }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const deleteReq = new threads_pb_1.DeleteRequest();
+                deleteReq.setInstanceidsList(IDs);
+                const req = new threads_pb_1.WriteTransactionRequest();
+                req.setDeleterequest(deleteReq);
+                this.client.onMessage((_message) => {
+                    resolve();
+                });
+                _super.setReject.call(this, reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * has checks whether a given instance exists in the given store.
+     * @param IDs An array of instance ids to check for.
+     */
+    has(IDs) {
+        const _super = Object.create(null, {
+            setReject: { get: () => super.setReject }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const hasReq = new threads_pb_1.HasRequest();
+                hasReq.setInstanceidsList(IDs);
+                const req = new threads_pb_1.WriteTransactionRequest();
+                req.setHasrequest(hasReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getHasreply();
+                    resolve(reply ? reply.toObject().exists == true : false);
+                });
+                _super.setReject.call(this, reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * find queries the store for entities matching the given query parameters. See Query for options.
+     * @param query The object that describes the query. See Query for options. Alternatively, see QueryJSON for the basic interface.
+     */
+    find(query) {
+        const _super = Object.create(null, {
+            setReject: { get: () => super.setReject }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const findReq = new threads_pb_1.FindRequest();
+                findReq.setQueryjson(Buffer.from(JSON.stringify(query)));
+                const req = new threads_pb_1.WriteTransactionRequest();
+                req.setFindrequest(findReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getFindreply();
+                    if (reply === undefined) {
+                        resolve();
+                    }
+                    else {
+                        const ret = {
+                            instancesList: reply
+                                .toObject()
+                                .instancesList.map((instance) => JSON.parse(Buffer.from(instance, 'base64').toString())),
+                        };
+                        resolve(ret);
+                    }
+                });
+                _super.setReject.call(this, reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * findByID queries the store for the id of an instance.
+     * @param ID The id of the instance to search for.
+     */
+    findByID(ID) {
+        const _super = Object.create(null, {
+            setReject: { get: () => super.setReject }
+        });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const findReq = new threads_pb_1.FindByIDRequest();
+                findReq.setInstanceid(ID);
+                const req = new threads_pb_1.WriteTransactionRequest();
+                req.setFindbyidrequest(findReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getFindbyidreply();
+                    if (reply === undefined) {
+                        resolve();
+                    }
+                    else {
+                        const ret = {
+                            instance: JSON.parse(Buffer.from(reply.toObject().instance, 'base64').toString()),
+                        };
+                        resolve(ret);
+                    }
+                });
+                _super.setReject.call(this, reject);
+                this.client.send(req);
+            });
+        });
+    }
+}
+exports.WriteTransaction = WriteTransaction;
+//# sourceMappingURL=WriteTransaction.js.map
+
+/***/ }),
+
 /***/ 117:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -11468,6 +12183,120 @@ SafeBuffer.allocUnsafeSlow = function (size) {
 
 /***/ }),
 
+/***/ 183:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Client = void 0;
+const loglevel_1 = __importDefault(__webpack_require__(104));
+const pb = __importStar(__webpack_require__(721));
+const users_pb_service_1 = __webpack_require__(216);
+const threads_client_1 = __webpack_require__(493);
+Object.defineProperty(exports, "Client", { enumerable: true, get: function () { return threads_client_1.Client; } });
+const threads_id_1 = __webpack_require__(879);
+const logger = loglevel_1.default.getLogger('users');
+threads_client_1.Client.prototype.getThread = function (name, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('get thread request');
+        const client = new users_pb_service_1.APIClient(this.serviceHost, {
+            transport: this.rpcOptions.transport,
+            debug: this.rpcOptions.debug,
+        });
+        return new Promise((resolve, reject) => {
+            const req = new pb.GetThreadRequest();
+            req.setName(name);
+            this.context
+                .toMetadata(ctx)
+                .then((meta) => {
+                client.getThread(req, meta, (err, message) => {
+                    if (err)
+                        reject(err);
+                    const msg = message === null || message === void 0 ? void 0 : message.toObject();
+                    if (msg) {
+                        msg.id = threads_id_1.ThreadID.fromBytes(Buffer.from(msg.id, 'base64')).toString();
+                    }
+                    resolve(msg);
+                });
+            })
+                .catch((err) => {
+                reject(err);
+            });
+        });
+    });
+};
+/**
+ * Returns a list of available Threads.
+ * @param ctx Context containing gRPC headers and settings.
+ * These will be merged with any internal credentials.
+ * @note Threads can be created using the threads or threads network clients.
+ */
+threads_client_1.Client.prototype.listThreads = function (ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list threads request');
+        const client = new users_pb_service_1.APIClient(this.serviceHost, {
+            transport: this.rpcOptions.transport,
+            debug: this.rpcOptions.debug,
+        });
+        return new Promise((resolve, reject) => {
+            const req = new pb.ListThreadsRequest();
+            this.context
+                .toMetadata(ctx)
+                .then((meta) => {
+                client.listThreads(req, meta, (err, message) => {
+                    if (err)
+                        reject(err);
+                    const msg = message === null || message === void 0 ? void 0 : message.toObject();
+                    if (msg) {
+                        msg.listList.forEach((thread) => {
+                            thread.id = threads_id_1.ThreadID.fromBytes(Buffer.from(thread.id, 'base64')).toString();
+                        });
+                    }
+                    resolve(msg);
+                });
+            })
+                .catch((err) => {
+                reject(err);
+            });
+        });
+    });
+};
+//# sourceMappingURL=client.js.map
+
+/***/ }),
+
 /***/ 188:
 /***/ (function(__unusedmodule, exports) {
 
@@ -12166,10 +12995,2593 @@ module.exports = function (value) {
 
 /***/ }),
 
+/***/ 202:
+/***/ (function(module) {
+
+/**
+ * lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as the size to enable large array optimizations. */
+var LARGE_ARRAY_SIZE = 200;
+
+/** Used to stand-in for `undefined` hash values. */
+var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+/** Used as references for various `Number` constants. */
+var INFINITY = 1 / 0,
+    MAX_SAFE_INTEGER = 9007199254740991;
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]';
+
+/**
+ * Used to match `RegExp`
+ * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
+ */
+var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+
+/** Used to detect host constructors (Safari). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/**
+ * A faster alternative to `Function#apply`, this function invokes `func`
+ * with the `this` binding of `thisArg` and the arguments of `args`.
+ *
+ * @private
+ * @param {Function} func The function to invoke.
+ * @param {*} thisArg The `this` binding of `func`.
+ * @param {Array} args The arguments to invoke `func` with.
+ * @returns {*} Returns the result of `func`.
+ */
+function apply(func, thisArg, args) {
+  switch (args.length) {
+    case 0: return func.call(thisArg);
+    case 1: return func.call(thisArg, args[0]);
+    case 2: return func.call(thisArg, args[0], args[1]);
+    case 3: return func.call(thisArg, args[0], args[1], args[2]);
+  }
+  return func.apply(thisArg, args);
+}
+
+/**
+ * A specialized version of `_.filter` for arrays without support for
+ * iteratee shorthands.
+ *
+ * @private
+ * @param {Array} [array] The array to iterate over.
+ * @param {Function} predicate The function invoked per iteration.
+ * @returns {Array} Returns the new filtered array.
+ */
+function arrayFilter(array, predicate) {
+  var index = -1,
+      length = array ? array.length : 0,
+      resIndex = 0,
+      result = [];
+
+  while (++index < length) {
+    var value = array[index];
+    if (predicate(value, index, array)) {
+      result[resIndex++] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * A specialized version of `_.includes` for arrays without support for
+ * specifying an index to search from.
+ *
+ * @private
+ * @param {Array} [array] The array to inspect.
+ * @param {*} target The value to search for.
+ * @returns {boolean} Returns `true` if `target` is found, else `false`.
+ */
+function arrayIncludes(array, value) {
+  var length = array ? array.length : 0;
+  return !!length && baseIndexOf(array, value, 0) > -1;
+}
+
+/**
+ * This function is like `arrayIncludes` except that it accepts a comparator.
+ *
+ * @private
+ * @param {Array} [array] The array to inspect.
+ * @param {*} target The value to search for.
+ * @param {Function} comparator The comparator invoked per element.
+ * @returns {boolean} Returns `true` if `target` is found, else `false`.
+ */
+function arrayIncludesWith(array, value, comparator) {
+  var index = -1,
+      length = array ? array.length : 0;
+
+  while (++index < length) {
+    if (comparator(value, array[index])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * A specialized version of `_.map` for arrays without support for iteratee
+ * shorthands.
+ *
+ * @private
+ * @param {Array} [array] The array to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns the new mapped array.
+ */
+function arrayMap(array, iteratee) {
+  var index = -1,
+      length = array ? array.length : 0,
+      result = Array(length);
+
+  while (++index < length) {
+    result[index] = iteratee(array[index], index, array);
+  }
+  return result;
+}
+
+/**
+ * Appends the elements of `values` to `array`.
+ *
+ * @private
+ * @param {Array} array The array to modify.
+ * @param {Array} values The values to append.
+ * @returns {Array} Returns `array`.
+ */
+function arrayPush(array, values) {
+  var index = -1,
+      length = values.length,
+      offset = array.length;
+
+  while (++index < length) {
+    array[offset + index] = values[index];
+  }
+  return array;
+}
+
+/**
+ * The base implementation of `_.findIndex` and `_.findLastIndex` without
+ * support for iteratee shorthands.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {Function} predicate The function invoked per iteration.
+ * @param {number} fromIndex The index to search from.
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function baseFindIndex(array, predicate, fromIndex, fromRight) {
+  var length = array.length,
+      index = fromIndex + (fromRight ? 1 : -1);
+
+  while ((fromRight ? index-- : ++index < length)) {
+    if (predicate(array[index], index, array)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.indexOf` without `fromIndex` bounds checks.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} value The value to search for.
+ * @param {number} fromIndex The index to search from.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function baseIndexOf(array, value, fromIndex) {
+  if (value !== value) {
+    return baseFindIndex(array, baseIsNaN, fromIndex);
+  }
+  var index = fromIndex - 1,
+      length = array.length;
+
+  while (++index < length) {
+    if (array[index] === value) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `_.isNaN` without support for number objects.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is `NaN`, else `false`.
+ */
+function baseIsNaN(value) {
+  return value !== value;
+}
+
+/**
+ * The base implementation of `_.unary` without support for storing metadata.
+ *
+ * @private
+ * @param {Function} func The function to cap arguments for.
+ * @returns {Function} Returns the new capped function.
+ */
+function baseUnary(func) {
+  return function(value) {
+    return func(value);
+  };
+}
+
+/**
+ * Checks if a cache value for `key` exists.
+ *
+ * @private
+ * @param {Object} cache The cache to query.
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function cacheHas(cache, key) {
+  return cache.has(key);
+}
+
+/**
+ * Gets the value at `key` of `object`.
+ *
+ * @private
+ * @param {Object} [object] The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function getValue(object, key) {
+  return object == null ? undefined : object[key];
+}
+
+/**
+ * Checks if `value` is a host object in IE < 9.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a host object, else `false`.
+ */
+function isHostObject(value) {
+  // Many host objects are `Object` objects that can coerce to strings
+  // despite having improperly defined `toString` methods.
+  var result = false;
+  if (value != null && typeof value.toString != 'function') {
+    try {
+      result = !!(value + '');
+    } catch (e) {}
+  }
+  return result;
+}
+
+/**
+ * Converts `set` to an array of its values.
+ *
+ * @private
+ * @param {Object} set The set to convert.
+ * @returns {Array} Returns the values.
+ */
+function setToArray(set) {
+  var index = -1,
+      result = Array(set.size);
+
+  set.forEach(function(value) {
+    result[++index] = value;
+  });
+  return result;
+}
+
+/** Used for built-in method references. */
+var arrayProto = Array.prototype,
+    funcProto = Function.prototype,
+    objectProto = Object.prototype;
+
+/** Used to detect overreaching core-js shims. */
+var coreJsData = root['__core-js_shared__'];
+
+/** Used to detect methods masquerading as native. */
+var maskSrcKey = (function() {
+  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+  return uid ? ('Symbol(src)_1.' + uid) : '';
+}());
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objectToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/** Built-in value references. */
+var splice = arrayProto.splice;
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeMax = Math.max;
+
+/* Built-in method references that are verified to be native. */
+var Map = getNative(root, 'Map'),
+    Set = getNative(root, 'Set'),
+    nativeCreate = getNative(Object, 'create');
+
+/**
+ * Creates a hash object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Hash(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the hash.
+ *
+ * @private
+ * @name clear
+ * @memberOf Hash
+ */
+function hashClear() {
+  this.__data__ = nativeCreate ? nativeCreate(null) : {};
+}
+
+/**
+ * Removes `key` and its value from the hash.
+ *
+ * @private
+ * @name delete
+ * @memberOf Hash
+ * @param {Object} hash The hash to modify.
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function hashDelete(key) {
+  return this.has(key) && delete this.__data__[key];
+}
+
+/**
+ * Gets the hash value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Hash
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function hashGet(key) {
+  var data = this.__data__;
+  if (nativeCreate) {
+    var result = data[key];
+    return result === HASH_UNDEFINED ? undefined : result;
+  }
+  return hasOwnProperty.call(data, key) ? data[key] : undefined;
+}
+
+/**
+ * Checks if a hash value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Hash
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function hashHas(key) {
+  var data = this.__data__;
+  return nativeCreate ? data[key] !== undefined : hasOwnProperty.call(data, key);
+}
+
+/**
+ * Sets the hash `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Hash
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the hash instance.
+ */
+function hashSet(key, value) {
+  var data = this.__data__;
+  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
+  return this;
+}
+
+// Add methods to `Hash`.
+Hash.prototype.clear = hashClear;
+Hash.prototype['delete'] = hashDelete;
+Hash.prototype.get = hashGet;
+Hash.prototype.has = hashHas;
+Hash.prototype.set = hashSet;
+
+/**
+ * Creates an list cache object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function ListCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the list cache.
+ *
+ * @private
+ * @name clear
+ * @memberOf ListCache
+ */
+function listCacheClear() {
+  this.__data__ = [];
+}
+
+/**
+ * Removes `key` and its value from the list cache.
+ *
+ * @private
+ * @name delete
+ * @memberOf ListCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function listCacheDelete(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    return false;
+  }
+  var lastIndex = data.length - 1;
+  if (index == lastIndex) {
+    data.pop();
+  } else {
+    splice.call(data, index, 1);
+  }
+  return true;
+}
+
+/**
+ * Gets the list cache value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf ListCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function listCacheGet(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  return index < 0 ? undefined : data[index][1];
+}
+
+/**
+ * Checks if a list cache value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf ListCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function listCacheHas(key) {
+  return assocIndexOf(this.__data__, key) > -1;
+}
+
+/**
+ * Sets the list cache `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf ListCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the list cache instance.
+ */
+function listCacheSet(key, value) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    data.push([key, value]);
+  } else {
+    data[index][1] = value;
+  }
+  return this;
+}
+
+// Add methods to `ListCache`.
+ListCache.prototype.clear = listCacheClear;
+ListCache.prototype['delete'] = listCacheDelete;
+ListCache.prototype.get = listCacheGet;
+ListCache.prototype.has = listCacheHas;
+ListCache.prototype.set = listCacheSet;
+
+/**
+ * Creates a map cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function MapCache(entries) {
+  var index = -1,
+      length = entries ? entries.length : 0;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the map.
+ *
+ * @private
+ * @name clear
+ * @memberOf MapCache
+ */
+function mapCacheClear() {
+  this.__data__ = {
+    'hash': new Hash,
+    'map': new (Map || ListCache),
+    'string': new Hash
+  };
+}
+
+/**
+ * Removes `key` and its value from the map.
+ *
+ * @private
+ * @name delete
+ * @memberOf MapCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function mapCacheDelete(key) {
+  return getMapData(this, key)['delete'](key);
+}
+
+/**
+ * Gets the map value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf MapCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function mapCacheGet(key) {
+  return getMapData(this, key).get(key);
+}
+
+/**
+ * Checks if a map value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf MapCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function mapCacheHas(key) {
+  return getMapData(this, key).has(key);
+}
+
+/**
+ * Sets the map `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf MapCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the map cache instance.
+ */
+function mapCacheSet(key, value) {
+  getMapData(this, key).set(key, value);
+  return this;
+}
+
+// Add methods to `MapCache`.
+MapCache.prototype.clear = mapCacheClear;
+MapCache.prototype['delete'] = mapCacheDelete;
+MapCache.prototype.get = mapCacheGet;
+MapCache.prototype.has = mapCacheHas;
+MapCache.prototype.set = mapCacheSet;
+
+/**
+ *
+ * Creates an array cache object to store unique values.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [values] The values to cache.
+ */
+function SetCache(values) {
+  var index = -1,
+      length = values ? values.length : 0;
+
+  this.__data__ = new MapCache;
+  while (++index < length) {
+    this.add(values[index]);
+  }
+}
+
+/**
+ * Adds `value` to the array cache.
+ *
+ * @private
+ * @name add
+ * @memberOf SetCache
+ * @alias push
+ * @param {*} value The value to cache.
+ * @returns {Object} Returns the cache instance.
+ */
+function setCacheAdd(value) {
+  this.__data__.set(value, HASH_UNDEFINED);
+  return this;
+}
+
+/**
+ * Checks if `value` is in the array cache.
+ *
+ * @private
+ * @name has
+ * @memberOf SetCache
+ * @param {*} value The value to search for.
+ * @returns {number} Returns `true` if `value` is found, else `false`.
+ */
+function setCacheHas(value) {
+  return this.__data__.has(value);
+}
+
+// Add methods to `SetCache`.
+SetCache.prototype.add = SetCache.prototype.push = setCacheAdd;
+SetCache.prototype.has = setCacheHas;
+
+/**
+ * Gets the index at which the `key` is found in `array` of key-value pairs.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} key The key to search for.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function assocIndexOf(array, key) {
+  var length = array.length;
+  while (length--) {
+    if (eq(array[length][0], key)) {
+      return length;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of methods like `_.difference` without support
+ * for excluding multiple arrays or iteratee shorthands.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {Array} values The values to exclude.
+ * @param {Function} [iteratee] The iteratee invoked per element.
+ * @param {Function} [comparator] The comparator invoked per element.
+ * @returns {Array} Returns the new array of filtered values.
+ */
+function baseDifference(array, values, iteratee, comparator) {
+  var index = -1,
+      includes = arrayIncludes,
+      isCommon = true,
+      length = array.length,
+      result = [],
+      valuesLength = values.length;
+
+  if (!length) {
+    return result;
+  }
+  if (iteratee) {
+    values = arrayMap(values, baseUnary(iteratee));
+  }
+  if (comparator) {
+    includes = arrayIncludesWith;
+    isCommon = false;
+  }
+  else if (values.length >= LARGE_ARRAY_SIZE) {
+    includes = cacheHas;
+    isCommon = false;
+    values = new SetCache(values);
+  }
+  outer:
+  while (++index < length) {
+    var value = array[index],
+        computed = iteratee ? iteratee(value) : value;
+
+    value = (comparator || value !== 0) ? value : 0;
+    if (isCommon && computed === computed) {
+      var valuesIndex = valuesLength;
+      while (valuesIndex--) {
+        if (values[valuesIndex] === computed) {
+          continue outer;
+        }
+      }
+      result.push(value);
+    }
+    else if (!includes(values, computed, comparator)) {
+      result.push(value);
+    }
+  }
+  return result;
+}
+
+/**
+ * The base implementation of `_.isNative` without bad shim checks.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function,
+ *  else `false`.
+ */
+function baseIsNative(value) {
+  if (!isObject(value) || isMasked(value)) {
+    return false;
+  }
+  var pattern = (isFunction(value) || isHostObject(value)) ? reIsNative : reIsHostCtor;
+  return pattern.test(toSource(value));
+}
+
+/**
+ * The base implementation of `_.rest` which doesn't validate or coerce arguments.
+ *
+ * @private
+ * @param {Function} func The function to apply a rest parameter to.
+ * @param {number} [start=func.length-1] The start position of the rest parameter.
+ * @returns {Function} Returns the new function.
+ */
+function baseRest(func, start) {
+  start = nativeMax(start === undefined ? (func.length - 1) : start, 0);
+  return function() {
+    var args = arguments,
+        index = -1,
+        length = nativeMax(args.length - start, 0),
+        array = Array(length);
+
+    while (++index < length) {
+      array[index] = args[start + index];
+    }
+    index = -1;
+    var otherArgs = Array(start + 1);
+    while (++index < start) {
+      otherArgs[index] = args[index];
+    }
+    otherArgs[start] = array;
+    return apply(func, this, otherArgs);
+  };
+}
+
+/**
+ * The base implementation of `_.uniqBy` without support for iteratee shorthands.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {Function} [iteratee] The iteratee invoked per element.
+ * @param {Function} [comparator] The comparator invoked per element.
+ * @returns {Array} Returns the new duplicate free array.
+ */
+function baseUniq(array, iteratee, comparator) {
+  var index = -1,
+      includes = arrayIncludes,
+      length = array.length,
+      isCommon = true,
+      result = [],
+      seen = result;
+
+  if (comparator) {
+    isCommon = false;
+    includes = arrayIncludesWith;
+  }
+  else if (length >= LARGE_ARRAY_SIZE) {
+    var set = iteratee ? null : createSet(array);
+    if (set) {
+      return setToArray(set);
+    }
+    isCommon = false;
+    includes = cacheHas;
+    seen = new SetCache;
+  }
+  else {
+    seen = iteratee ? [] : result;
+  }
+  outer:
+  while (++index < length) {
+    var value = array[index],
+        computed = iteratee ? iteratee(value) : value;
+
+    value = (comparator || value !== 0) ? value : 0;
+    if (isCommon && computed === computed) {
+      var seenIndex = seen.length;
+      while (seenIndex--) {
+        if (seen[seenIndex] === computed) {
+          continue outer;
+        }
+      }
+      if (iteratee) {
+        seen.push(computed);
+      }
+      result.push(value);
+    }
+    else if (!includes(seen, computed, comparator)) {
+      if (seen !== result) {
+        seen.push(computed);
+      }
+      result.push(value);
+    }
+  }
+  return result;
+}
+
+/**
+ * The base implementation of methods like `_.xor`, without support for
+ * iteratee shorthands, that accepts an array of arrays to inspect.
+ *
+ * @private
+ * @param {Array} arrays The arrays to inspect.
+ * @param {Function} [iteratee] The iteratee invoked per element.
+ * @param {Function} [comparator] The comparator invoked per element.
+ * @returns {Array} Returns the new array of values.
+ */
+function baseXor(arrays, iteratee, comparator) {
+  var index = -1,
+      length = arrays.length;
+
+  while (++index < length) {
+    var result = result
+      ? arrayPush(
+          baseDifference(result, arrays[index], iteratee, comparator),
+          baseDifference(arrays[index], result, iteratee, comparator)
+        )
+      : arrays[index];
+  }
+  return (result && result.length) ? baseUniq(result, iteratee, comparator) : [];
+}
+
+/**
+ * Creates a set object of `values`.
+ *
+ * @private
+ * @param {Array} values The values to add to the set.
+ * @returns {Object} Returns the new set.
+ */
+var createSet = !(Set && (1 / setToArray(new Set([,-0]))[1]) == INFINITY) ? noop : function(values) {
+  return new Set(values);
+};
+
+/**
+ * Gets the data for `map`.
+ *
+ * @private
+ * @param {Object} map The map to query.
+ * @param {string} key The reference key.
+ * @returns {*} Returns the map data.
+ */
+function getMapData(map, key) {
+  var data = map.__data__;
+  return isKeyable(key)
+    ? data[typeof key == 'string' ? 'string' : 'hash']
+    : data.map;
+}
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = getValue(object, key);
+  return baseIsNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is suitable for use as unique object key.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
+ */
+function isKeyable(value) {
+  var type = typeof value;
+  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
+    ? (value !== '__proto__')
+    : (value === null);
+}
+
+/**
+ * Checks if `func` has its source masked.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` is masked, else `false`.
+ */
+function isMasked(func) {
+  return !!maskSrcKey && (maskSrcKey in func);
+}
+
+/**
+ * Converts `func` to its source code.
+ *
+ * @private
+ * @param {Function} func The function to process.
+ * @returns {string} Returns the source code.
+ */
+function toSource(func) {
+  if (func != null) {
+    try {
+      return funcToString.call(func);
+    } catch (e) {}
+    try {
+      return (func + '');
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Creates an array of unique values that is the
+ * [symmetric difference](https://en.wikipedia.org/wiki/Symmetric_difference)
+ * of the given arrays. The order of result values is determined by the order
+ * they occur in the arrays.
+ *
+ * @static
+ * @memberOf _
+ * @since 2.4.0
+ * @category Array
+ * @param {...Array} [arrays] The arrays to inspect.
+ * @returns {Array} Returns the new array of filtered values.
+ * @see _.difference, _.without
+ * @example
+ *
+ * _.xor([2, 1], [2, 3]);
+ * // => [1, 3]
+ */
+var xor = baseRest(function(arrays) {
+  return baseXor(arrayFilter(arrays, isArrayLikeObject));
+});
+
+/**
+ * Performs a
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * comparison between two values to determine if they are equivalent.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.eq(object, object);
+ * // => true
+ *
+ * _.eq(object, other);
+ * // => false
+ *
+ * _.eq('a', 'a');
+ * // => true
+ *
+ * _.eq('a', Object('a'));
+ * // => false
+ *
+ * _.eq(NaN, NaN);
+ * // => true
+ */
+function eq(value, other) {
+  return value === other || (value !== value && other !== other);
+}
+
+/**
+ * Checks if `value` is array-like. A value is considered array-like if it's
+ * not a function and has a `value.length` that's an integer greater than or
+ * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ * @example
+ *
+ * _.isArrayLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLike(document.body.children);
+ * // => true
+ *
+ * _.isArrayLike('abc');
+ * // => true
+ *
+ * _.isArrayLike(_.noop);
+ * // => false
+ */
+function isArrayLike(value) {
+  return value != null && isLength(value.length) && !isFunction(value);
+}
+
+/**
+ * This method is like `_.isArrayLike` except that it also checks if `value`
+ * is an object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array-like object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArrayLikeObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLikeObject(document.body.children);
+ * // => true
+ *
+ * _.isArrayLikeObject('abc');
+ * // => false
+ *
+ * _.isArrayLikeObject(_.noop);
+ * // => false
+ */
+function isArrayLikeObject(value) {
+  return isObjectLike(value) && isArrayLike(value);
+}
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 8-9 which returns 'object' for typed array and other constructors.
+  var tag = isObject(value) ? objectToString.call(value) : '';
+  return tag == funcTag || tag == genTag;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This method is loosely based on
+ * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ * @example
+ *
+ * _.isLength(3);
+ * // => true
+ *
+ * _.isLength(Number.MIN_VALUE);
+ * // => false
+ *
+ * _.isLength(Infinity);
+ * // => false
+ *
+ * _.isLength('3');
+ * // => false
+ */
+function isLength(value) {
+  return typeof value == 'number' &&
+    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/**
+ * This method returns `undefined`.
+ *
+ * @static
+ * @memberOf _
+ * @since 2.3.0
+ * @category Util
+ * @example
+ *
+ * _.times(2, _.noop);
+ * // => [undefined, undefined]
+ */
+function noop() {
+  // No operation performed.
+}
+
+module.exports = xor;
+
+
+/***/ }),
+
+/***/ 206:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+// package: threads.pb
+// file: threads.proto
+
+var threads_pb = __webpack_require__(340);
+var grpc = __webpack_require__(837).grpc;
+
+var API = (function () {
+  function API() {}
+  API.serviceName = "threads.pb.API";
+  return API;
+}());
+
+API.GetToken = {
+  methodName: "GetToken",
+  service: API,
+  requestStream: true,
+  responseStream: true,
+  requestType: threads_pb.GetTokenRequest,
+  responseType: threads_pb.GetTokenReply
+};
+
+API.NewDB = {
+  methodName: "NewDB",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.NewDBRequest,
+  responseType: threads_pb.NewDBReply
+};
+
+API.NewDBFromAddr = {
+  methodName: "NewDBFromAddr",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.NewDBFromAddrRequest,
+  responseType: threads_pb.NewDBReply
+};
+
+API.ListDBs = {
+  methodName: "ListDBs",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.ListDBsRequest,
+  responseType: threads_pb.ListDBsReply
+};
+
+API.GetDBInfo = {
+  methodName: "GetDBInfo",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.GetDBInfoRequest,
+  responseType: threads_pb.GetDBInfoReply
+};
+
+API.DeleteDB = {
+  methodName: "DeleteDB",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.DeleteDBRequest,
+  responseType: threads_pb.DeleteDBReply
+};
+
+API.NewCollection = {
+  methodName: "NewCollection",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.NewCollectionRequest,
+  responseType: threads_pb.NewCollectionReply
+};
+
+API.UpdateCollection = {
+  methodName: "UpdateCollection",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.UpdateCollectionRequest,
+  responseType: threads_pb.UpdateCollectionReply
+};
+
+API.DeleteCollection = {
+  methodName: "DeleteCollection",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.DeleteCollectionRequest,
+  responseType: threads_pb.DeleteCollectionReply
+};
+
+API.GetCollectionIndexes = {
+  methodName: "GetCollectionIndexes",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.GetCollectionIndexesRequest,
+  responseType: threads_pb.GetCollectionIndexesReply
+};
+
+API.Create = {
+  methodName: "Create",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.CreateRequest,
+  responseType: threads_pb.CreateReply
+};
+
+API.Save = {
+  methodName: "Save",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.SaveRequest,
+  responseType: threads_pb.SaveReply
+};
+
+API.Delete = {
+  methodName: "Delete",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.DeleteRequest,
+  responseType: threads_pb.DeleteReply
+};
+
+API.Has = {
+  methodName: "Has",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.HasRequest,
+  responseType: threads_pb.HasReply
+};
+
+API.Find = {
+  methodName: "Find",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.FindRequest,
+  responseType: threads_pb.FindReply
+};
+
+API.FindByID = {
+  methodName: "FindByID",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: threads_pb.FindByIDRequest,
+  responseType: threads_pb.FindByIDReply
+};
+
+API.ReadTransaction = {
+  methodName: "ReadTransaction",
+  service: API,
+  requestStream: true,
+  responseStream: true,
+  requestType: threads_pb.ReadTransactionRequest,
+  responseType: threads_pb.ReadTransactionReply
+};
+
+API.WriteTransaction = {
+  methodName: "WriteTransaction",
+  service: API,
+  requestStream: true,
+  responseStream: true,
+  requestType: threads_pb.WriteTransactionRequest,
+  responseType: threads_pb.WriteTransactionReply
+};
+
+API.Listen = {
+  methodName: "Listen",
+  service: API,
+  requestStream: false,
+  responseStream: true,
+  requestType: threads_pb.ListenRequest,
+  responseType: threads_pb.ListenReply
+};
+
+exports.API = API;
+
+function APIClient(serviceHost, options) {
+  this.serviceHost = serviceHost;
+  this.options = options || {};
+}
+
+APIClient.prototype.getToken = function getToken(metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.client(API.GetToken, {
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport
+  });
+  client.onEnd(function (status, statusMessage, trailers) {
+    listeners.status.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners.end.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners = null;
+  });
+  client.onMessage(function (message) {
+    listeners.data.forEach(function (handler) {
+      handler(message);
+    })
+  });
+  client.start(metadata);
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    write: function (requestMessage) {
+      client.send(requestMessage);
+      return this;
+    },
+    end: function () {
+      client.finishSend();
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.newDB = function newDB(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.NewDB, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.newDBFromAddr = function newDBFromAddr(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.NewDBFromAddr, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.listDBs = function listDBs(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.ListDBs, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.getDBInfo = function getDBInfo(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.GetDBInfo, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.deleteDB = function deleteDB(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.DeleteDB, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.newCollection = function newCollection(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.NewCollection, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.updateCollection = function updateCollection(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.UpdateCollection, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.deleteCollection = function deleteCollection(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.DeleteCollection, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.getCollectionIndexes = function getCollectionIndexes(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.GetCollectionIndexes, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.create = function create(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.Create, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.save = function save(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.Save, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.delete = function pb_delete(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.Delete, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.has = function has(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.Has, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.find = function find(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.Find, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.findByID = function findByID(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.FindByID, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.readTransaction = function readTransaction(metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.client(API.ReadTransaction, {
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport
+  });
+  client.onEnd(function (status, statusMessage, trailers) {
+    listeners.status.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners.end.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners = null;
+  });
+  client.onMessage(function (message) {
+    listeners.data.forEach(function (handler) {
+      handler(message);
+    })
+  });
+  client.start(metadata);
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    write: function (requestMessage) {
+      client.send(requestMessage);
+      return this;
+    },
+    end: function () {
+      client.finishSend();
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.writeTransaction = function writeTransaction(metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.client(API.WriteTransaction, {
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport
+  });
+  client.onEnd(function (status, statusMessage, trailers) {
+    listeners.status.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners.end.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners = null;
+  });
+  client.onMessage(function (message) {
+    listeners.data.forEach(function (handler) {
+      handler(message);
+    })
+  });
+  client.start(metadata);
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    write: function (requestMessage) {
+      client.send(requestMessage);
+      return this;
+    },
+    end: function () {
+      client.finishSend();
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.listen = function listen(requestMessage, metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.invoke(API.Listen, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onMessage: function (responseMessage) {
+      listeners.data.forEach(function (handler) {
+        handler(responseMessage);
+      });
+    },
+    onEnd: function (status, statusMessage, trailers) {
+      listeners.status.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners.end.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners = null;
+    }
+  });
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+exports.APIClient = APIClient;
+
+
+
+/***/ }),
+
 /***/ 211:
 /***/ (function(module) {
 
 module.exports = require("https");
+
+/***/ }),
+
+/***/ 216:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+// package: users.pb
+// file: users.proto
+
+var users_pb = __webpack_require__(721);
+var grpc = __webpack_require__(837).grpc;
+
+var API = (function () {
+  function API() {}
+  API.serviceName = "users.pb.API";
+  return API;
+}());
+
+API.GetThread = {
+  methodName: "GetThread",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: users_pb.GetThreadRequest,
+  responseType: users_pb.GetThreadReply
+};
+
+API.ListThreads = {
+  methodName: "ListThreads",
+  service: API,
+  requestStream: false,
+  responseStream: false,
+  requestType: users_pb.ListThreadsRequest,
+  responseType: users_pb.ListThreadsReply
+};
+
+exports.API = API;
+
+function APIClient(serviceHost, options) {
+  this.serviceHost = serviceHost;
+  this.options = options || {};
+}
+
+APIClient.prototype.getThread = function getThread(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.GetThread, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIClient.prototype.listThreads = function listThreads(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(API.ListThreads, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+exports.APIClient = APIClient;
+
+
+
+/***/ }),
+
+/***/ 224:
+/***/ (function(module) {
+
+/**
+ * lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as references for various `Number` constants. */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/** `Object#toString` result references. */
+var argsTag = '[object Arguments]',
+    funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]';
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^(?:0|[1-9]\d*)$/;
+
+/**
+ * The base implementation of `_.times` without support for iteratee shorthands
+ * or max array length checks.
+ *
+ * @private
+ * @param {number} n The number of times to invoke `iteratee`.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns the array of results.
+ */
+function baseTimes(n, iteratee) {
+  var index = -1,
+      result = Array(n);
+
+  while (++index < n) {
+    result[index] = iteratee(index);
+  }
+  return result;
+}
+
+/**
+ * Creates a unary function that invokes `func` with its argument transformed.
+ *
+ * @private
+ * @param {Function} func The function to wrap.
+ * @param {Function} transform The argument transform.
+ * @returns {Function} Returns the new function.
+ */
+function overArg(func, transform) {
+  return function(arg) {
+    return func(transform(arg));
+  };
+}
+
+/** Used for built-in method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objectToString = objectProto.toString;
+
+/** Built-in value references. */
+var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeKeys = overArg(Object.keys, Object);
+
+/**
+ * Creates an array of the enumerable property names of the array-like `value`.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @param {boolean} inherited Specify returning inherited property names.
+ * @returns {Array} Returns the array of property names.
+ */
+function arrayLikeKeys(value, inherited) {
+  // Safari 8.1 makes `arguments.callee` enumerable in strict mode.
+  // Safari 9 makes `arguments.length` enumerable in strict mode.
+  var result = (isArray(value) || isArguments(value))
+    ? baseTimes(value.length, String)
+    : [];
+
+  var length = result.length,
+      skipIndexes = !!length;
+
+  for (var key in value) {
+    if ((inherited || hasOwnProperty.call(value, key)) &&
+        !(skipIndexes && (key == 'length' || isIndex(key, length)))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * The base implementation of `_.keys` which doesn't treat sparse arrays as dense.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function baseKeys(object) {
+  if (!isPrototype(object)) {
+    return nativeKeys(object);
+  }
+  var result = [];
+  for (var key in Object(object)) {
+    if (hasOwnProperty.call(object, key) && key != 'constructor') {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return !!length &&
+    (typeof value == 'number' || reIsUint.test(value)) &&
+    (value > -1 && value % 1 == 0 && value < length);
+}
+
+/**
+ * Checks if `value` is likely a prototype object.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a prototype, else `false`.
+ */
+function isPrototype(value) {
+  var Ctor = value && value.constructor,
+      proto = (typeof Ctor == 'function' && Ctor.prototype) || objectProto;
+
+  return value === proto;
+}
+
+/**
+ * Checks if `value` is likely an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+function isArguments(value) {
+  // Safari 8.1 makes `arguments.callee` enumerable in strict mode.
+  return isArrayLikeObject(value) && hasOwnProperty.call(value, 'callee') &&
+    (!propertyIsEnumerable.call(value, 'callee') || objectToString.call(value) == argsTag);
+}
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(document.body.children);
+ * // => false
+ *
+ * _.isArray('abc');
+ * // => false
+ *
+ * _.isArray(_.noop);
+ * // => false
+ */
+var isArray = Array.isArray;
+
+/**
+ * Checks if `value` is array-like. A value is considered array-like if it's
+ * not a function and has a `value.length` that's an integer greater than or
+ * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ * @example
+ *
+ * _.isArrayLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLike(document.body.children);
+ * // => true
+ *
+ * _.isArrayLike('abc');
+ * // => true
+ *
+ * _.isArrayLike(_.noop);
+ * // => false
+ */
+function isArrayLike(value) {
+  return value != null && isLength(value.length) && !isFunction(value);
+}
+
+/**
+ * This method is like `_.isArrayLike` except that it also checks if `value`
+ * is an object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array-like object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArrayLikeObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLikeObject(document.body.children);
+ * // => true
+ *
+ * _.isArrayLikeObject('abc');
+ * // => false
+ *
+ * _.isArrayLikeObject(_.noop);
+ * // => false
+ */
+function isArrayLikeObject(value) {
+  return isObjectLike(value) && isArrayLike(value);
+}
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 8-9 which returns 'object' for typed array and other constructors.
+  var tag = isObject(value) ? objectToString.call(value) : '';
+  return tag == funcTag || tag == genTag;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This method is loosely based on
+ * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ * @example
+ *
+ * _.isLength(3);
+ * // => true
+ *
+ * _.isLength(Number.MIN_VALUE);
+ * // => false
+ *
+ * _.isLength(Infinity);
+ * // => false
+ *
+ * _.isLength('3');
+ * // => false
+ */
+function isLength(value) {
+  return typeof value == 'number' &&
+    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/**
+ * Creates an array of the own enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/7.0/#sec-object.keys)
+ * for more details.
+ *
+ * @static
+ * @since 0.1.0
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
+ *
+ * _.keys('hi');
+ * // => ['0', '1']
+ */
+function keys(object) {
+  return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
+}
+
+module.exports = keys;
+
 
 /***/ }),
 
@@ -12692,6 +16104,454 @@ GlobSync.prototype._makeAbs = function (f) {
 
 /***/ }),
 
+/***/ 251:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Multiaddr = void 0;
+const varint_1 = __importDefault(__webpack_require__(507));
+const cids_1 = __importDefault(__webpack_require__(437));
+const bs58_1 = __importDefault(__webpack_require__(295));
+const protocols_1 = __webpack_require__(757);
+const codec = __importStar(__webpack_require__(945));
+/**
+ * Creates a [multiaddr](https://github.com/multiformats/multiaddr) from
+ * a Buffer, String or another Multiaddr instance
+ * public key.
+ * @class Multiaddr
+ * @param {(String|Buffer|Multiaddr)} addr - If String or Buffer, needs to adhere
+ * to the address format of a [multiaddr](https://github.com/multiformats/multiaddr#string-format)
+ * @example
+ * Multiaddr('/ip4/127.0.0.1/tcp/4001')
+ * // <Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>
+ */
+class Multiaddr {
+    constructor(addr) {
+        this.buffer = Buffer.alloc(0);
+        /**
+         * Returns Multiaddr as a JSON encoded object
+         *
+         * @example
+         * JSON.stringify(Multiaddr('/ip4/127.0.0.1/tcp/4001'))
+         * // '/ip4/127.0.0.1/tcp/4001'
+         */
+        this.toJSON = this.toString;
+        if (!(this instanceof Multiaddr)) {
+            return new Multiaddr(addr);
+        }
+        // default
+        if (addr == null) {
+            addr = '';
+        }
+        if (addr instanceof Buffer) {
+            /**
+             * @type {Buffer} - The raw bytes representing this multiaddress
+             */
+            this.buffer = codec.fromBuffer(addr);
+        }
+        else if (typeof addr === 'string' || addr instanceof String) {
+            if (addr.length > 0 && addr.charAt(0) !== '/') {
+                throw new Error(`multiaddr "${addr}" must start with a "/"`);
+            }
+            this.buffer = codec.fromString(addr);
+        }
+        else if (addr.buffer && addr.protos && addr.protoCodes) {
+            // Multiaddr
+            this.buffer = codec.fromBuffer(addr.buffer); // validate + copy buffer
+        }
+        else {
+            throw new Error('addr must be a string, Buffer, or another Multiaddr');
+        }
+    }
+    /**
+     * Returns Multiaddr as a String
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').toString()
+     * // '/ip4/127.0.0.1/tcp/4001'
+     */
+    toString() {
+        return codec.bufferToString(this.buffer);
+    }
+    /**
+     * Returns Multiaddr as a convenient options object to be used with network.createConnection
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').toOptions()
+     * // { family: 'ipv4', host: '127.0.0.1', transport: 'tcp', port: 4001 }
+     */
+    toOptions() {
+        const opts = {};
+        const parsed = this.toString().split('/');
+        opts.family = parsed[1] === 'ip4' ? 'ipv4' : 'ipv6';
+        opts.host = parsed[2];
+        opts.transport = parsed[3];
+        opts.port = parseInt(parsed[4]);
+        return opts;
+    }
+    /**
+     * Returns Multiaddr as a human-readable string
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').inspect()
+     * // '<Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>'
+     */
+    inspect() {
+        return ('<Multiaddr ' + this.buffer.toString('hex') + ' - ' + codec.bufferToString(this.buffer) + '>');
+    }
+    /**
+     * Returns the protocols the Multiaddr is defined with, as an array of objects, in
+     * left-to-right order. Each object contains the protocol code, protocol name,
+     * and the size of its address space in bits.
+     * [See list of protocols](https://github.com/multiformats/multiaddr/blob/master/protocols.csv)
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').protos()
+     * // [ { code: 4, size: 32, name: 'ip4' },
+     * //   { code: 6, size: 16, name: 'tcp' } ]
+     */
+    protos() {
+        return this.protoCodes().map(code => Object.assign({}, protocols_1.protocols(code)));
+    }
+    /**
+     * Returns the codes of the protocols in left-to-right order.
+     * [See list of protocols](https://github.com/multiformats/multiaddr/blob/master/protocols.csv)
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').protoCodes()
+     * // [ 4, 6 ]
+     */
+    protoCodes() {
+        const codes = [];
+        const buf = this.buffer;
+        let i = 0;
+        while (i < buf.length) {
+            const code = varint_1.default.decode(buf, i);
+            const n = varint_1.default.decode.bytes;
+            const p = protocols_1.protocols(code);
+            const size = codec.sizeForAddr(p, buf.slice(i + n));
+            i += size + n;
+            codes.push(code);
+        }
+        return codes;
+    }
+    /**
+     * Returns the names of the protocols in left-to-right order.
+     * [See list of protocols](https://github.com/multiformats/multiaddr/blob/master/protocols.csv)
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').protoNames()
+     * // [ 'ip4', 'tcp' ]
+     */
+    protoNames() {
+        return this.protos().map(proto => proto.name);
+    }
+    /**
+     * Returns a tuple of parts
+     *
+     * @example
+     * Multiaddr("/ip4/127.0.0.1/tcp/4001").tuples()
+     * // [ [ 4, <Buffer 7f 00 00 01> ], [ 6, <Buffer 0f a1> ] ]
+     */
+    tuples() {
+        return codec.bufferToTuples(this.buffer);
+    }
+    /**
+     * Returns a tuple of string/number parts
+     *
+     * @example
+     * Multiaddr("/ip4/127.0.0.1/tcp/4001").stringTuples()
+     * // [ [ 4, '127.0.0.1' ], [ 6, 4001 ] ]
+     */
+    stringTuples() {
+        const t = codec.bufferToTuples(this.buffer);
+        return codec.tuplesToStringTuples(t);
+    }
+    /**
+     * Encapsulates a Multiaddr in another Multiaddr
+     *
+     * @example
+     * const mh1 = Multiaddr('/ip4/8.8.8.8/tcp/1080')
+     * // <Multiaddr 0408080808060438 - /ip4/8.8.8.8/tcp/1080>
+     *
+     * const mh2 = Multiaddr('/ip4/127.0.0.1/tcp/4001')
+     * // <Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>
+     *
+     * const mh3 = mh1.encapsulate(mh2)
+     * // <Multiaddr 0408080808060438047f000001060fa1 - /ip4/8.8.8.8/tcp/1080/ip4/127.0.0.1/tcp/4001>
+     *
+     * mh3.toString()
+     * // '/ip4/8.8.8.8/tcp/1080/ip4/127.0.0.1/tcp/4001'
+     */
+    encapsulate(addr) {
+        addr = new Multiaddr(addr);
+        return new Multiaddr(this.toString() + addr.toString());
+    }
+    /**
+     * Decapsulates a Multiaddr from another Multiaddr
+     *
+     * @example
+     * const mh1 = Multiaddr('/ip4/8.8.8.8/tcp/1080')
+     * // <Multiaddr 0408080808060438 - /ip4/8.8.8.8/tcp/1080>
+     *
+     * const mh2 = Multiaddr('/ip4/127.0.0.1/tcp/4001')
+     * // <Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>
+     *
+     * const mh3 = mh1.encapsulate(mh2)
+     * // <Multiaddr 0408080808060438047f000001060fa1 - /ip4/8.8.8.8/tcp/1080/ip4/127.0.0.1/tcp/4001>
+     *
+     * mh3.decapsulate(mh2).toString()
+     * // '/ip4/8.8.8.8/tcp/1080'
+     */
+    decapsulate(addr) {
+        const str = addr.toString();
+        const s = this.toString();
+        const i = s.lastIndexOf(str);
+        if (i < 0) {
+            throw new Error('Address ' + this + ' does not contain subaddress: ' + addr);
+        }
+        return new Multiaddr(s.slice(0, i));
+    }
+    /**
+     * A more reliable version of `decapsulate` if you are targeting a
+     * specific code, such as 421 (the `p2p` protocol code). The last index of the code
+     * will be removed from the `Multiaddr`, and a new instance will be returned.
+     * If the code is not present, the original `Multiaddr` is returned.
+     *
+     * @example
+     * const addr = Multiaddr('/ip4/0.0.0.0/tcp/8080/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC')
+     * // <Multiaddr 0400... - /ip4/0.0.0.0/tcp/8080/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC>
+     *
+     * addr.decapsulateCode(421).toString()
+     * // '/ip4/0.0.0.0/tcp/8080'
+     *
+     * Multiaddr('/ip4/127.0.0.1/tcp/8080').decapsulateCode(421).toString()
+     * // '/ip4/127.0.0.1/tcp/8080'
+     */
+    decapsulateCode(code) {
+        const tuples = this.tuples();
+        for (let i = tuples.length - 1; i >= 0; i--) {
+            if (tuples[i][0] === code) {
+                return new Multiaddr(codec.tuplesToBuffer(tuples.slice(0, i)));
+            }
+        }
+        return this;
+    }
+    /**
+     * Extract the peerId if the multiaddr contains one
+     *
+     * @example
+     * const mh1 = Multiaddr('/ip4/8.8.8.8/tcp/1080/ipfs/QmValidBase58string')
+     * // <Multiaddr 0408080808060438 - /ip4/8.8.8.8/tcp/1080/ipfs/QmValidBase58string>
+     *
+     * // should return QmValidBase58string or null if the id is missing or invalid
+     * const peerId = mh1.getPeerId()
+     */
+    getPeerId() {
+        let b58str;
+        try {
+            const tuples = this.stringTuples().filter((tuple) => {
+                if (tuple[0] === protocols_1.protocols.names.ipfs.code) {
+                    return true;
+                }
+            });
+            // Get the last id
+            b58str = (tuples.pop() || [])[1];
+            // Get multihash, unwrap from CID if needed
+            b58str = bs58_1.default.encode(new cids_1.default(b58str || '').multihash);
+        }
+        catch (e) {
+            b58str = undefined;
+        }
+        return b58str;
+    }
+    /**
+     * Extract the path if the multiaddr contains one
+     *
+     * @example
+     * const mh1 = Multiaddr('/ip4/8.8.8.8/tcp/1080/unix/tmp/p2p.sock')
+     * // <Multiaddr 0408080808060438 - /ip4/8.8.8.8/tcp/1080/unix/tmp/p2p.sock>
+     *
+     * // should return utf8 string or null if the id is missing or invalid
+     * const path = mh1.getPath()
+     */
+    getPath() {
+        let path = null;
+        try {
+            path = this.stringTuples().filter((tuple) => {
+                const proto = protocols_1.protocols(tuple[0]);
+                if (proto.path) {
+                    return true;
+                }
+            })[0][1];
+        }
+        catch (e) {
+            path = null;
+        }
+        return path;
+    }
+    /**
+     * Checks if two Multiaddrs are the same
+     *
+     * @example
+     * const mh1 = Multiaddr('/ip4/8.8.8.8/tcp/1080')
+     * // <Multiaddr 0408080808060438 - /ip4/8.8.8.8/tcp/1080>
+     *
+     * const mh2 = Multiaddr('/ip4/127.0.0.1/tcp/4001')
+     * // <Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>
+     *
+     * mh1.equals(mh1)
+     * // true
+     *
+     * mh1.equals(mh2)
+     * // false
+     */
+    equals(addr) {
+        return this.buffer.equals(addr.buffer);
+    }
+    /**
+     * Gets a Multiaddrs node-friendly address object. Note that protocol information
+     * is left out: in Node (and most network systems) the protocol is unknowable
+     * given only the address.
+     *
+     * Has to be a ThinWaist Address, otherwise throws error
+     *
+     * @example
+     * Multiaddr('/ip4/127.0.0.1/tcp/4001').nodeAddress()
+     * // {family: 'IPv4', address: '127.0.0.1', port: '4001'}
+     */
+    nodeAddress() {
+        const codes = this.protoCodes();
+        const names = this.protoNames();
+        const parts = this.toString()
+            .split('/')
+            .slice(1);
+        if (parts.length < 4) {
+            throw new Error('multiaddr must have a valid format: "/{ip4, ip6, dns4, dns6}/{address}/{tcp, udp}/{port}".');
+        }
+        else if (codes[0] !== 4 && codes[0] !== 41 && codes[0] !== 54 && codes[0] !== 55) {
+            throw new Error(`no protocol with name: "'${names[0]}'". Must have a valid family name: "{ip4, ip6, dns4, dns6}".`);
+        }
+        else if (parts[2] !== 'tcp' && parts[2] !== 'udp') {
+            throw new Error(`no protocol with name: "'${names[1]}'". Must have a valid transport protocol: "{tcp, udp}".`);
+        }
+        return {
+            family: codes[0] === 41 || codes[0] === 55 ? 6 : 4,
+            address: parts[1],
+            port: parseInt(parts[3]),
+        };
+    }
+    /**
+     * Creates a Multiaddr from a node-friendly address object
+     *
+     * @example
+     * Multiaddr.fromNodeAddress({address: '127.0.0.1', port: '4001'}, 'tcp')
+     * // <Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>
+     */
+    static fromNodeAddress(addr, transport) {
+        if (!addr)
+            throw new Error('requires node address object');
+        if (!transport)
+            throw new Error('requires transport protocol');
+        const ip = addr.family === 'IPv6' ? 'ip6' : 'ip4';
+        return new Multiaddr('/' + [ip, addr.address, transport, addr.port].join('/'));
+    }
+    /**
+     * Returns if a Multiaddr is a Thin Waist address or not.
+     *
+     * Thin Waist is if a Multiaddr adheres to the standard combination of:
+     *
+     * `{IPv4, IPv6}/{TCP, UDP}`
+     *
+     * @example
+     * const mh1 = Multiaddr('/ip4/127.0.0.1/tcp/4001')
+     * // <Multiaddr 047f000001060fa1 - /ip4/127.0.0.1/tcp/4001>
+     * const mh2 = Multiaddr('/ip4/192.168.2.1/tcp/5001')
+     * // <Multiaddr 04c0a80201061389 - /ip4/192.168.2.1/tcp/5001>
+     * const mh3 = mh1.encapsulate(mh2)
+     * // <Multiaddr 047f000001060fa104c0a80201061389 - /ip4/127.0.0.1/tcp/4001/ip4/192.168.2.1/tcp/5001>
+     * mh1.isThinWaistAddress()
+     * // true
+     * mh2.isThinWaistAddress()
+     * // true
+     * mh3.isThinWaistAddress()
+     * // false
+     */
+    static isThinWaistAddress(addr) {
+        const protos = (addr || this).protos();
+        if (protos.length !== 2) {
+            return false;
+        }
+        if (protos[0].code !== 4 && protos[0].code !== 41) {
+            return false;
+        }
+        return !(protos[1].code !== 6 && protos[1].code !== 273);
+    }
+    /**
+     * Returns if something is a Multiaddr that is a name
+     */
+    static isName(addr) {
+        if (!Multiaddr.isMultiaddr(addr)) {
+            return false;
+        }
+        // if a part of the multiaddr is resolvable, then return true
+        return addr.protos().some(proto => proto.resolvable);
+    }
+    /**
+     * Returns an array of multiaddrs, by resolving the multiaddr that is a name
+     */
+    static resolve(addr) {
+        if (!Multiaddr.isMultiaddr(addr) || !Multiaddr.isName(addr)) {
+            return Promise.reject(Error('not a valid name'));
+        }
+        /*
+         * Needs more consideration from spec design:
+         *   - what to return
+         *   - how to achieve it in the browser?
+         */
+        return Promise.reject(new Error('not implemented yet'));
+    }
+    static isMultiaddr(other) {
+        return other;
+    }
+}
+exports.Multiaddr = Multiaddr;
+/**
+ * Object containing table, names and codes of all supported protocols.
+ * To get the protocol values from a Multiaddr, you can use
+ * [`.protos()`](#multiaddrprotos),
+ * [`.protoCodes()`](#multiaddrprotocodes) or
+ * [`.protoNames()`](#multiaddrprotonames)
+ */
+Multiaddr.protocols = protocols_1.protocols;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 266:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -12874,10 +16734,261 @@ module.exports = (bitsPerChar) => (alphabet) => {
 
 /***/ }),
 
+/***/ 286:
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/**
+ * Implementation of the [multibase](https://github.com/multiformats/multibase) specification.
+ * @module Multibase
+ */
+
+
+const { Buffer } = __webpack_require__(293)
+const constants = __webpack_require__(501)
+
+exports = module.exports = multibase
+exports.encode = encode
+exports.decode = decode
+exports.isEncoded = isEncoded
+exports.names = Object.freeze(Object.keys(constants.names))
+exports.codes = Object.freeze(Object.keys(constants.codes))
+
+/**
+ * Create a new buffer with the multibase varint+code.
+ *
+ * @param {string|number} nameOrCode - The multibase name or code number.
+ * @param {Buffer} buf - The data to be prefixed with multibase.
+ * @memberof Multibase
+ * @returns {Buffer}
+ */
+function multibase (nameOrCode, buf) {
+  if (!buf) {
+    throw new Error('requires an encoded buffer')
+  }
+  const base = getBase(nameOrCode)
+  const codeBuf = Buffer.from(base.code)
+
+  const name = base.name
+  validEncode(name, buf)
+  return Buffer.concat([codeBuf, buf])
+}
+
+/**
+ * Encode data with the specified base and add the multibase prefix.
+ *
+ * @param {string|number} nameOrCode - The multibase name or code number.
+ * @param {Buffer} buf - The data to be encoded.
+ * @returns {Buffer}
+ * @memberof Multibase
+ */
+function encode (nameOrCode, buf) {
+  const base = getBase(nameOrCode)
+  const name = base.name
+
+  return multibase(name, Buffer.from(base.encode(buf)))
+}
+
+/**
+ * Takes a buffer or string encoded with multibase header, decodes it and
+ * returns the decoded buffer
+ *
+ * @param {Buffer|string} bufOrString
+ * @returns {Buffer}
+ * @memberof Multibase
+ *
+ */
+function decode (bufOrString) {
+  if (Buffer.isBuffer(bufOrString)) {
+    bufOrString = bufOrString.toString()
+  }
+
+  const code = bufOrString.substring(0, 1)
+  bufOrString = bufOrString.substring(1, bufOrString.length)
+
+  if (typeof bufOrString === 'string') {
+    bufOrString = Buffer.from(bufOrString)
+  }
+
+  const base = getBase(code)
+  return Buffer.from(base.decode(bufOrString.toString()))
+}
+
+/**
+ * Is the given data multibase encoded?
+ *
+ * @param {Buffer|string} bufOrString
+ * @returns {boolean}
+ * @memberof Multibase
+ */
+function isEncoded (bufOrString) {
+  if (Buffer.isBuffer(bufOrString)) {
+    bufOrString = bufOrString.toString()
+  }
+
+  // Ensure bufOrString is a string
+  if (Object.prototype.toString.call(bufOrString) !== '[object String]') {
+    return false
+  }
+
+  const code = bufOrString.substring(0, 1)
+  try {
+    const base = getBase(code)
+    return base.name
+  } catch (err) {
+    return false
+  }
+}
+
+/**
+ * @param {string} name
+ * @param {Buffer} buf
+ * @private
+ * @returns {undefined}
+ */
+function validEncode (name, buf) {
+  const base = getBase(name)
+  base.decode(buf.toString())
+}
+
+function getBase (nameOrCode) {
+  let base
+
+  if (constants.names[nameOrCode]) {
+    base = constants.names[nameOrCode]
+  } else if (constants.codes[nameOrCode]) {
+    base = constants.codes[nameOrCode]
+  } else {
+    throw new Error('Unsupported encoding')
+  }
+
+  if (!base.isImplemented()) {
+    throw new Error('Base ' + nameOrCode + ' is not implemented yet')
+  }
+
+  return base
+}
+
+
+/***/ }),
+
+/***/ 287:
+/***/ (function(module) {
+
+"use strict";
+ // content of this file is extracted from jsonschema source
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+var types = {
+  string: function testString(instance) {
+    return typeof instance === 'string';
+  },
+  number: function testNumber(instance) {
+    // isFinite returns false for NaN, Infinity, and -Infinity
+    return typeof instance === 'number' && isFinite(instance); // eslint-disable-line no-restricted-globals
+  },
+  integer: function testInteger(instance) {
+    return typeof instance === 'number' && instance % 1 === 0;
+  },
+  "boolean": function testBoolean(instance) {
+    return typeof instance === 'boolean';
+  },
+  array: function testArray(instance) {
+    return instance instanceof Array;
+  },
+  "null": function testNull(instance) {
+    return instance === null;
+  },
+  date: function testDate(instance) {
+    return instance instanceof Date;
+  },
+  any:
+  /* istanbul ignore next: not using this but keeping it here for sake of completeness */
+  function testAny(instance) {
+    // eslint-disable-line no-unused-vars
+    return true;
+  },
+  object: function testObject(instance) {
+    return instance && _typeof(instance) === 'object' && !(instance instanceof Array) && !(instance instanceof Date);
+  }
+};
+var FORMAT_REGEXPS = {
+  'date-time': /^\d{4}-(?:0[0-9]{1}|1[0-2]{1})-(3[01]|0[1-9]|[12][0-9])[tT ](2[0-4]|[01][0-9]):([0-5][0-9]):(60|[0-5][0-9])(\.\d+)?([zZ]|[+-]([0-5][0-9]):(60|[0-5][0-9]))$/,
+  date: /^\d{4}-(?:0[0-9]{1}|1[0-2]{1})-(3[01]|0[1-9]|[12][0-9])$/,
+  time: /^(2[0-4]|[01][0-9]):([0-5][0-9]):(60|[0-5][0-9])$/,
+  email: /^(?:[\w!#$%&'*+-/=?^`{|}~]+\.)*[\w!#$%&'*+-/=?^`{|}~]+@(?:(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-](?!\.)){0,61}[a-zA-Z0-9]?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-](?!$)){0,61}[a-zA-Z0-9]?)|(?:\[(?:(?:[01]?\d{1,2}|2[0-4]\d|25[0-5])\.){3}(?:[01]?\d{1,2}|2[0-4]\d|25[0-5])\]))$/,
+  'ip-address': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
+  ipv6: /^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$/,
+  uri: /^[a-zA-Z][a-zA-Z0-9+-.]*:[^\s]*$/,
+  color: /^(#?([0-9A-Fa-f]{3}){1,2}\b|aqua|black|blue|fuchsia|gray|green|lime|maroon|navy|olive|orange|purple|red|silver|teal|white|yellow|(rgb\(\s*\b([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\b\s*,\s*\b([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\b\s*,\s*\b([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\b\s*\))|(rgb\(\s*(\d?\d%|100%)+\s*,\s*(\d?\d%|100%)+\s*,\s*(\d?\d%|100%)+\s*\)))$/,
+  // hostname regex from: http://stackoverflow.com/a/1420225/5628
+  hostname: /^(?=.{1,255}$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?(?:\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?)*\.?$/,
+  'host-name': /^(?=.{1,255}$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?(?:\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?)*\.?$/,
+  alpha: /^[a-zA-Z]+$/,
+  alphanumeric: /^[a-zA-Z0-9]+$/,
+  'utc-millisec': function utcMillisec(input) {
+    return typeof input === 'string' && parseFloat(input) === parseInt(input, 10) && !isNaN(input);
+  },
+  // eslint-disable-line no-restricted-globals
+  regex
+  /* istanbul ignore next: not supporting regex right now */
+  : function regex(input) {
+    // eslint-disable-line space-before-function-paren
+    var result = true;
+
+    try {
+      new RegExp(input); // eslint-disable-line no-new
+    } catch (e) {
+      result = false;
+    }
+
+    return result;
+  },
+  style: /\s*(.+?):\s*([^;]+);?/g,
+  phone: /^\+(?:[0-9] ?){6,14}[0-9]$/
+};
+FORMAT_REGEXPS.regexp = FORMAT_REGEXPS.regex;
+FORMAT_REGEXPS.pattern = FORMAT_REGEXPS.regex;
+FORMAT_REGEXPS.ipv4 = FORMAT_REGEXPS['ip-address'];
+
+var isFormat = function isFormat(input, format) {
+  if (typeof input === 'string' && FORMAT_REGEXPS[format] !== undefined) {
+    if (FORMAT_REGEXPS[format] instanceof RegExp) {
+      return FORMAT_REGEXPS[format].test(input);
+    }
+
+    if (typeof FORMAT_REGEXPS[format] === 'function') {
+      return FORMAT_REGEXPS[format](input);
+    }
+  }
+
+  return true;
+};
+
+module.exports = {
+  types: types,
+  isFormat: isFormat,
+  FORMAT_REGEXPS: FORMAT_REGEXPS
+};
+
+/***/ }),
+
 /***/ 293:
 /***/ (function(module) {
 
 module.exports = require("buffer");
+
+/***/ }),
+
+/***/ 295:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+var basex = __webpack_require__(973)
+var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+module.exports = basex(ALPHABET)
+
 
 /***/ }),
 
@@ -13471,6 +17582,33 @@ function unmonkeypatch () {
   fs.realpathSync = origRealpathSync
 }
 
+
+/***/ }),
+
+/***/ 305:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * @packageDocumentation
+ * @module @textile/threads-client/models
+ */
+__exportStar(__webpack_require__(882), exports);
+__exportStar(__webpack_require__(966), exports);
+__exportStar(__webpack_require__(111), exports);
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -14635,6 +18773,9548 @@ module.exports = { format, parse };
 
 /***/ }),
 
+/***/ 340:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+// source: threads.proto
+/**
+ * @fileoverview
+ * @enhanceable
+ * @suppress {messageConventions} JS Compiler reports an error if a variable or
+ *     field starts with 'MSG_' and isn't a translatable message.
+ * @public
+ */
+// GENERATED CODE -- DO NOT EDIT!
+
+var jspb = __webpack_require__(188);
+var goog = jspb;
+var global = Function('return this')();
+
+goog.exportSymbol('proto.threads.pb.CollectionConfig', null, global);
+goog.exportSymbol('proto.threads.pb.CreateReply', null, global);
+goog.exportSymbol('proto.threads.pb.CreateRequest', null, global);
+goog.exportSymbol('proto.threads.pb.DeleteCollectionReply', null, global);
+goog.exportSymbol('proto.threads.pb.DeleteCollectionRequest', null, global);
+goog.exportSymbol('proto.threads.pb.DeleteDBReply', null, global);
+goog.exportSymbol('proto.threads.pb.DeleteDBRequest', null, global);
+goog.exportSymbol('proto.threads.pb.DeleteReply', null, global);
+goog.exportSymbol('proto.threads.pb.DeleteRequest', null, global);
+goog.exportSymbol('proto.threads.pb.FindByIDReply', null, global);
+goog.exportSymbol('proto.threads.pb.FindByIDRequest', null, global);
+goog.exportSymbol('proto.threads.pb.FindReply', null, global);
+goog.exportSymbol('proto.threads.pb.FindRequest', null, global);
+goog.exportSymbol('proto.threads.pb.GetCollectionIndexesReply', null, global);
+goog.exportSymbol('proto.threads.pb.GetCollectionIndexesRequest', null, global);
+goog.exportSymbol('proto.threads.pb.GetDBInfoReply', null, global);
+goog.exportSymbol('proto.threads.pb.GetDBInfoRequest', null, global);
+goog.exportSymbol('proto.threads.pb.GetTokenReply', null, global);
+goog.exportSymbol('proto.threads.pb.GetTokenReply.PayloadCase', null, global);
+goog.exportSymbol('proto.threads.pb.GetTokenRequest', null, global);
+goog.exportSymbol('proto.threads.pb.GetTokenRequest.PayloadCase', null, global);
+goog.exportSymbol('proto.threads.pb.HasReply', null, global);
+goog.exportSymbol('proto.threads.pb.HasRequest', null, global);
+goog.exportSymbol('proto.threads.pb.Index', null, global);
+goog.exportSymbol('proto.threads.pb.ListDBsReply', null, global);
+goog.exportSymbol('proto.threads.pb.ListDBsReply.DB', null, global);
+goog.exportSymbol('proto.threads.pb.ListDBsRequest', null, global);
+goog.exportSymbol('proto.threads.pb.ListenReply', null, global);
+goog.exportSymbol('proto.threads.pb.ListenReply.Action', null, global);
+goog.exportSymbol('proto.threads.pb.ListenRequest', null, global);
+goog.exportSymbol('proto.threads.pb.ListenRequest.Filter', null, global);
+goog.exportSymbol('proto.threads.pb.ListenRequest.Filter.Action', null, global);
+goog.exportSymbol('proto.threads.pb.NewCollectionReply', null, global);
+goog.exportSymbol('proto.threads.pb.NewCollectionRequest', null, global);
+goog.exportSymbol('proto.threads.pb.NewDBFromAddrRequest', null, global);
+goog.exportSymbol('proto.threads.pb.NewDBReply', null, global);
+goog.exportSymbol('proto.threads.pb.NewDBRequest', null, global);
+goog.exportSymbol('proto.threads.pb.ReadTransactionReply', null, global);
+goog.exportSymbol('proto.threads.pb.ReadTransactionReply.OptionCase', null, global);
+goog.exportSymbol('proto.threads.pb.ReadTransactionRequest', null, global);
+goog.exportSymbol('proto.threads.pb.ReadTransactionRequest.OptionCase', null, global);
+goog.exportSymbol('proto.threads.pb.SaveReply', null, global);
+goog.exportSymbol('proto.threads.pb.SaveRequest', null, global);
+goog.exportSymbol('proto.threads.pb.StartTransactionRequest', null, global);
+goog.exportSymbol('proto.threads.pb.UpdateCollectionReply', null, global);
+goog.exportSymbol('proto.threads.pb.UpdateCollectionRequest', null, global);
+goog.exportSymbol('proto.threads.pb.WriteTransactionReply', null, global);
+goog.exportSymbol('proto.threads.pb.WriteTransactionReply.OptionCase', null, global);
+goog.exportSymbol('proto.threads.pb.WriteTransactionRequest', null, global);
+goog.exportSymbol('proto.threads.pb.WriteTransactionRequest.OptionCase', null, global);
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.GetTokenRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.threads.pb.GetTokenRequest.oneofGroups_);
+};
+goog.inherits(proto.threads.pb.GetTokenRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.GetTokenRequest.displayName = 'proto.threads.pb.GetTokenRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.GetTokenReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.threads.pb.GetTokenReply.oneofGroups_);
+};
+goog.inherits(proto.threads.pb.GetTokenReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.GetTokenReply.displayName = 'proto.threads.pb.GetTokenReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.NewDBRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.NewDBRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.NewDBRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.NewDBRequest.displayName = 'proto.threads.pb.NewDBRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.NewDBFromAddrRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.NewDBFromAddrRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.NewDBFromAddrRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.NewDBFromAddrRequest.displayName = 'proto.threads.pb.NewDBFromAddrRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.CollectionConfig = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.CollectionConfig.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.CollectionConfig, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.CollectionConfig.displayName = 'proto.threads.pb.CollectionConfig';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.Index = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.Index, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.Index.displayName = 'proto.threads.pb.Index';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.NewDBReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.NewDBReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.NewDBReply.displayName = 'proto.threads.pb.NewDBReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ListDBsRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.ListDBsRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ListDBsRequest.displayName = 'proto.threads.pb.ListDBsRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ListDBsReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.ListDBsReply.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.ListDBsReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ListDBsReply.displayName = 'proto.threads.pb.ListDBsReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ListDBsReply.DB = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.ListDBsReply.DB, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ListDBsReply.DB.displayName = 'proto.threads.pb.ListDBsReply.DB';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.GetDBInfoRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.GetDBInfoRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.GetDBInfoRequest.displayName = 'proto.threads.pb.GetDBInfoRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.GetDBInfoReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.GetDBInfoReply.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.GetDBInfoReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.GetDBInfoReply.displayName = 'proto.threads.pb.GetDBInfoReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.DeleteDBRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.DeleteDBRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.DeleteDBRequest.displayName = 'proto.threads.pb.DeleteDBRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.DeleteDBReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.DeleteDBReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.DeleteDBReply.displayName = 'proto.threads.pb.DeleteDBReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.NewCollectionRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.NewCollectionRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.NewCollectionRequest.displayName = 'proto.threads.pb.NewCollectionRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.NewCollectionReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.NewCollectionReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.NewCollectionReply.displayName = 'proto.threads.pb.NewCollectionReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.UpdateCollectionRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.UpdateCollectionRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.UpdateCollectionRequest.displayName = 'proto.threads.pb.UpdateCollectionRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.UpdateCollectionReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.UpdateCollectionReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.UpdateCollectionReply.displayName = 'proto.threads.pb.UpdateCollectionReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.DeleteCollectionRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.DeleteCollectionRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.DeleteCollectionRequest.displayName = 'proto.threads.pb.DeleteCollectionRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.DeleteCollectionReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.DeleteCollectionReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.DeleteCollectionReply.displayName = 'proto.threads.pb.DeleteCollectionReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.GetCollectionIndexesRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.GetCollectionIndexesRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.GetCollectionIndexesRequest.displayName = 'proto.threads.pb.GetCollectionIndexesRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.GetCollectionIndexesReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.GetCollectionIndexesReply.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.GetCollectionIndexesReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.GetCollectionIndexesReply.displayName = 'proto.threads.pb.GetCollectionIndexesReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.CreateRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.CreateRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.CreateRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.CreateRequest.displayName = 'proto.threads.pb.CreateRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.CreateReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.CreateReply.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.CreateReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.CreateReply.displayName = 'proto.threads.pb.CreateReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.SaveRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.SaveRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.SaveRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.SaveRequest.displayName = 'proto.threads.pb.SaveRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.SaveReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.SaveReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.SaveReply.displayName = 'proto.threads.pb.SaveReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.DeleteRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.DeleteRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.DeleteRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.DeleteRequest.displayName = 'proto.threads.pb.DeleteRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.DeleteReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.DeleteReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.DeleteReply.displayName = 'proto.threads.pb.DeleteReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.HasRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.HasRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.HasRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.HasRequest.displayName = 'proto.threads.pb.HasRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.HasReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.HasReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.HasReply.displayName = 'proto.threads.pb.HasReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.FindRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.FindRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.FindRequest.displayName = 'proto.threads.pb.FindRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.FindReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.FindReply.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.FindReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.FindReply.displayName = 'proto.threads.pb.FindReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.FindByIDRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.FindByIDRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.FindByIDRequest.displayName = 'proto.threads.pb.FindByIDRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.FindByIDReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.FindByIDReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.FindByIDReply.displayName = 'proto.threads.pb.FindByIDReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.StartTransactionRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.StartTransactionRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.StartTransactionRequest.displayName = 'proto.threads.pb.StartTransactionRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ReadTransactionRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.threads.pb.ReadTransactionRequest.oneofGroups_);
+};
+goog.inherits(proto.threads.pb.ReadTransactionRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ReadTransactionRequest.displayName = 'proto.threads.pb.ReadTransactionRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ReadTransactionReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.threads.pb.ReadTransactionReply.oneofGroups_);
+};
+goog.inherits(proto.threads.pb.ReadTransactionReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ReadTransactionReply.displayName = 'proto.threads.pb.ReadTransactionReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.WriteTransactionRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.threads.pb.WriteTransactionRequest.oneofGroups_);
+};
+goog.inherits(proto.threads.pb.WriteTransactionRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.WriteTransactionRequest.displayName = 'proto.threads.pb.WriteTransactionRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.WriteTransactionReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.threads.pb.WriteTransactionReply.oneofGroups_);
+};
+goog.inherits(proto.threads.pb.WriteTransactionReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.WriteTransactionReply.displayName = 'proto.threads.pb.WriteTransactionReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ListenRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.threads.pb.ListenRequest.repeatedFields_, null);
+};
+goog.inherits(proto.threads.pb.ListenRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ListenRequest.displayName = 'proto.threads.pb.ListenRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ListenRequest.Filter = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.ListenRequest.Filter, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ListenRequest.Filter.displayName = 'proto.threads.pb.ListenRequest.Filter';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.threads.pb.ListenReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.threads.pb.ListenReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.threads.pb.ListenReply.displayName = 'proto.threads.pb.ListenReply';
+}
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.threads.pb.GetTokenRequest.oneofGroups_ = [[1,2]];
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.GetTokenRequest.PayloadCase = {
+  PAYLOAD_NOT_SET: 0,
+  KEY: 1,
+  SIGNATURE: 2
+};
+
+/**
+ * @return {proto.threads.pb.GetTokenRequest.PayloadCase}
+ */
+proto.threads.pb.GetTokenRequest.prototype.getPayloadCase = function() {
+  return /** @type {proto.threads.pb.GetTokenRequest.PayloadCase} */(jspb.Message.computeOneofCase(this, proto.threads.pb.GetTokenRequest.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.GetTokenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.GetTokenRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.GetTokenRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetTokenRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    signature: msg.getSignature_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.GetTokenRequest}
+ */
+proto.threads.pb.GetTokenRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.GetTokenRequest;
+  return proto.threads.pb.GetTokenRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.GetTokenRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.GetTokenRequest}
+ */
+proto.threads.pb.GetTokenRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    case 2:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setSignature(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetTokenRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.GetTokenRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.GetTokenRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetTokenRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = /** @type {string} */ (jspb.Message.getField(message, 1));
+  if (f != null) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = /** @type {!(string|Uint8Array)} */ (jspb.Message.getField(message, 2));
+  if (f != null) {
+    writer.writeBytes(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.threads.pb.GetTokenRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.GetTokenRequest} returns this
+ */
+proto.threads.pb.GetTokenRequest.prototype.setKey = function(value) {
+  return jspb.Message.setOneofField(this, 1, proto.threads.pb.GetTokenRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.threads.pb.GetTokenRequest} returns this
+ */
+proto.threads.pb.GetTokenRequest.prototype.clearKey = function() {
+  return jspb.Message.setOneofField(this, 1, proto.threads.pb.GetTokenRequest.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.GetTokenRequest.prototype.hasKey = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional bytes signature = 2;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.GetTokenRequest.prototype.getSignature = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * optional bytes signature = 2;
+ * This is a type-conversion wrapper around `getSignature()`
+ * @return {string}
+ */
+proto.threads.pb.GetTokenRequest.prototype.getSignature_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getSignature()));
+};
+
+
+/**
+ * optional bytes signature = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getSignature()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetTokenRequest.prototype.getSignature_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getSignature()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.GetTokenRequest} returns this
+ */
+proto.threads.pb.GetTokenRequest.prototype.setSignature = function(value) {
+  return jspb.Message.setOneofField(this, 2, proto.threads.pb.GetTokenRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.threads.pb.GetTokenRequest} returns this
+ */
+proto.threads.pb.GetTokenRequest.prototype.clearSignature = function() {
+  return jspb.Message.setOneofField(this, 2, proto.threads.pb.GetTokenRequest.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.GetTokenRequest.prototype.hasSignature = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.threads.pb.GetTokenReply.oneofGroups_ = [[1,2]];
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.GetTokenReply.PayloadCase = {
+  PAYLOAD_NOT_SET: 0,
+  CHALLENGE: 1,
+  TOKEN: 2
+};
+
+/**
+ * @return {proto.threads.pb.GetTokenReply.PayloadCase}
+ */
+proto.threads.pb.GetTokenReply.prototype.getPayloadCase = function() {
+  return /** @type {proto.threads.pb.GetTokenReply.PayloadCase} */(jspb.Message.computeOneofCase(this, proto.threads.pb.GetTokenReply.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.GetTokenReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.GetTokenReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.GetTokenReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetTokenReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    challenge: msg.getChallenge_asB64(),
+    token: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.GetTokenReply}
+ */
+proto.threads.pb.GetTokenReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.GetTokenReply;
+  return proto.threads.pb.GetTokenReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.GetTokenReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.GetTokenReply}
+ */
+proto.threads.pb.GetTokenReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setChallenge(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setToken(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetTokenReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.GetTokenReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.GetTokenReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetTokenReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = /** @type {!(string|Uint8Array)} */ (jspb.Message.getField(message, 1));
+  if (f != null) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = /** @type {string} */ (jspb.Message.getField(message, 2));
+  if (f != null) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes challenge = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.GetTokenReply.prototype.getChallenge = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes challenge = 1;
+ * This is a type-conversion wrapper around `getChallenge()`
+ * @return {string}
+ */
+proto.threads.pb.GetTokenReply.prototype.getChallenge_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getChallenge()));
+};
+
+
+/**
+ * optional bytes challenge = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getChallenge()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetTokenReply.prototype.getChallenge_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getChallenge()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.GetTokenReply} returns this
+ */
+proto.threads.pb.GetTokenReply.prototype.setChallenge = function(value) {
+  return jspb.Message.setOneofField(this, 1, proto.threads.pb.GetTokenReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.threads.pb.GetTokenReply} returns this
+ */
+proto.threads.pb.GetTokenReply.prototype.clearChallenge = function() {
+  return jspb.Message.setOneofField(this, 1, proto.threads.pb.GetTokenReply.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.GetTokenReply.prototype.hasChallenge = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional string token = 2;
+ * @return {string}
+ */
+proto.threads.pb.GetTokenReply.prototype.getToken = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.GetTokenReply} returns this
+ */
+proto.threads.pb.GetTokenReply.prototype.setToken = function(value) {
+  return jspb.Message.setOneofField(this, 2, proto.threads.pb.GetTokenReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.threads.pb.GetTokenReply} returns this
+ */
+proto.threads.pb.GetTokenReply.prototype.clearToken = function() {
+  return jspb.Message.setOneofField(this, 2, proto.threads.pb.GetTokenReply.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.GetTokenReply.prototype.hasToken = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.NewDBRequest.repeatedFields_ = [2];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.NewDBRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.NewDBRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.NewDBRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewDBRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionsList: jspb.Message.toObjectList(msg.getCollectionsList(),
+    proto.threads.pb.CollectionConfig.toObject, includeInstance),
+    name: jspb.Message.getFieldWithDefault(msg, 3, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.NewDBRequest}
+ */
+proto.threads.pb.NewDBRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.NewDBRequest;
+  return proto.threads.pb.NewDBRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.NewDBRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.NewDBRequest}
+ */
+proto.threads.pb.NewDBRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.CollectionConfig;
+      reader.readMessage(value,proto.threads.pb.CollectionConfig.deserializeBinaryFromReader);
+      msg.addCollections(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewDBRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.NewDBRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.NewDBRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewDBRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionsList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      2,
+      f,
+      proto.threads.pb.CollectionConfig.serializeBinaryToWriter
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.NewDBRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.NewDBRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewDBRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.NewDBRequest} returns this
+ */
+proto.threads.pb.NewDBRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * repeated CollectionConfig collections = 2;
+ * @return {!Array<!proto.threads.pb.CollectionConfig>}
+ */
+proto.threads.pb.NewDBRequest.prototype.getCollectionsList = function() {
+  return /** @type{!Array<!proto.threads.pb.CollectionConfig>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.threads.pb.CollectionConfig, 2));
+};
+
+
+/**
+ * @param {!Array<!proto.threads.pb.CollectionConfig>} value
+ * @return {!proto.threads.pb.NewDBRequest} returns this
+*/
+proto.threads.pb.NewDBRequest.prototype.setCollectionsList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 2, value);
+};
+
+
+/**
+ * @param {!proto.threads.pb.CollectionConfig=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.CollectionConfig}
+ */
+proto.threads.pb.NewDBRequest.prototype.addCollections = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 2, opt_value, proto.threads.pb.CollectionConfig, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.NewDBRequest} returns this
+ */
+proto.threads.pb.NewDBRequest.prototype.clearCollectionsList = function() {
+  return this.setCollectionsList([]);
+};
+
+
+/**
+ * optional string name = 3;
+ * @return {string}
+ */
+proto.threads.pb.NewDBRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.NewDBRequest} returns this
+ */
+proto.threads.pb.NewDBRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 3, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.NewDBFromAddrRequest.repeatedFields_ = [3];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.NewDBFromAddrRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.NewDBFromAddrRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewDBFromAddrRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    addr: msg.getAddr_asB64(),
+    key: msg.getKey_asB64(),
+    collectionsList: jspb.Message.toObjectList(msg.getCollectionsList(),
+    proto.threads.pb.CollectionConfig.toObject, includeInstance),
+    name: jspb.Message.getFieldWithDefault(msg, 4, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.NewDBFromAddrRequest}
+ */
+proto.threads.pb.NewDBFromAddrRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.NewDBFromAddrRequest;
+  return proto.threads.pb.NewDBFromAddrRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.NewDBFromAddrRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.NewDBFromAddrRequest}
+ */
+proto.threads.pb.NewDBFromAddrRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setAddr(value);
+      break;
+    case 2:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setKey(value);
+      break;
+    case 3:
+      var value = new proto.threads.pb.CollectionConfig;
+      reader.readMessage(value,proto.threads.pb.CollectionConfig.deserializeBinaryFromReader);
+      msg.addCollections(value);
+      break;
+    case 4:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.NewDBFromAddrRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.NewDBFromAddrRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewDBFromAddrRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getAddr_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getKey_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      2,
+      f
+    );
+  }
+  f = message.getCollectionsList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      3,
+      f,
+      proto.threads.pb.CollectionConfig.serializeBinaryToWriter
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      4,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes addr = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getAddr = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes addr = 1;
+ * This is a type-conversion wrapper around `getAddr()`
+ * @return {string}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getAddr_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getAddr()));
+};
+
+
+/**
+ * optional bytes addr = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getAddr()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getAddr_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getAddr()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.NewDBFromAddrRequest} returns this
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.setAddr = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional bytes key = 2;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getKey = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * optional bytes key = 2;
+ * This is a type-conversion wrapper around `getKey()`
+ * @return {string}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getKey_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getKey()));
+};
+
+
+/**
+ * optional bytes key = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getKey()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getKey_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getKey()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.NewDBFromAddrRequest} returns this
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3BytesField(this, 2, value);
+};
+
+
+/**
+ * repeated CollectionConfig collections = 3;
+ * @return {!Array<!proto.threads.pb.CollectionConfig>}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getCollectionsList = function() {
+  return /** @type{!Array<!proto.threads.pb.CollectionConfig>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.threads.pb.CollectionConfig, 3));
+};
+
+
+/**
+ * @param {!Array<!proto.threads.pb.CollectionConfig>} value
+ * @return {!proto.threads.pb.NewDBFromAddrRequest} returns this
+*/
+proto.threads.pb.NewDBFromAddrRequest.prototype.setCollectionsList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 3, value);
+};
+
+
+/**
+ * @param {!proto.threads.pb.CollectionConfig=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.CollectionConfig}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.addCollections = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 3, opt_value, proto.threads.pb.CollectionConfig, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.NewDBFromAddrRequest} returns this
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.clearCollectionsList = function() {
+  return this.setCollectionsList([]);
+};
+
+
+/**
+ * optional string name = 4;
+ * @return {string}
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.NewDBFromAddrRequest} returns this
+ */
+proto.threads.pb.NewDBFromAddrRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 4, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.CollectionConfig.repeatedFields_ = [3];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.CollectionConfig.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.CollectionConfig.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.CollectionConfig} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.CollectionConfig.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    schema: msg.getSchema_asB64(),
+    indexesList: jspb.Message.toObjectList(msg.getIndexesList(),
+    proto.threads.pb.Index.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.CollectionConfig}
+ */
+proto.threads.pb.CollectionConfig.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.CollectionConfig;
+  return proto.threads.pb.CollectionConfig.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.CollectionConfig} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.CollectionConfig}
+ */
+proto.threads.pb.CollectionConfig.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    case 2:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setSchema(value);
+      break;
+    case 3:
+      var value = new proto.threads.pb.Index;
+      reader.readMessage(value,proto.threads.pb.Index.deserializeBinaryFromReader);
+      msg.addIndexes(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.CollectionConfig.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.CollectionConfig.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.CollectionConfig} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.CollectionConfig.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getSchema_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      2,
+      f
+    );
+  }
+  f = message.getIndexesList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      3,
+      f,
+      proto.threads.pb.Index.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.threads.pb.CollectionConfig.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.CollectionConfig} returns this
+ */
+proto.threads.pb.CollectionConfig.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional bytes schema = 2;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.CollectionConfig.prototype.getSchema = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * optional bytes schema = 2;
+ * This is a type-conversion wrapper around `getSchema()`
+ * @return {string}
+ */
+proto.threads.pb.CollectionConfig.prototype.getSchema_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getSchema()));
+};
+
+
+/**
+ * optional bytes schema = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getSchema()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.CollectionConfig.prototype.getSchema_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getSchema()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.CollectionConfig} returns this
+ */
+proto.threads.pb.CollectionConfig.prototype.setSchema = function(value) {
+  return jspb.Message.setProto3BytesField(this, 2, value);
+};
+
+
+/**
+ * repeated Index indexes = 3;
+ * @return {!Array<!proto.threads.pb.Index>}
+ */
+proto.threads.pb.CollectionConfig.prototype.getIndexesList = function() {
+  return /** @type{!Array<!proto.threads.pb.Index>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.threads.pb.Index, 3));
+};
+
+
+/**
+ * @param {!Array<!proto.threads.pb.Index>} value
+ * @return {!proto.threads.pb.CollectionConfig} returns this
+*/
+proto.threads.pb.CollectionConfig.prototype.setIndexesList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 3, value);
+};
+
+
+/**
+ * @param {!proto.threads.pb.Index=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.Index}
+ */
+proto.threads.pb.CollectionConfig.prototype.addIndexes = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 3, opt_value, proto.threads.pb.Index, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.CollectionConfig} returns this
+ */
+proto.threads.pb.CollectionConfig.prototype.clearIndexesList = function() {
+  return this.setIndexesList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.Index.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.Index.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.Index} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.Index.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    path: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    unique: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.Index}
+ */
+proto.threads.pb.Index.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.Index;
+  return proto.threads.pb.Index.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.Index} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.Index}
+ */
+proto.threads.pb.Index.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setPath(value);
+      break;
+    case 2:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setUnique(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.Index.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.Index.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.Index} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.Index.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getPath();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getUnique();
+  if (f) {
+    writer.writeBool(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string path = 1;
+ * @return {string}
+ */
+proto.threads.pb.Index.prototype.getPath = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.Index} returns this
+ */
+proto.threads.pb.Index.prototype.setPath = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional bool unique = 2;
+ * @return {boolean}
+ */
+proto.threads.pb.Index.prototype.getUnique = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.threads.pb.Index} returns this
+ */
+proto.threads.pb.Index.prototype.setUnique = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.NewDBReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.NewDBReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.NewDBReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewDBReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.NewDBReply}
+ */
+proto.threads.pb.NewDBReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.NewDBReply;
+  return proto.threads.pb.NewDBReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.NewDBReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.NewDBReply}
+ */
+proto.threads.pb.NewDBReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewDBReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.NewDBReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.NewDBReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewDBReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ListDBsRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ListDBsRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ListDBsRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListDBsRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ListDBsRequest}
+ */
+proto.threads.pb.ListDBsRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ListDBsRequest;
+  return proto.threads.pb.ListDBsRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ListDBsRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ListDBsRequest}
+ */
+proto.threads.pb.ListDBsRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListDBsRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ListDBsRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ListDBsRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListDBsRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.ListDBsReply.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ListDBsReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ListDBsReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ListDBsReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListDBsReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbsList: jspb.Message.toObjectList(msg.getDbsList(),
+    proto.threads.pb.ListDBsReply.DB.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ListDBsReply}
+ */
+proto.threads.pb.ListDBsReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ListDBsReply;
+  return proto.threads.pb.ListDBsReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ListDBsReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ListDBsReply}
+ */
+proto.threads.pb.ListDBsReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.threads.pb.ListDBsReply.DB;
+      reader.readMessage(value,proto.threads.pb.ListDBsReply.DB.deserializeBinaryFromReader);
+      msg.addDbs(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListDBsReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ListDBsReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ListDBsReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListDBsReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbsList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.threads.pb.ListDBsReply.DB.serializeBinaryToWriter
+    );
+  }
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ListDBsReply.DB.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ListDBsReply.DB} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListDBsReply.DB.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    info: (f = msg.getInfo()) && proto.threads.pb.GetDBInfoReply.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ListDBsReply.DB}
+ */
+proto.threads.pb.ListDBsReply.DB.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ListDBsReply.DB;
+  return proto.threads.pb.ListDBsReply.DB.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ListDBsReply.DB} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ListDBsReply.DB}
+ */
+proto.threads.pb.ListDBsReply.DB.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.GetDBInfoReply;
+      reader.readMessage(value,proto.threads.pb.GetDBInfoReply.deserializeBinaryFromReader);
+      msg.setInfo(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ListDBsReply.DB.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ListDBsReply.DB} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListDBsReply.DB.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getInfo();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.GetDBInfoReply.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.ListDBsReply.DB} returns this
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional GetDBInfoReply info = 2;
+ * @return {?proto.threads.pb.GetDBInfoReply}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.getInfo = function() {
+  return /** @type{?proto.threads.pb.GetDBInfoReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.GetDBInfoReply, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.GetDBInfoReply|undefined} value
+ * @return {!proto.threads.pb.ListDBsReply.DB} returns this
+*/
+proto.threads.pb.ListDBsReply.DB.prototype.setInfo = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ListDBsReply.DB} returns this
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.clearInfo = function() {
+  return this.setInfo(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ListDBsReply.DB.prototype.hasInfo = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * repeated DB dbs = 1;
+ * @return {!Array<!proto.threads.pb.ListDBsReply.DB>}
+ */
+proto.threads.pb.ListDBsReply.prototype.getDbsList = function() {
+  return /** @type{!Array<!proto.threads.pb.ListDBsReply.DB>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.threads.pb.ListDBsReply.DB, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.threads.pb.ListDBsReply.DB>} value
+ * @return {!proto.threads.pb.ListDBsReply} returns this
+*/
+proto.threads.pb.ListDBsReply.prototype.setDbsList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.threads.pb.ListDBsReply.DB=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.ListDBsReply.DB}
+ */
+proto.threads.pb.ListDBsReply.prototype.addDbs = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.threads.pb.ListDBsReply.DB, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.ListDBsReply} returns this
+ */
+proto.threads.pb.ListDBsReply.prototype.clearDbsList = function() {
+  return this.setDbsList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.GetDBInfoRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.GetDBInfoRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.GetDBInfoRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetDBInfoRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.GetDBInfoRequest}
+ */
+proto.threads.pb.GetDBInfoRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.GetDBInfoRequest;
+  return proto.threads.pb.GetDBInfoRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.GetDBInfoRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.GetDBInfoRequest}
+ */
+proto.threads.pb.GetDBInfoRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetDBInfoRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.GetDBInfoRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.GetDBInfoRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetDBInfoRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.GetDBInfoRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.GetDBInfoRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetDBInfoRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.GetDBInfoRequest} returns this
+ */
+proto.threads.pb.GetDBInfoRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.GetDBInfoReply.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.GetDBInfoReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.GetDBInfoReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetDBInfoReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    addrsList: msg.getAddrsList_asB64(),
+    key: msg.getKey_asB64(),
+    name: jspb.Message.getFieldWithDefault(msg, 3, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.GetDBInfoReply}
+ */
+proto.threads.pb.GetDBInfoReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.GetDBInfoReply;
+  return proto.threads.pb.GetDBInfoReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.GetDBInfoReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.GetDBInfoReply}
+ */
+proto.threads.pb.GetDBInfoReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.addAddrs(value);
+      break;
+    case 2:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setKey(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.GetDBInfoReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.GetDBInfoReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetDBInfoReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getAddrsList_asU8();
+  if (f.length > 0) {
+    writer.writeRepeatedBytes(
+      1,
+      f
+    );
+  }
+  f = message.getKey_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      2,
+      f
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated bytes addrs = 1;
+ * @return {!(Array<!Uint8Array>|Array<string>)}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getAddrsList = function() {
+  return /** @type {!(Array<!Uint8Array>|Array<string>)} */ (jspb.Message.getRepeatedField(this, 1));
+};
+
+
+/**
+ * repeated bytes addrs = 1;
+ * This is a type-conversion wrapper around `getAddrsList()`
+ * @return {!Array<string>}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getAddrsList_asB64 = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.bytesListAsB64(
+      this.getAddrsList()));
+};
+
+
+/**
+ * repeated bytes addrs = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getAddrsList()`
+ * @return {!Array<!Uint8Array>}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getAddrsList_asU8 = function() {
+  return /** @type {!Array<!Uint8Array>} */ (jspb.Message.bytesListAsU8(
+      this.getAddrsList()));
+};
+
+
+/**
+ * @param {!(Array<!Uint8Array>|Array<string>)} value
+ * @return {!proto.threads.pb.GetDBInfoReply} returns this
+ */
+proto.threads.pb.GetDBInfoReply.prototype.setAddrsList = function(value) {
+  return jspb.Message.setField(this, 1, value || []);
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.GetDBInfoReply} returns this
+ */
+proto.threads.pb.GetDBInfoReply.prototype.addAddrs = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.GetDBInfoReply} returns this
+ */
+proto.threads.pb.GetDBInfoReply.prototype.clearAddrsList = function() {
+  return this.setAddrsList([]);
+};
+
+
+/**
+ * optional bytes key = 2;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getKey = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * optional bytes key = 2;
+ * This is a type-conversion wrapper around `getKey()`
+ * @return {string}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getKey_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getKey()));
+};
+
+
+/**
+ * optional bytes key = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getKey()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getKey_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getKey()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.GetDBInfoReply} returns this
+ */
+proto.threads.pb.GetDBInfoReply.prototype.setKey = function(value) {
+  return jspb.Message.setProto3BytesField(this, 2, value);
+};
+
+
+/**
+ * optional string name = 3;
+ * @return {string}
+ */
+proto.threads.pb.GetDBInfoReply.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.GetDBInfoReply} returns this
+ */
+proto.threads.pb.GetDBInfoReply.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.DeleteDBRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.DeleteDBRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.DeleteDBRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteDBRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.DeleteDBRequest}
+ */
+proto.threads.pb.DeleteDBRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.DeleteDBRequest;
+  return proto.threads.pb.DeleteDBRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.DeleteDBRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.DeleteDBRequest}
+ */
+proto.threads.pb.DeleteDBRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteDBRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.DeleteDBRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.DeleteDBRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteDBRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.DeleteDBRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.DeleteDBRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteDBRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.DeleteDBRequest} returns this
+ */
+proto.threads.pb.DeleteDBRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.DeleteDBReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.DeleteDBReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.DeleteDBReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteDBReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.DeleteDBReply}
+ */
+proto.threads.pb.DeleteDBReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.DeleteDBReply;
+  return proto.threads.pb.DeleteDBReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.DeleteDBReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.DeleteDBReply}
+ */
+proto.threads.pb.DeleteDBReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteDBReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.DeleteDBReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.DeleteDBReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteDBReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.NewCollectionRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.NewCollectionRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewCollectionRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    config: (f = msg.getConfig()) && proto.threads.pb.CollectionConfig.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.NewCollectionRequest}
+ */
+proto.threads.pb.NewCollectionRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.NewCollectionRequest;
+  return proto.threads.pb.NewCollectionRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.NewCollectionRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.NewCollectionRequest}
+ */
+proto.threads.pb.NewCollectionRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.CollectionConfig;
+      reader.readMessage(value,proto.threads.pb.CollectionConfig.deserializeBinaryFromReader);
+      msg.setConfig(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.NewCollectionRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.NewCollectionRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewCollectionRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getConfig();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.CollectionConfig.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.NewCollectionRequest} returns this
+ */
+proto.threads.pb.NewCollectionRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional CollectionConfig config = 2;
+ * @return {?proto.threads.pb.CollectionConfig}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.getConfig = function() {
+  return /** @type{?proto.threads.pb.CollectionConfig} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.CollectionConfig, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.CollectionConfig|undefined} value
+ * @return {!proto.threads.pb.NewCollectionRequest} returns this
+*/
+proto.threads.pb.NewCollectionRequest.prototype.setConfig = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.NewCollectionRequest} returns this
+ */
+proto.threads.pb.NewCollectionRequest.prototype.clearConfig = function() {
+  return this.setConfig(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.NewCollectionRequest.prototype.hasConfig = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.NewCollectionReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.NewCollectionReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.NewCollectionReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewCollectionReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.NewCollectionReply}
+ */
+proto.threads.pb.NewCollectionReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.NewCollectionReply;
+  return proto.threads.pb.NewCollectionReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.NewCollectionReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.NewCollectionReply}
+ */
+proto.threads.pb.NewCollectionReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.NewCollectionReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.NewCollectionReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.NewCollectionReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.NewCollectionReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.UpdateCollectionRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.UpdateCollectionRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.UpdateCollectionRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    config: (f = msg.getConfig()) && proto.threads.pb.CollectionConfig.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.UpdateCollectionRequest}
+ */
+proto.threads.pb.UpdateCollectionRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.UpdateCollectionRequest;
+  return proto.threads.pb.UpdateCollectionRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.UpdateCollectionRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.UpdateCollectionRequest}
+ */
+proto.threads.pb.UpdateCollectionRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.CollectionConfig;
+      reader.readMessage(value,proto.threads.pb.CollectionConfig.deserializeBinaryFromReader);
+      msg.setConfig(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.UpdateCollectionRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.UpdateCollectionRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.UpdateCollectionRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getConfig();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.CollectionConfig.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.UpdateCollectionRequest} returns this
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional CollectionConfig config = 2;
+ * @return {?proto.threads.pb.CollectionConfig}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.getConfig = function() {
+  return /** @type{?proto.threads.pb.CollectionConfig} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.CollectionConfig, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.CollectionConfig|undefined} value
+ * @return {!proto.threads.pb.UpdateCollectionRequest} returns this
+*/
+proto.threads.pb.UpdateCollectionRequest.prototype.setConfig = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.UpdateCollectionRequest} returns this
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.clearConfig = function() {
+  return this.setConfig(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.UpdateCollectionRequest.prototype.hasConfig = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.UpdateCollectionReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.UpdateCollectionReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.UpdateCollectionReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.UpdateCollectionReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.UpdateCollectionReply}
+ */
+proto.threads.pb.UpdateCollectionReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.UpdateCollectionReply;
+  return proto.threads.pb.UpdateCollectionReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.UpdateCollectionReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.UpdateCollectionReply}
+ */
+proto.threads.pb.UpdateCollectionReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.UpdateCollectionReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.UpdateCollectionReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.UpdateCollectionReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.UpdateCollectionReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.DeleteCollectionRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.DeleteCollectionRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteCollectionRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    name: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.DeleteCollectionRequest}
+ */
+proto.threads.pb.DeleteCollectionRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.DeleteCollectionRequest;
+  return proto.threads.pb.DeleteCollectionRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.DeleteCollectionRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.DeleteCollectionRequest}
+ */
+proto.threads.pb.DeleteCollectionRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.DeleteCollectionRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.DeleteCollectionRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteCollectionRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.DeleteCollectionRequest} returns this
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string name = 2;
+ * @return {string}
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.DeleteCollectionRequest} returns this
+ */
+proto.threads.pb.DeleteCollectionRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.DeleteCollectionReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.DeleteCollectionReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.DeleteCollectionReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteCollectionReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.DeleteCollectionReply}
+ */
+proto.threads.pb.DeleteCollectionReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.DeleteCollectionReply;
+  return proto.threads.pb.DeleteCollectionReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.DeleteCollectionReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.DeleteCollectionReply}
+ */
+proto.threads.pb.DeleteCollectionReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteCollectionReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.DeleteCollectionReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.DeleteCollectionReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteCollectionReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.GetCollectionIndexesRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.GetCollectionIndexesRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetCollectionIndexesRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    name: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.GetCollectionIndexesRequest}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.GetCollectionIndexesRequest;
+  return proto.threads.pb.GetCollectionIndexesRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.GetCollectionIndexesRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.GetCollectionIndexesRequest}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.GetCollectionIndexesRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.GetCollectionIndexesRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetCollectionIndexesRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.GetCollectionIndexesRequest} returns this
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string name = 2;
+ * @return {string}
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.GetCollectionIndexesRequest} returns this
+ */
+proto.threads.pb.GetCollectionIndexesRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.GetCollectionIndexesReply.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.GetCollectionIndexesReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.GetCollectionIndexesReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.GetCollectionIndexesReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetCollectionIndexesReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    indexesList: jspb.Message.toObjectList(msg.getIndexesList(),
+    proto.threads.pb.Index.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.GetCollectionIndexesReply}
+ */
+proto.threads.pb.GetCollectionIndexesReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.GetCollectionIndexesReply;
+  return proto.threads.pb.GetCollectionIndexesReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.GetCollectionIndexesReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.GetCollectionIndexesReply}
+ */
+proto.threads.pb.GetCollectionIndexesReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.threads.pb.Index;
+      reader.readMessage(value,proto.threads.pb.Index.deserializeBinaryFromReader);
+      msg.addIndexes(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.GetCollectionIndexesReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.GetCollectionIndexesReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.GetCollectionIndexesReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.GetCollectionIndexesReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getIndexesList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.threads.pb.Index.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * repeated Index indexes = 1;
+ * @return {!Array<!proto.threads.pb.Index>}
+ */
+proto.threads.pb.GetCollectionIndexesReply.prototype.getIndexesList = function() {
+  return /** @type{!Array<!proto.threads.pb.Index>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.threads.pb.Index, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.threads.pb.Index>} value
+ * @return {!proto.threads.pb.GetCollectionIndexesReply} returns this
+*/
+proto.threads.pb.GetCollectionIndexesReply.prototype.setIndexesList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.threads.pb.Index=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.Index}
+ */
+proto.threads.pb.GetCollectionIndexesReply.prototype.addIndexes = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.threads.pb.Index, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.GetCollectionIndexesReply} returns this
+ */
+proto.threads.pb.GetCollectionIndexesReply.prototype.clearIndexesList = function() {
+  return this.setIndexesList([]);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.CreateRequest.repeatedFields_ = [3];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.CreateRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.CreateRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.CreateRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.CreateRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    instancesList: msg.getInstancesList_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.CreateRequest}
+ */
+proto.threads.pb.CreateRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.CreateRequest;
+  return proto.threads.pb.CreateRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.CreateRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.CreateRequest}
+ */
+proto.threads.pb.CreateRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 3:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.addInstances(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.CreateRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.CreateRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.CreateRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.CreateRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getInstancesList_asU8();
+  if (f.length > 0) {
+    writer.writeRepeatedBytes(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.CreateRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.CreateRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.CreateRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.CreateRequest} returns this
+ */
+proto.threads.pb.CreateRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.CreateRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.CreateRequest} returns this
+ */
+proto.threads.pb.CreateRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * repeated bytes instances = 3;
+ * @return {!(Array<!Uint8Array>|Array<string>)}
+ */
+proto.threads.pb.CreateRequest.prototype.getInstancesList = function() {
+  return /** @type {!(Array<!Uint8Array>|Array<string>)} */ (jspb.Message.getRepeatedField(this, 3));
+};
+
+
+/**
+ * repeated bytes instances = 3;
+ * This is a type-conversion wrapper around `getInstancesList()`
+ * @return {!Array<string>}
+ */
+proto.threads.pb.CreateRequest.prototype.getInstancesList_asB64 = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.bytesListAsB64(
+      this.getInstancesList()));
+};
+
+
+/**
+ * repeated bytes instances = 3;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getInstancesList()`
+ * @return {!Array<!Uint8Array>}
+ */
+proto.threads.pb.CreateRequest.prototype.getInstancesList_asU8 = function() {
+  return /** @type {!Array<!Uint8Array>} */ (jspb.Message.bytesListAsU8(
+      this.getInstancesList()));
+};
+
+
+/**
+ * @param {!(Array<!Uint8Array>|Array<string>)} value
+ * @return {!proto.threads.pb.CreateRequest} returns this
+ */
+proto.threads.pb.CreateRequest.prototype.setInstancesList = function(value) {
+  return jspb.Message.setField(this, 3, value || []);
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.CreateRequest} returns this
+ */
+proto.threads.pb.CreateRequest.prototype.addInstances = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.CreateRequest} returns this
+ */
+proto.threads.pb.CreateRequest.prototype.clearInstancesList = function() {
+  return this.setInstancesList([]);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.CreateReply.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.CreateReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.CreateReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.CreateReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.CreateReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    instanceidsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.CreateReply}
+ */
+proto.threads.pb.CreateReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.CreateReply;
+  return proto.threads.pb.CreateReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.CreateReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.CreateReply}
+ */
+proto.threads.pb.CreateReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addInstanceids(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.CreateReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.CreateReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.CreateReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.CreateReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getInstanceidsList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated string instanceIDs = 1;
+ * @return {!Array<string>}
+ */
+proto.threads.pb.CreateReply.prototype.getInstanceidsList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.threads.pb.CreateReply} returns this
+ */
+proto.threads.pb.CreateReply.prototype.setInstanceidsList = function(value) {
+  return jspb.Message.setField(this, 1, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.CreateReply} returns this
+ */
+proto.threads.pb.CreateReply.prototype.addInstanceids = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.CreateReply} returns this
+ */
+proto.threads.pb.CreateReply.prototype.clearInstanceidsList = function() {
+  return this.setInstanceidsList([]);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.SaveRequest.repeatedFields_ = [3];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.SaveRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.SaveRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.SaveRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.SaveRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    instancesList: msg.getInstancesList_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.SaveRequest}
+ */
+proto.threads.pb.SaveRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.SaveRequest;
+  return proto.threads.pb.SaveRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.SaveRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.SaveRequest}
+ */
+proto.threads.pb.SaveRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 3:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.addInstances(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.SaveRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.SaveRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.SaveRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.SaveRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getInstancesList_asU8();
+  if (f.length > 0) {
+    writer.writeRepeatedBytes(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.SaveRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.SaveRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.SaveRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.SaveRequest} returns this
+ */
+proto.threads.pb.SaveRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.SaveRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.SaveRequest} returns this
+ */
+proto.threads.pb.SaveRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * repeated bytes instances = 3;
+ * @return {!(Array<!Uint8Array>|Array<string>)}
+ */
+proto.threads.pb.SaveRequest.prototype.getInstancesList = function() {
+  return /** @type {!(Array<!Uint8Array>|Array<string>)} */ (jspb.Message.getRepeatedField(this, 3));
+};
+
+
+/**
+ * repeated bytes instances = 3;
+ * This is a type-conversion wrapper around `getInstancesList()`
+ * @return {!Array<string>}
+ */
+proto.threads.pb.SaveRequest.prototype.getInstancesList_asB64 = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.bytesListAsB64(
+      this.getInstancesList()));
+};
+
+
+/**
+ * repeated bytes instances = 3;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getInstancesList()`
+ * @return {!Array<!Uint8Array>}
+ */
+proto.threads.pb.SaveRequest.prototype.getInstancesList_asU8 = function() {
+  return /** @type {!Array<!Uint8Array>} */ (jspb.Message.bytesListAsU8(
+      this.getInstancesList()));
+};
+
+
+/**
+ * @param {!(Array<!Uint8Array>|Array<string>)} value
+ * @return {!proto.threads.pb.SaveRequest} returns this
+ */
+proto.threads.pb.SaveRequest.prototype.setInstancesList = function(value) {
+  return jspb.Message.setField(this, 3, value || []);
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.SaveRequest} returns this
+ */
+proto.threads.pb.SaveRequest.prototype.addInstances = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.SaveRequest} returns this
+ */
+proto.threads.pb.SaveRequest.prototype.clearInstancesList = function() {
+  return this.setInstancesList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.SaveReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.SaveReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.SaveReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.SaveReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.SaveReply}
+ */
+proto.threads.pb.SaveReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.SaveReply;
+  return proto.threads.pb.SaveReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.SaveReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.SaveReply}
+ */
+proto.threads.pb.SaveReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.SaveReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.SaveReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.SaveReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.SaveReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.DeleteRequest.repeatedFields_ = [3];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.DeleteRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.DeleteRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.DeleteRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    instanceidsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.DeleteRequest}
+ */
+proto.threads.pb.DeleteRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.DeleteRequest;
+  return proto.threads.pb.DeleteRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.DeleteRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.DeleteRequest}
+ */
+proto.threads.pb.DeleteRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addInstanceids(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.DeleteRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.DeleteRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getInstanceidsList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.DeleteRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.DeleteRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.DeleteRequest} returns this
+ */
+proto.threads.pb.DeleteRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.DeleteRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.DeleteRequest} returns this
+ */
+proto.threads.pb.DeleteRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * repeated string instanceIDs = 3;
+ * @return {!Array<string>}
+ */
+proto.threads.pb.DeleteRequest.prototype.getInstanceidsList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.threads.pb.DeleteRequest} returns this
+ */
+proto.threads.pb.DeleteRequest.prototype.setInstanceidsList = function(value) {
+  return jspb.Message.setField(this, 3, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.DeleteRequest} returns this
+ */
+proto.threads.pb.DeleteRequest.prototype.addInstanceids = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.DeleteRequest} returns this
+ */
+proto.threads.pb.DeleteRequest.prototype.clearInstanceidsList = function() {
+  return this.setInstanceidsList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.DeleteReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.DeleteReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.DeleteReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.DeleteReply}
+ */
+proto.threads.pb.DeleteReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.DeleteReply;
+  return proto.threads.pb.DeleteReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.DeleteReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.DeleteReply}
+ */
+proto.threads.pb.DeleteReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.DeleteReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.DeleteReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.DeleteReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.DeleteReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.HasRequest.repeatedFields_ = [3];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.HasRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.HasRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.HasRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.HasRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    instanceidsList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.HasRequest}
+ */
+proto.threads.pb.HasRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.HasRequest;
+  return proto.threads.pb.HasRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.HasRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.HasRequest}
+ */
+proto.threads.pb.HasRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addInstanceids(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.HasRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.HasRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.HasRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.HasRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getInstanceidsList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.HasRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.HasRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.HasRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.HasRequest} returns this
+ */
+proto.threads.pb.HasRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.HasRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.HasRequest} returns this
+ */
+proto.threads.pb.HasRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * repeated string instanceIDs = 3;
+ * @return {!Array<string>}
+ */
+proto.threads.pb.HasRequest.prototype.getInstanceidsList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.threads.pb.HasRequest} returns this
+ */
+proto.threads.pb.HasRequest.prototype.setInstanceidsList = function(value) {
+  return jspb.Message.setField(this, 3, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.HasRequest} returns this
+ */
+proto.threads.pb.HasRequest.prototype.addInstanceids = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.HasRequest} returns this
+ */
+proto.threads.pb.HasRequest.prototype.clearInstanceidsList = function() {
+  return this.setInstanceidsList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.HasReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.HasReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.HasReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.HasReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    exists: jspb.Message.getBooleanFieldWithDefault(msg, 1, false)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.HasReply}
+ */
+proto.threads.pb.HasReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.HasReply;
+  return proto.threads.pb.HasReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.HasReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.HasReply}
+ */
+proto.threads.pb.HasReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setExists(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.HasReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.HasReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.HasReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.HasReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getExists();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool exists = 1;
+ * @return {boolean}
+ */
+proto.threads.pb.HasReply.prototype.getExists = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.threads.pb.HasReply} returns this
+ */
+proto.threads.pb.HasReply.prototype.setExists = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.FindRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.FindRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.FindRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    queryjson: msg.getQueryjson_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.FindRequest}
+ */
+proto.threads.pb.FindRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.FindRequest;
+  return proto.threads.pb.FindRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.FindRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.FindRequest}
+ */
+proto.threads.pb.FindRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 3:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setQueryjson(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.FindRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.FindRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getQueryjson_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.FindRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.FindRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.FindRequest} returns this
+ */
+proto.threads.pb.FindRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.FindRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.FindRequest} returns this
+ */
+proto.threads.pb.FindRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional bytes queryJSON = 3;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.FindRequest.prototype.getQueryjson = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * optional bytes queryJSON = 3;
+ * This is a type-conversion wrapper around `getQueryjson()`
+ * @return {string}
+ */
+proto.threads.pb.FindRequest.prototype.getQueryjson_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getQueryjson()));
+};
+
+
+/**
+ * optional bytes queryJSON = 3;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getQueryjson()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindRequest.prototype.getQueryjson_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getQueryjson()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.FindRequest} returns this
+ */
+proto.threads.pb.FindRequest.prototype.setQueryjson = function(value) {
+  return jspb.Message.setProto3BytesField(this, 3, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.FindReply.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.FindReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.FindReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.FindReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    instancesList: msg.getInstancesList_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.FindReply}
+ */
+proto.threads.pb.FindReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.FindReply;
+  return proto.threads.pb.FindReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.FindReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.FindReply}
+ */
+proto.threads.pb.FindReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.addInstances(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.FindReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.FindReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getInstancesList_asU8();
+  if (f.length > 0) {
+    writer.writeRepeatedBytes(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated bytes instances = 1;
+ * @return {!(Array<!Uint8Array>|Array<string>)}
+ */
+proto.threads.pb.FindReply.prototype.getInstancesList = function() {
+  return /** @type {!(Array<!Uint8Array>|Array<string>)} */ (jspb.Message.getRepeatedField(this, 1));
+};
+
+
+/**
+ * repeated bytes instances = 1;
+ * This is a type-conversion wrapper around `getInstancesList()`
+ * @return {!Array<string>}
+ */
+proto.threads.pb.FindReply.prototype.getInstancesList_asB64 = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.bytesListAsB64(
+      this.getInstancesList()));
+};
+
+
+/**
+ * repeated bytes instances = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getInstancesList()`
+ * @return {!Array<!Uint8Array>}
+ */
+proto.threads.pb.FindReply.prototype.getInstancesList_asU8 = function() {
+  return /** @type {!Array<!Uint8Array>} */ (jspb.Message.bytesListAsU8(
+      this.getInstancesList()));
+};
+
+
+/**
+ * @param {!(Array<!Uint8Array>|Array<string>)} value
+ * @return {!proto.threads.pb.FindReply} returns this
+ */
+proto.threads.pb.FindReply.prototype.setInstancesList = function(value) {
+  return jspb.Message.setField(this, 1, value || []);
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.FindReply} returns this
+ */
+proto.threads.pb.FindReply.prototype.addInstances = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.FindReply} returns this
+ */
+proto.threads.pb.FindReply.prototype.clearInstancesList = function() {
+  return this.setInstancesList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.FindByIDRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.FindByIDRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.FindByIDRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindByIDRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    instanceid: jspb.Message.getFieldWithDefault(msg, 3, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.FindByIDRequest}
+ */
+proto.threads.pb.FindByIDRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.FindByIDRequest;
+  return proto.threads.pb.FindByIDRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.FindByIDRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.FindByIDRequest}
+ */
+proto.threads.pb.FindByIDRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setInstanceid(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindByIDRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.FindByIDRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.FindByIDRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindByIDRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getInstanceid();
+  if (f.length > 0) {
+    writer.writeString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.FindByIDRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.FindByIDRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindByIDRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.FindByIDRequest} returns this
+ */
+proto.threads.pb.FindByIDRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.FindByIDRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.FindByIDRequest} returns this
+ */
+proto.threads.pb.FindByIDRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional string instanceID = 3;
+ * @return {string}
+ */
+proto.threads.pb.FindByIDRequest.prototype.getInstanceid = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.FindByIDRequest} returns this
+ */
+proto.threads.pb.FindByIDRequest.prototype.setInstanceid = function(value) {
+  return jspb.Message.setProto3StringField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.FindByIDReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.FindByIDReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.FindByIDReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindByIDReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    instance: msg.getInstance_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.FindByIDReply}
+ */
+proto.threads.pb.FindByIDReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.FindByIDReply;
+  return proto.threads.pb.FindByIDReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.FindByIDReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.FindByIDReply}
+ */
+proto.threads.pb.FindByIDReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setInstance(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindByIDReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.FindByIDReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.FindByIDReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.FindByIDReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getInstance_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes instance = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.FindByIDReply.prototype.getInstance = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes instance = 1;
+ * This is a type-conversion wrapper around `getInstance()`
+ * @return {string}
+ */
+proto.threads.pb.FindByIDReply.prototype.getInstance_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getInstance()));
+};
+
+
+/**
+ * optional bytes instance = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getInstance()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.FindByIDReply.prototype.getInstance_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getInstance()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.FindByIDReply} returns this
+ */
+proto.threads.pb.FindByIDReply.prototype.setInstance = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.StartTransactionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.StartTransactionRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.StartTransactionRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.StartTransactionRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    collectionname: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.StartTransactionRequest}
+ */
+proto.threads.pb.StartTransactionRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.StartTransactionRequest;
+  return proto.threads.pb.StartTransactionRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.StartTransactionRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.StartTransactionRequest}
+ */
+proto.threads.pb.StartTransactionRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.StartTransactionRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.StartTransactionRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.StartTransactionRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.StartTransactionRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.StartTransactionRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.StartTransactionRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.StartTransactionRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.StartTransactionRequest} returns this
+ */
+proto.threads.pb.StartTransactionRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string collectionName = 2;
+ * @return {string}
+ */
+proto.threads.pb.StartTransactionRequest.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.StartTransactionRequest} returns this
+ */
+proto.threads.pb.StartTransactionRequest.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.threads.pb.ReadTransactionRequest.oneofGroups_ = [[1,2,3,4]];
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.ReadTransactionRequest.OptionCase = {
+  OPTION_NOT_SET: 0,
+  STARTTRANSACTIONREQUEST: 1,
+  HASREQUEST: 2,
+  FINDREQUEST: 3,
+  FINDBYIDREQUEST: 4
+};
+
+/**
+ * @return {proto.threads.pb.ReadTransactionRequest.OptionCase}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.getOptionCase = function() {
+  return /** @type {proto.threads.pb.ReadTransactionRequest.OptionCase} */(jspb.Message.computeOneofCase(this, proto.threads.pb.ReadTransactionRequest.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ReadTransactionRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ReadTransactionRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ReadTransactionRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    starttransactionrequest: (f = msg.getStarttransactionrequest()) && proto.threads.pb.StartTransactionRequest.toObject(includeInstance, f),
+    hasrequest: (f = msg.getHasrequest()) && proto.threads.pb.HasRequest.toObject(includeInstance, f),
+    findrequest: (f = msg.getFindrequest()) && proto.threads.pb.FindRequest.toObject(includeInstance, f),
+    findbyidrequest: (f = msg.getFindbyidrequest()) && proto.threads.pb.FindByIDRequest.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ReadTransactionRequest}
+ */
+proto.threads.pb.ReadTransactionRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ReadTransactionRequest;
+  return proto.threads.pb.ReadTransactionRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ReadTransactionRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ReadTransactionRequest}
+ */
+proto.threads.pb.ReadTransactionRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.threads.pb.StartTransactionRequest;
+      reader.readMessage(value,proto.threads.pb.StartTransactionRequest.deserializeBinaryFromReader);
+      msg.setStarttransactionrequest(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.HasRequest;
+      reader.readMessage(value,proto.threads.pb.HasRequest.deserializeBinaryFromReader);
+      msg.setHasrequest(value);
+      break;
+    case 3:
+      var value = new proto.threads.pb.FindRequest;
+      reader.readMessage(value,proto.threads.pb.FindRequest.deserializeBinaryFromReader);
+      msg.setFindrequest(value);
+      break;
+    case 4:
+      var value = new proto.threads.pb.FindByIDRequest;
+      reader.readMessage(value,proto.threads.pb.FindByIDRequest.deserializeBinaryFromReader);
+      msg.setFindbyidrequest(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ReadTransactionRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ReadTransactionRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ReadTransactionRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStarttransactionrequest();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.threads.pb.StartTransactionRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getHasrequest();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.HasRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindrequest();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.threads.pb.FindRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindbyidrequest();
+  if (f != null) {
+    writer.writeMessage(
+      4,
+      f,
+      proto.threads.pb.FindByIDRequest.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional StartTransactionRequest startTransactionRequest = 1;
+ * @return {?proto.threads.pb.StartTransactionRequest}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.getStarttransactionrequest = function() {
+  return /** @type{?proto.threads.pb.StartTransactionRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.StartTransactionRequest, 1));
+};
+
+
+/**
+ * @param {?proto.threads.pb.StartTransactionRequest|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+*/
+proto.threads.pb.ReadTransactionRequest.prototype.setStarttransactionrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.threads.pb.ReadTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.clearStarttransactionrequest = function() {
+  return this.setStarttransactionrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.hasStarttransactionrequest = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional HasRequest hasRequest = 2;
+ * @return {?proto.threads.pb.HasRequest}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.getHasrequest = function() {
+  return /** @type{?proto.threads.pb.HasRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.HasRequest, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.HasRequest|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+*/
+proto.threads.pb.ReadTransactionRequest.prototype.setHasrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.threads.pb.ReadTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.clearHasrequest = function() {
+  return this.setHasrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.hasHasrequest = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional FindRequest findRequest = 3;
+ * @return {?proto.threads.pb.FindRequest}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.getFindrequest = function() {
+  return /** @type{?proto.threads.pb.FindRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindRequest, 3));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindRequest|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+*/
+proto.threads.pb.ReadTransactionRequest.prototype.setFindrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 3, proto.threads.pb.ReadTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.clearFindrequest = function() {
+  return this.setFindrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.hasFindrequest = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional FindByIDRequest findByIDRequest = 4;
+ * @return {?proto.threads.pb.FindByIDRequest}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.getFindbyidrequest = function() {
+  return /** @type{?proto.threads.pb.FindByIDRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindByIDRequest, 4));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindByIDRequest|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+*/
+proto.threads.pb.ReadTransactionRequest.prototype.setFindbyidrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 4, proto.threads.pb.ReadTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionRequest} returns this
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.clearFindbyidrequest = function() {
+  return this.setFindbyidrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionRequest.prototype.hasFindbyidrequest = function() {
+  return jspb.Message.getField(this, 4) != null;
+};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.threads.pb.ReadTransactionReply.oneofGroups_ = [[1,2,3]];
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.ReadTransactionReply.OptionCase = {
+  OPTION_NOT_SET: 0,
+  HASREPLY: 1,
+  FINDREPLY: 2,
+  FINDBYIDREPLY: 3
+};
+
+/**
+ * @return {proto.threads.pb.ReadTransactionReply.OptionCase}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.getOptionCase = function() {
+  return /** @type {proto.threads.pb.ReadTransactionReply.OptionCase} */(jspb.Message.computeOneofCase(this, proto.threads.pb.ReadTransactionReply.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ReadTransactionReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ReadTransactionReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ReadTransactionReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    hasreply: (f = msg.getHasreply()) && proto.threads.pb.HasReply.toObject(includeInstance, f),
+    findreply: (f = msg.getFindreply()) && proto.threads.pb.FindReply.toObject(includeInstance, f),
+    findbyidreply: (f = msg.getFindbyidreply()) && proto.threads.pb.FindByIDReply.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ReadTransactionReply}
+ */
+proto.threads.pb.ReadTransactionReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ReadTransactionReply;
+  return proto.threads.pb.ReadTransactionReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ReadTransactionReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ReadTransactionReply}
+ */
+proto.threads.pb.ReadTransactionReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.threads.pb.HasReply;
+      reader.readMessage(value,proto.threads.pb.HasReply.deserializeBinaryFromReader);
+      msg.setHasreply(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.FindReply;
+      reader.readMessage(value,proto.threads.pb.FindReply.deserializeBinaryFromReader);
+      msg.setFindreply(value);
+      break;
+    case 3:
+      var value = new proto.threads.pb.FindByIDReply;
+      reader.readMessage(value,proto.threads.pb.FindByIDReply.deserializeBinaryFromReader);
+      msg.setFindbyidreply(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ReadTransactionReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ReadTransactionReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ReadTransactionReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getHasreply();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.threads.pb.HasReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindreply();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.FindReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindbyidreply();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.threads.pb.FindByIDReply.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional HasReply hasReply = 1;
+ * @return {?proto.threads.pb.HasReply}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.getHasreply = function() {
+  return /** @type{?proto.threads.pb.HasReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.HasReply, 1));
+};
+
+
+/**
+ * @param {?proto.threads.pb.HasReply|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionReply} returns this
+*/
+proto.threads.pb.ReadTransactionReply.prototype.setHasreply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.threads.pb.ReadTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionReply} returns this
+ */
+proto.threads.pb.ReadTransactionReply.prototype.clearHasreply = function() {
+  return this.setHasreply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.hasHasreply = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional FindReply findReply = 2;
+ * @return {?proto.threads.pb.FindReply}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.getFindreply = function() {
+  return /** @type{?proto.threads.pb.FindReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindReply, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindReply|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionReply} returns this
+*/
+proto.threads.pb.ReadTransactionReply.prototype.setFindreply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.threads.pb.ReadTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionReply} returns this
+ */
+proto.threads.pb.ReadTransactionReply.prototype.clearFindreply = function() {
+  return this.setFindreply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.hasFindreply = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional FindByIDReply findByIDReply = 3;
+ * @return {?proto.threads.pb.FindByIDReply}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.getFindbyidreply = function() {
+  return /** @type{?proto.threads.pb.FindByIDReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindByIDReply, 3));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindByIDReply|undefined} value
+ * @return {!proto.threads.pb.ReadTransactionReply} returns this
+*/
+proto.threads.pb.ReadTransactionReply.prototype.setFindbyidreply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 3, proto.threads.pb.ReadTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.ReadTransactionReply} returns this
+ */
+proto.threads.pb.ReadTransactionReply.prototype.clearFindbyidreply = function() {
+  return this.setFindbyidreply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.ReadTransactionReply.prototype.hasFindbyidreply = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.threads.pb.WriteTransactionRequest.oneofGroups_ = [[1,2,3,4,5,6,7]];
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.WriteTransactionRequest.OptionCase = {
+  OPTION_NOT_SET: 0,
+  STARTTRANSACTIONREQUEST: 1,
+  CREATEREQUEST: 2,
+  SAVEREQUEST: 3,
+  DELETEREQUEST: 4,
+  HASREQUEST: 5,
+  FINDREQUEST: 6,
+  FINDBYIDREQUEST: 7
+};
+
+/**
+ * @return {proto.threads.pb.WriteTransactionRequest.OptionCase}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getOptionCase = function() {
+  return /** @type {proto.threads.pb.WriteTransactionRequest.OptionCase} */(jspb.Message.computeOneofCase(this, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.WriteTransactionRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.WriteTransactionRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.WriteTransactionRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    starttransactionrequest: (f = msg.getStarttransactionrequest()) && proto.threads.pb.StartTransactionRequest.toObject(includeInstance, f),
+    createrequest: (f = msg.getCreaterequest()) && proto.threads.pb.CreateRequest.toObject(includeInstance, f),
+    saverequest: (f = msg.getSaverequest()) && proto.threads.pb.SaveRequest.toObject(includeInstance, f),
+    deleterequest: (f = msg.getDeleterequest()) && proto.threads.pb.DeleteRequest.toObject(includeInstance, f),
+    hasrequest: (f = msg.getHasrequest()) && proto.threads.pb.HasRequest.toObject(includeInstance, f),
+    findrequest: (f = msg.getFindrequest()) && proto.threads.pb.FindRequest.toObject(includeInstance, f),
+    findbyidrequest: (f = msg.getFindbyidrequest()) && proto.threads.pb.FindByIDRequest.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.WriteTransactionRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.WriteTransactionRequest;
+  return proto.threads.pb.WriteTransactionRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.WriteTransactionRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.WriteTransactionRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.threads.pb.StartTransactionRequest;
+      reader.readMessage(value,proto.threads.pb.StartTransactionRequest.deserializeBinaryFromReader);
+      msg.setStarttransactionrequest(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.CreateRequest;
+      reader.readMessage(value,proto.threads.pb.CreateRequest.deserializeBinaryFromReader);
+      msg.setCreaterequest(value);
+      break;
+    case 3:
+      var value = new proto.threads.pb.SaveRequest;
+      reader.readMessage(value,proto.threads.pb.SaveRequest.deserializeBinaryFromReader);
+      msg.setSaverequest(value);
+      break;
+    case 4:
+      var value = new proto.threads.pb.DeleteRequest;
+      reader.readMessage(value,proto.threads.pb.DeleteRequest.deserializeBinaryFromReader);
+      msg.setDeleterequest(value);
+      break;
+    case 5:
+      var value = new proto.threads.pb.HasRequest;
+      reader.readMessage(value,proto.threads.pb.HasRequest.deserializeBinaryFromReader);
+      msg.setHasrequest(value);
+      break;
+    case 6:
+      var value = new proto.threads.pb.FindRequest;
+      reader.readMessage(value,proto.threads.pb.FindRequest.deserializeBinaryFromReader);
+      msg.setFindrequest(value);
+      break;
+    case 7:
+      var value = new proto.threads.pb.FindByIDRequest;
+      reader.readMessage(value,proto.threads.pb.FindByIDRequest.deserializeBinaryFromReader);
+      msg.setFindbyidrequest(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.WriteTransactionRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.WriteTransactionRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.WriteTransactionRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStarttransactionrequest();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.threads.pb.StartTransactionRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getCreaterequest();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.CreateRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getSaverequest();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.threads.pb.SaveRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getDeleterequest();
+  if (f != null) {
+    writer.writeMessage(
+      4,
+      f,
+      proto.threads.pb.DeleteRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getHasrequest();
+  if (f != null) {
+    writer.writeMessage(
+      5,
+      f,
+      proto.threads.pb.HasRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindrequest();
+  if (f != null) {
+    writer.writeMessage(
+      6,
+      f,
+      proto.threads.pb.FindRequest.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindbyidrequest();
+  if (f != null) {
+    writer.writeMessage(
+      7,
+      f,
+      proto.threads.pb.FindByIDRequest.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional StartTransactionRequest startTransactionRequest = 1;
+ * @return {?proto.threads.pb.StartTransactionRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getStarttransactionrequest = function() {
+  return /** @type{?proto.threads.pb.StartTransactionRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.StartTransactionRequest, 1));
+};
+
+
+/**
+ * @param {?proto.threads.pb.StartTransactionRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setStarttransactionrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearStarttransactionrequest = function() {
+  return this.setStarttransactionrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasStarttransactionrequest = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional CreateRequest createRequest = 2;
+ * @return {?proto.threads.pb.CreateRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getCreaterequest = function() {
+  return /** @type{?proto.threads.pb.CreateRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.CreateRequest, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.CreateRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setCreaterequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearCreaterequest = function() {
+  return this.setCreaterequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasCreaterequest = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional SaveRequest saveRequest = 3;
+ * @return {?proto.threads.pb.SaveRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getSaverequest = function() {
+  return /** @type{?proto.threads.pb.SaveRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.SaveRequest, 3));
+};
+
+
+/**
+ * @param {?proto.threads.pb.SaveRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setSaverequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 3, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearSaverequest = function() {
+  return this.setSaverequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasSaverequest = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional DeleteRequest deleteRequest = 4;
+ * @return {?proto.threads.pb.DeleteRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getDeleterequest = function() {
+  return /** @type{?proto.threads.pb.DeleteRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.DeleteRequest, 4));
+};
+
+
+/**
+ * @param {?proto.threads.pb.DeleteRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setDeleterequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 4, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearDeleterequest = function() {
+  return this.setDeleterequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasDeleterequest = function() {
+  return jspb.Message.getField(this, 4) != null;
+};
+
+
+/**
+ * optional HasRequest hasRequest = 5;
+ * @return {?proto.threads.pb.HasRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getHasrequest = function() {
+  return /** @type{?proto.threads.pb.HasRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.HasRequest, 5));
+};
+
+
+/**
+ * @param {?proto.threads.pb.HasRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setHasrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 5, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearHasrequest = function() {
+  return this.setHasrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasHasrequest = function() {
+  return jspb.Message.getField(this, 5) != null;
+};
+
+
+/**
+ * optional FindRequest findRequest = 6;
+ * @return {?proto.threads.pb.FindRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getFindrequest = function() {
+  return /** @type{?proto.threads.pb.FindRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindRequest, 6));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setFindrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 6, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearFindrequest = function() {
+  return this.setFindrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasFindrequest = function() {
+  return jspb.Message.getField(this, 6) != null;
+};
+
+
+/**
+ * optional FindByIDRequest findByIDRequest = 7;
+ * @return {?proto.threads.pb.FindByIDRequest}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.getFindbyidrequest = function() {
+  return /** @type{?proto.threads.pb.FindByIDRequest} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindByIDRequest, 7));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindByIDRequest|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+*/
+proto.threads.pb.WriteTransactionRequest.prototype.setFindbyidrequest = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 7, proto.threads.pb.WriteTransactionRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionRequest} returns this
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.clearFindbyidrequest = function() {
+  return this.setFindbyidrequest(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionRequest.prototype.hasFindbyidrequest = function() {
+  return jspb.Message.getField(this, 7) != null;
+};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.threads.pb.WriteTransactionReply.oneofGroups_ = [[1,2,3,4,5,6]];
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.WriteTransactionReply.OptionCase = {
+  OPTION_NOT_SET: 0,
+  CREATEREPLY: 1,
+  SAVEREPLY: 2,
+  DELETEREPLY: 3,
+  HASREPLY: 4,
+  FINDREPLY: 5,
+  FINDBYIDREPLY: 6
+};
+
+/**
+ * @return {proto.threads.pb.WriteTransactionReply.OptionCase}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getOptionCase = function() {
+  return /** @type {proto.threads.pb.WriteTransactionReply.OptionCase} */(jspb.Message.computeOneofCase(this, proto.threads.pb.WriteTransactionReply.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.WriteTransactionReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.WriteTransactionReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.WriteTransactionReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    createreply: (f = msg.getCreatereply()) && proto.threads.pb.CreateReply.toObject(includeInstance, f),
+    savereply: (f = msg.getSavereply()) && proto.threads.pb.SaveReply.toObject(includeInstance, f),
+    deletereply: (f = msg.getDeletereply()) && proto.threads.pb.DeleteReply.toObject(includeInstance, f),
+    hasreply: (f = msg.getHasreply()) && proto.threads.pb.HasReply.toObject(includeInstance, f),
+    findreply: (f = msg.getFindreply()) && proto.threads.pb.FindReply.toObject(includeInstance, f),
+    findbyidreply: (f = msg.getFindbyidreply()) && proto.threads.pb.FindByIDReply.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.WriteTransactionReply}
+ */
+proto.threads.pb.WriteTransactionReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.WriteTransactionReply;
+  return proto.threads.pb.WriteTransactionReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.WriteTransactionReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.WriteTransactionReply}
+ */
+proto.threads.pb.WriteTransactionReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.threads.pb.CreateReply;
+      reader.readMessage(value,proto.threads.pb.CreateReply.deserializeBinaryFromReader);
+      msg.setCreatereply(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.SaveReply;
+      reader.readMessage(value,proto.threads.pb.SaveReply.deserializeBinaryFromReader);
+      msg.setSavereply(value);
+      break;
+    case 3:
+      var value = new proto.threads.pb.DeleteReply;
+      reader.readMessage(value,proto.threads.pb.DeleteReply.deserializeBinaryFromReader);
+      msg.setDeletereply(value);
+      break;
+    case 4:
+      var value = new proto.threads.pb.HasReply;
+      reader.readMessage(value,proto.threads.pb.HasReply.deserializeBinaryFromReader);
+      msg.setHasreply(value);
+      break;
+    case 5:
+      var value = new proto.threads.pb.FindReply;
+      reader.readMessage(value,proto.threads.pb.FindReply.deserializeBinaryFromReader);
+      msg.setFindreply(value);
+      break;
+    case 6:
+      var value = new proto.threads.pb.FindByIDReply;
+      reader.readMessage(value,proto.threads.pb.FindByIDReply.deserializeBinaryFromReader);
+      msg.setFindbyidreply(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.WriteTransactionReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.WriteTransactionReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.WriteTransactionReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getCreatereply();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.threads.pb.CreateReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getSavereply();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.threads.pb.SaveReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getDeletereply();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.threads.pb.DeleteReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getHasreply();
+  if (f != null) {
+    writer.writeMessage(
+      4,
+      f,
+      proto.threads.pb.HasReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindreply();
+  if (f != null) {
+    writer.writeMessage(
+      5,
+      f,
+      proto.threads.pb.FindReply.serializeBinaryToWriter
+    );
+  }
+  f = message.getFindbyidreply();
+  if (f != null) {
+    writer.writeMessage(
+      6,
+      f,
+      proto.threads.pb.FindByIDReply.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional CreateReply createReply = 1;
+ * @return {?proto.threads.pb.CreateReply}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getCreatereply = function() {
+  return /** @type{?proto.threads.pb.CreateReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.CreateReply, 1));
+};
+
+
+/**
+ * @param {?proto.threads.pb.CreateReply|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+*/
+proto.threads.pb.WriteTransactionReply.prototype.setCreatereply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.threads.pb.WriteTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+ */
+proto.threads.pb.WriteTransactionReply.prototype.clearCreatereply = function() {
+  return this.setCreatereply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.hasCreatereply = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional SaveReply saveReply = 2;
+ * @return {?proto.threads.pb.SaveReply}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getSavereply = function() {
+  return /** @type{?proto.threads.pb.SaveReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.SaveReply, 2));
+};
+
+
+/**
+ * @param {?proto.threads.pb.SaveReply|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+*/
+proto.threads.pb.WriteTransactionReply.prototype.setSavereply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.threads.pb.WriteTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+ */
+proto.threads.pb.WriteTransactionReply.prototype.clearSavereply = function() {
+  return this.setSavereply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.hasSavereply = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional DeleteReply deleteReply = 3;
+ * @return {?proto.threads.pb.DeleteReply}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getDeletereply = function() {
+  return /** @type{?proto.threads.pb.DeleteReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.DeleteReply, 3));
+};
+
+
+/**
+ * @param {?proto.threads.pb.DeleteReply|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+*/
+proto.threads.pb.WriteTransactionReply.prototype.setDeletereply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 3, proto.threads.pb.WriteTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+ */
+proto.threads.pb.WriteTransactionReply.prototype.clearDeletereply = function() {
+  return this.setDeletereply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.hasDeletereply = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional HasReply hasReply = 4;
+ * @return {?proto.threads.pb.HasReply}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getHasreply = function() {
+  return /** @type{?proto.threads.pb.HasReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.HasReply, 4));
+};
+
+
+/**
+ * @param {?proto.threads.pb.HasReply|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+*/
+proto.threads.pb.WriteTransactionReply.prototype.setHasreply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 4, proto.threads.pb.WriteTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+ */
+proto.threads.pb.WriteTransactionReply.prototype.clearHasreply = function() {
+  return this.setHasreply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.hasHasreply = function() {
+  return jspb.Message.getField(this, 4) != null;
+};
+
+
+/**
+ * optional FindReply findReply = 5;
+ * @return {?proto.threads.pb.FindReply}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getFindreply = function() {
+  return /** @type{?proto.threads.pb.FindReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindReply, 5));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindReply|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+*/
+proto.threads.pb.WriteTransactionReply.prototype.setFindreply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 5, proto.threads.pb.WriteTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+ */
+proto.threads.pb.WriteTransactionReply.prototype.clearFindreply = function() {
+  return this.setFindreply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.hasFindreply = function() {
+  return jspb.Message.getField(this, 5) != null;
+};
+
+
+/**
+ * optional FindByIDReply findByIDReply = 6;
+ * @return {?proto.threads.pb.FindByIDReply}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.getFindbyidreply = function() {
+  return /** @type{?proto.threads.pb.FindByIDReply} */ (
+    jspb.Message.getWrapperField(this, proto.threads.pb.FindByIDReply, 6));
+};
+
+
+/**
+ * @param {?proto.threads.pb.FindByIDReply|undefined} value
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+*/
+proto.threads.pb.WriteTransactionReply.prototype.setFindbyidreply = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 6, proto.threads.pb.WriteTransactionReply.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.threads.pb.WriteTransactionReply} returns this
+ */
+proto.threads.pb.WriteTransactionReply.prototype.clearFindbyidreply = function() {
+  return this.setFindbyidreply(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.threads.pb.WriteTransactionReply.prototype.hasFindbyidreply = function() {
+  return jspb.Message.getField(this, 6) != null;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.threads.pb.ListenRequest.repeatedFields_ = [2];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ListenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ListenRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ListenRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListenRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    dbid: msg.getDbid_asB64(),
+    filtersList: jspb.Message.toObjectList(msg.getFiltersList(),
+    proto.threads.pb.ListenRequest.Filter.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ListenRequest}
+ */
+proto.threads.pb.ListenRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ListenRequest;
+  return proto.threads.pb.ListenRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ListenRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ListenRequest}
+ */
+proto.threads.pb.ListenRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setDbid(value);
+      break;
+    case 2:
+      var value = new proto.threads.pb.ListenRequest.Filter;
+      reader.readMessage(value,proto.threads.pb.ListenRequest.Filter.deserializeBinaryFromReader);
+      msg.addFilters(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListenRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ListenRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ListenRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListenRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getDbid_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getFiltersList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      2,
+      f,
+      proto.threads.pb.ListenRequest.Filter.serializeBinaryToWriter
+    );
+  }
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ListenRequest.Filter.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ListenRequest.Filter} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListenRequest.Filter.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    collectionname: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    instanceid: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    action: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ListenRequest.Filter}
+ */
+proto.threads.pb.ListenRequest.Filter.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ListenRequest.Filter;
+  return proto.threads.pb.ListenRequest.Filter.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ListenRequest.Filter} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ListenRequest.Filter}
+ */
+proto.threads.pb.ListenRequest.Filter.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setInstanceid(value);
+      break;
+    case 3:
+      var value = /** @type {!proto.threads.pb.ListenRequest.Filter.Action} */ (reader.readEnum());
+      msg.setAction(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ListenRequest.Filter.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ListenRequest.Filter} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListenRequest.Filter.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getInstanceid();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getAction();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.ListenRequest.Filter.Action = {
+  ALL: 0,
+  CREATE: 1,
+  SAVE: 2,
+  DELETE: 3
+};
+
+/**
+ * optional string collectionName = 1;
+ * @return {string}
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.ListenRequest.Filter} returns this
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string instanceID = 2;
+ * @return {string}
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.getInstanceid = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.ListenRequest.Filter} returns this
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.setInstanceid = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional Action action = 3;
+ * @return {!proto.threads.pb.ListenRequest.Filter.Action}
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.getAction = function() {
+  return /** @type {!proto.threads.pb.ListenRequest.Filter.Action} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {!proto.threads.pb.ListenRequest.Filter.Action} value
+ * @return {!proto.threads.pb.ListenRequest.Filter} returns this
+ */
+proto.threads.pb.ListenRequest.Filter.prototype.setAction = function(value) {
+  return jspb.Message.setProto3EnumField(this, 3, value);
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.ListenRequest.prototype.getDbid = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {string}
+ */
+proto.threads.pb.ListenRequest.prototype.getDbid_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getDbid()));
+};
+
+
+/**
+ * optional bytes dbID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getDbid()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListenRequest.prototype.getDbid_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getDbid()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.ListenRequest} returns this
+ */
+proto.threads.pb.ListenRequest.prototype.setDbid = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * repeated Filter filters = 2;
+ * @return {!Array<!proto.threads.pb.ListenRequest.Filter>}
+ */
+proto.threads.pb.ListenRequest.prototype.getFiltersList = function() {
+  return /** @type{!Array<!proto.threads.pb.ListenRequest.Filter>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.threads.pb.ListenRequest.Filter, 2));
+};
+
+
+/**
+ * @param {!Array<!proto.threads.pb.ListenRequest.Filter>} value
+ * @return {!proto.threads.pb.ListenRequest} returns this
+*/
+proto.threads.pb.ListenRequest.prototype.setFiltersList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 2, value);
+};
+
+
+/**
+ * @param {!proto.threads.pb.ListenRequest.Filter=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.threads.pb.ListenRequest.Filter}
+ */
+proto.threads.pb.ListenRequest.prototype.addFilters = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 2, opt_value, proto.threads.pb.ListenRequest.Filter, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.threads.pb.ListenRequest} returns this
+ */
+proto.threads.pb.ListenRequest.prototype.clearFiltersList = function() {
+  return this.setFiltersList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.threads.pb.ListenReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.threads.pb.ListenReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.threads.pb.ListenReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListenReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    collectionname: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    instanceid: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    action: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    instance: msg.getInstance_asB64()
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.threads.pb.ListenReply}
+ */
+proto.threads.pb.ListenReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.threads.pb.ListenReply;
+  return proto.threads.pb.ListenReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.threads.pb.ListenReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.threads.pb.ListenReply}
+ */
+proto.threads.pb.ListenReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setCollectionname(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setInstanceid(value);
+      break;
+    case 3:
+      var value = /** @type {!proto.threads.pb.ListenReply.Action} */ (reader.readEnum());
+      msg.setAction(value);
+      break;
+    case 4:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setInstance(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListenReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.threads.pb.ListenReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.threads.pb.ListenReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.threads.pb.ListenReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getCollectionname();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getInstanceid();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getAction();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      3,
+      f
+    );
+  }
+  f = message.getInstance_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      4,
+      f
+    );
+  }
+};
+
+
+/**
+ * @enum {number}
+ */
+proto.threads.pb.ListenReply.Action = {
+  CREATE: 0,
+  SAVE: 1,
+  DELETE: 2
+};
+
+/**
+ * optional string collectionName = 1;
+ * @return {string}
+ */
+proto.threads.pb.ListenReply.prototype.getCollectionname = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.ListenReply} returns this
+ */
+proto.threads.pb.ListenReply.prototype.setCollectionname = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string instanceID = 2;
+ * @return {string}
+ */
+proto.threads.pb.ListenReply.prototype.getInstanceid = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.threads.pb.ListenReply} returns this
+ */
+proto.threads.pb.ListenReply.prototype.setInstanceid = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional Action action = 3;
+ * @return {!proto.threads.pb.ListenReply.Action}
+ */
+proto.threads.pb.ListenReply.prototype.getAction = function() {
+  return /** @type {!proto.threads.pb.ListenReply.Action} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {!proto.threads.pb.ListenReply.Action} value
+ * @return {!proto.threads.pb.ListenReply} returns this
+ */
+proto.threads.pb.ListenReply.prototype.setAction = function(value) {
+  return jspb.Message.setProto3EnumField(this, 3, value);
+};
+
+
+/**
+ * optional bytes instance = 4;
+ * @return {!(string|Uint8Array)}
+ */
+proto.threads.pb.ListenReply.prototype.getInstance = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
+};
+
+
+/**
+ * optional bytes instance = 4;
+ * This is a type-conversion wrapper around `getInstance()`
+ * @return {string}
+ */
+proto.threads.pb.ListenReply.prototype.getInstance_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getInstance()));
+};
+
+
+/**
+ * optional bytes instance = 4;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getInstance()`
+ * @return {!Uint8Array}
+ */
+proto.threads.pb.ListenReply.prototype.getInstance_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getInstance()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.threads.pb.ListenReply} returns this
+ */
+proto.threads.pb.ListenReply.prototype.setInstance = function(value) {
+  return jspb.Message.setProto3BytesField(this, 4, value);
+};
+
+
+goog.object.extend(exports, proto.threads.pb);
+
+
+/***/ }),
+
 /***/ 347:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -15587,10 +29267,108 @@ exports.pbkdf2 = pbkdf2;
 
 /***/ }),
 
-/***/ 378:
+/***/ 367:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+/**
+ * A web-gRPC wrapper client for communicating with the web-gRPC enabled Threads ove the Hub APIs.
+ * @packageDocumentation
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+var client_1 = __webpack_require__(183);
+Object.defineProperty(exports, "Client", { enumerable: true, get: function () { return client_1.Client; } });
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
+/***/ 375:
 /***/ (function(module) {
 
-module.exports = require("@textile/hub-threads-client");
+"use strict";
+
+
+function decode (input, alphabet) {
+  input = input.replace(new RegExp('=', 'g'), '')
+  const length = input.length
+
+  let bits = 0
+  let value = 0
+
+  let index = 0
+  const output = new Uint8Array((length * 5 / 8) | 0)
+
+  for (let i = 0; i < length; i++) {
+    value = (value << 5) | alphabet.indexOf(input[i])
+    bits += 5
+
+    if (bits >= 8) {
+      output[index++] = (value >>> (bits - 8)) & 255
+      bits -= 8
+    }
+  }
+
+  return output.buffer
+}
+
+function encode (buffer, alphabet) {
+  const length = buffer.byteLength
+  const view = new Uint8Array(buffer)
+  const padding = alphabet.indexOf('=') === alphabet.length - 1
+
+  if (padding) {
+    alphabet = alphabet.substring(0, alphabet.length - 1)
+  }
+
+  let bits = 0
+  let value = 0
+  let output = ''
+
+  for (let i = 0; i < length; i++) {
+    value = (value << 8) | view[i]
+    bits += 8
+
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31]
+      bits -= 5
+    }
+  }
+
+  if (bits > 0) {
+    output += alphabet[(value << (5 - bits)) & 31]
+  }
+
+  if (padding) {
+    while ((output.length % 8) !== 0) {
+      output += '='
+    }
+  }
+
+  return output
+}
+
+module.exports = function base32 (alphabet) {
+  return {
+    encode (input) {
+      if (typeof input === 'string') {
+        return encode(Uint8Array.from(input), alphabet)
+      }
+
+      return encode(input, alphabet)
+    },
+    decode (input) {
+      for (const char of input) {
+        if (alphabet.indexOf(char) < 0) {
+          throw new Error('invalid base32 character')
+        }
+      }
+
+      return decode(input, alphabet)
+    }
+  }
+}
+
 
 /***/ }),
 
@@ -17293,6 +31071,1978 @@ module.exports = _CID
 
 /***/ }),
 
+/***/ 451:
+/***/ (function(module, exports, __webpack_require__) {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+/**
+ * Lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright JS Foundation and other contributors <https://js.foundation/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as the size to enable large array optimizations. */
+var LARGE_ARRAY_SIZE = 200;
+
+/** Used to stand-in for `undefined` hash values. */
+var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+/** Used to compose bitmasks for value comparisons. */
+var COMPARE_PARTIAL_FLAG = 1,
+    COMPARE_UNORDERED_FLAG = 2;
+
+/** Used as references for various `Number` constants. */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/** `Object#toString` result references. */
+var argsTag = '[object Arguments]',
+    arrayTag = '[object Array]',
+    asyncTag = '[object AsyncFunction]',
+    boolTag = '[object Boolean]',
+    dateTag = '[object Date]',
+    errorTag = '[object Error]',
+    funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]',
+    mapTag = '[object Map]',
+    numberTag = '[object Number]',
+    nullTag = '[object Null]',
+    objectTag = '[object Object]',
+    promiseTag = '[object Promise]',
+    proxyTag = '[object Proxy]',
+    regexpTag = '[object RegExp]',
+    setTag = '[object Set]',
+    stringTag = '[object String]',
+    symbolTag = '[object Symbol]',
+    undefinedTag = '[object Undefined]',
+    weakMapTag = '[object WeakMap]';
+
+var arrayBufferTag = '[object ArrayBuffer]',
+    dataViewTag = '[object DataView]',
+    float32Tag = '[object Float32Array]',
+    float64Tag = '[object Float64Array]',
+    int8Tag = '[object Int8Array]',
+    int16Tag = '[object Int16Array]',
+    int32Tag = '[object Int32Array]',
+    uint8Tag = '[object Uint8Array]',
+    uint8ClampedTag = '[object Uint8ClampedArray]',
+    uint16Tag = '[object Uint16Array]',
+    uint32Tag = '[object Uint32Array]';
+
+/**
+ * Used to match `RegExp`
+ * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
+ */
+var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+
+/** Used to detect host constructors (Safari). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^(?:0|[1-9]\d*)$/;
+
+/** Used to identify `toStringTag` values of typed arrays. */
+var typedArrayTags = {};
+typedArrayTags[float32Tag] = typedArrayTags[float64Tag] =
+typedArrayTags[int8Tag] = typedArrayTags[int16Tag] =
+typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =
+typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =
+typedArrayTags[uint32Tag] = true;
+typedArrayTags[argsTag] = typedArrayTags[arrayTag] =
+typedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] =
+typedArrayTags[dataViewTag] = typedArrayTags[dateTag] =
+typedArrayTags[errorTag] = typedArrayTags[funcTag] =
+typedArrayTags[mapTag] = typedArrayTags[numberTag] =
+typedArrayTags[objectTag] = typedArrayTags[regexpTag] =
+typedArrayTags[setTag] = typedArrayTags[stringTag] =
+typedArrayTags[weakMapTag] = false;
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/** Detect free variable `exports`. */
+var freeExports =  true && exports && !exports.nodeType && exports;
+
+/** Detect free variable `module`. */
+var freeModule = freeExports && "object" == 'object' && module && !module.nodeType && module;
+
+/** Detect the popular CommonJS extension `module.exports`. */
+var moduleExports = freeModule && freeModule.exports === freeExports;
+
+/** Detect free variable `process` from Node.js. */
+var freeProcess = moduleExports && freeGlobal.process;
+
+/** Used to access faster Node.js helpers. */
+var nodeUtil = (function() {
+  try {
+    return freeProcess && freeProcess.binding && freeProcess.binding('util');
+  } catch (e) {}
+}());
+
+/* Node.js helper references. */
+var nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;
+
+/**
+ * A specialized version of `_.filter` for arrays without support for
+ * iteratee shorthands.
+ *
+ * @private
+ * @param {Array} [array] The array to iterate over.
+ * @param {Function} predicate The function invoked per iteration.
+ * @returns {Array} Returns the new filtered array.
+ */
+function arrayFilter(array, predicate) {
+  var index = -1,
+      length = array == null ? 0 : array.length,
+      resIndex = 0,
+      result = [];
+
+  while (++index < length) {
+    var value = array[index];
+    if (predicate(value, index, array)) {
+      result[resIndex++] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Appends the elements of `values` to `array`.
+ *
+ * @private
+ * @param {Array} array The array to modify.
+ * @param {Array} values The values to append.
+ * @returns {Array} Returns `array`.
+ */
+function arrayPush(array, values) {
+  var index = -1,
+      length = values.length,
+      offset = array.length;
+
+  while (++index < length) {
+    array[offset + index] = values[index];
+  }
+  return array;
+}
+
+/**
+ * A specialized version of `_.some` for arrays without support for iteratee
+ * shorthands.
+ *
+ * @private
+ * @param {Array} [array] The array to iterate over.
+ * @param {Function} predicate The function invoked per iteration.
+ * @returns {boolean} Returns `true` if any element passes the predicate check,
+ *  else `false`.
+ */
+function arraySome(array, predicate) {
+  var index = -1,
+      length = array == null ? 0 : array.length;
+
+  while (++index < length) {
+    if (predicate(array[index], index, array)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The base implementation of `_.times` without support for iteratee shorthands
+ * or max array length checks.
+ *
+ * @private
+ * @param {number} n The number of times to invoke `iteratee`.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns the array of results.
+ */
+function baseTimes(n, iteratee) {
+  var index = -1,
+      result = Array(n);
+
+  while (++index < n) {
+    result[index] = iteratee(index);
+  }
+  return result;
+}
+
+/**
+ * The base implementation of `_.unary` without support for storing metadata.
+ *
+ * @private
+ * @param {Function} func The function to cap arguments for.
+ * @returns {Function} Returns the new capped function.
+ */
+function baseUnary(func) {
+  return function(value) {
+    return func(value);
+  };
+}
+
+/**
+ * Checks if a `cache` value for `key` exists.
+ *
+ * @private
+ * @param {Object} cache The cache to query.
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function cacheHas(cache, key) {
+  return cache.has(key);
+}
+
+/**
+ * Gets the value at `key` of `object`.
+ *
+ * @private
+ * @param {Object} [object] The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function getValue(object, key) {
+  return object == null ? undefined : object[key];
+}
+
+/**
+ * Converts `map` to its key-value pairs.
+ *
+ * @private
+ * @param {Object} map The map to convert.
+ * @returns {Array} Returns the key-value pairs.
+ */
+function mapToArray(map) {
+  var index = -1,
+      result = Array(map.size);
+
+  map.forEach(function(value, key) {
+    result[++index] = [key, value];
+  });
+  return result;
+}
+
+/**
+ * Creates a unary function that invokes `func` with its argument transformed.
+ *
+ * @private
+ * @param {Function} func The function to wrap.
+ * @param {Function} transform The argument transform.
+ * @returns {Function} Returns the new function.
+ */
+function overArg(func, transform) {
+  return function(arg) {
+    return func(transform(arg));
+  };
+}
+
+/**
+ * Converts `set` to an array of its values.
+ *
+ * @private
+ * @param {Object} set The set to convert.
+ * @returns {Array} Returns the values.
+ */
+function setToArray(set) {
+  var index = -1,
+      result = Array(set.size);
+
+  set.forEach(function(value) {
+    result[++index] = value;
+  });
+  return result;
+}
+
+/** Used for built-in method references. */
+var arrayProto = Array.prototype,
+    funcProto = Function.prototype,
+    objectProto = Object.prototype;
+
+/** Used to detect overreaching core-js shims. */
+var coreJsData = root['__core-js_shared__'];
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Used to detect methods masquerading as native. */
+var maskSrcKey = (function() {
+  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+  return uid ? ('Symbol(src)_1.' + uid) : '';
+}());
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var nativeObjectToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/** Built-in value references. */
+var Buffer = moduleExports ? root.Buffer : undefined,
+    Symbol = root.Symbol,
+    Uint8Array = root.Uint8Array,
+    propertyIsEnumerable = objectProto.propertyIsEnumerable,
+    splice = arrayProto.splice,
+    symToStringTag = Symbol ? Symbol.toStringTag : undefined;
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeGetSymbols = Object.getOwnPropertySymbols,
+    nativeIsBuffer = Buffer ? Buffer.isBuffer : undefined,
+    nativeKeys = overArg(Object.keys, Object);
+
+/* Built-in method references that are verified to be native. */
+var DataView = getNative(root, 'DataView'),
+    Map = getNative(root, 'Map'),
+    Promise = getNative(root, 'Promise'),
+    Set = getNative(root, 'Set'),
+    WeakMap = getNative(root, 'WeakMap'),
+    nativeCreate = getNative(Object, 'create');
+
+/** Used to detect maps, sets, and weakmaps. */
+var dataViewCtorString = toSource(DataView),
+    mapCtorString = toSource(Map),
+    promiseCtorString = toSource(Promise),
+    setCtorString = toSource(Set),
+    weakMapCtorString = toSource(WeakMap);
+
+/** Used to convert symbols to primitives and strings. */
+var symbolProto = Symbol ? Symbol.prototype : undefined,
+    symbolValueOf = symbolProto ? symbolProto.valueOf : undefined;
+
+/**
+ * Creates a hash object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Hash(entries) {
+  var index = -1,
+      length = entries == null ? 0 : entries.length;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the hash.
+ *
+ * @private
+ * @name clear
+ * @memberOf Hash
+ */
+function hashClear() {
+  this.__data__ = nativeCreate ? nativeCreate(null) : {};
+  this.size = 0;
+}
+
+/**
+ * Removes `key` and its value from the hash.
+ *
+ * @private
+ * @name delete
+ * @memberOf Hash
+ * @param {Object} hash The hash to modify.
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function hashDelete(key) {
+  var result = this.has(key) && delete this.__data__[key];
+  this.size -= result ? 1 : 0;
+  return result;
+}
+
+/**
+ * Gets the hash value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Hash
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function hashGet(key) {
+  var data = this.__data__;
+  if (nativeCreate) {
+    var result = data[key];
+    return result === HASH_UNDEFINED ? undefined : result;
+  }
+  return hasOwnProperty.call(data, key) ? data[key] : undefined;
+}
+
+/**
+ * Checks if a hash value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Hash
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function hashHas(key) {
+  var data = this.__data__;
+  return nativeCreate ? (data[key] !== undefined) : hasOwnProperty.call(data, key);
+}
+
+/**
+ * Sets the hash `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Hash
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the hash instance.
+ */
+function hashSet(key, value) {
+  var data = this.__data__;
+  this.size += this.has(key) ? 0 : 1;
+  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
+  return this;
+}
+
+// Add methods to `Hash`.
+Hash.prototype.clear = hashClear;
+Hash.prototype['delete'] = hashDelete;
+Hash.prototype.get = hashGet;
+Hash.prototype.has = hashHas;
+Hash.prototype.set = hashSet;
+
+/**
+ * Creates an list cache object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function ListCache(entries) {
+  var index = -1,
+      length = entries == null ? 0 : entries.length;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the list cache.
+ *
+ * @private
+ * @name clear
+ * @memberOf ListCache
+ */
+function listCacheClear() {
+  this.__data__ = [];
+  this.size = 0;
+}
+
+/**
+ * Removes `key` and its value from the list cache.
+ *
+ * @private
+ * @name delete
+ * @memberOf ListCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function listCacheDelete(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    return false;
+  }
+  var lastIndex = data.length - 1;
+  if (index == lastIndex) {
+    data.pop();
+  } else {
+    splice.call(data, index, 1);
+  }
+  --this.size;
+  return true;
+}
+
+/**
+ * Gets the list cache value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf ListCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function listCacheGet(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  return index < 0 ? undefined : data[index][1];
+}
+
+/**
+ * Checks if a list cache value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf ListCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function listCacheHas(key) {
+  return assocIndexOf(this.__data__, key) > -1;
+}
+
+/**
+ * Sets the list cache `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf ListCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the list cache instance.
+ */
+function listCacheSet(key, value) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    ++this.size;
+    data.push([key, value]);
+  } else {
+    data[index][1] = value;
+  }
+  return this;
+}
+
+// Add methods to `ListCache`.
+ListCache.prototype.clear = listCacheClear;
+ListCache.prototype['delete'] = listCacheDelete;
+ListCache.prototype.get = listCacheGet;
+ListCache.prototype.has = listCacheHas;
+ListCache.prototype.set = listCacheSet;
+
+/**
+ * Creates a map cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function MapCache(entries) {
+  var index = -1,
+      length = entries == null ? 0 : entries.length;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the map.
+ *
+ * @private
+ * @name clear
+ * @memberOf MapCache
+ */
+function mapCacheClear() {
+  this.size = 0;
+  this.__data__ = {
+    'hash': new Hash,
+    'map': new (Map || ListCache),
+    'string': new Hash
+  };
+}
+
+/**
+ * Removes `key` and its value from the map.
+ *
+ * @private
+ * @name delete
+ * @memberOf MapCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function mapCacheDelete(key) {
+  var result = getMapData(this, key)['delete'](key);
+  this.size -= result ? 1 : 0;
+  return result;
+}
+
+/**
+ * Gets the map value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf MapCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function mapCacheGet(key) {
+  return getMapData(this, key).get(key);
+}
+
+/**
+ * Checks if a map value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf MapCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function mapCacheHas(key) {
+  return getMapData(this, key).has(key);
+}
+
+/**
+ * Sets the map `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf MapCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the map cache instance.
+ */
+function mapCacheSet(key, value) {
+  var data = getMapData(this, key),
+      size = data.size;
+
+  data.set(key, value);
+  this.size += data.size == size ? 0 : 1;
+  return this;
+}
+
+// Add methods to `MapCache`.
+MapCache.prototype.clear = mapCacheClear;
+MapCache.prototype['delete'] = mapCacheDelete;
+MapCache.prototype.get = mapCacheGet;
+MapCache.prototype.has = mapCacheHas;
+MapCache.prototype.set = mapCacheSet;
+
+/**
+ *
+ * Creates an array cache object to store unique values.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [values] The values to cache.
+ */
+function SetCache(values) {
+  var index = -1,
+      length = values == null ? 0 : values.length;
+
+  this.__data__ = new MapCache;
+  while (++index < length) {
+    this.add(values[index]);
+  }
+}
+
+/**
+ * Adds `value` to the array cache.
+ *
+ * @private
+ * @name add
+ * @memberOf SetCache
+ * @alias push
+ * @param {*} value The value to cache.
+ * @returns {Object} Returns the cache instance.
+ */
+function setCacheAdd(value) {
+  this.__data__.set(value, HASH_UNDEFINED);
+  return this;
+}
+
+/**
+ * Checks if `value` is in the array cache.
+ *
+ * @private
+ * @name has
+ * @memberOf SetCache
+ * @param {*} value The value to search for.
+ * @returns {number} Returns `true` if `value` is found, else `false`.
+ */
+function setCacheHas(value) {
+  return this.__data__.has(value);
+}
+
+// Add methods to `SetCache`.
+SetCache.prototype.add = SetCache.prototype.push = setCacheAdd;
+SetCache.prototype.has = setCacheHas;
+
+/**
+ * Creates a stack cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Stack(entries) {
+  var data = this.__data__ = new ListCache(entries);
+  this.size = data.size;
+}
+
+/**
+ * Removes all key-value entries from the stack.
+ *
+ * @private
+ * @name clear
+ * @memberOf Stack
+ */
+function stackClear() {
+  this.__data__ = new ListCache;
+  this.size = 0;
+}
+
+/**
+ * Removes `key` and its value from the stack.
+ *
+ * @private
+ * @name delete
+ * @memberOf Stack
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function stackDelete(key) {
+  var data = this.__data__,
+      result = data['delete'](key);
+
+  this.size = data.size;
+  return result;
+}
+
+/**
+ * Gets the stack value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Stack
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function stackGet(key) {
+  return this.__data__.get(key);
+}
+
+/**
+ * Checks if a stack value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Stack
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function stackHas(key) {
+  return this.__data__.has(key);
+}
+
+/**
+ * Sets the stack `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Stack
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the stack cache instance.
+ */
+function stackSet(key, value) {
+  var data = this.__data__;
+  if (data instanceof ListCache) {
+    var pairs = data.__data__;
+    if (!Map || (pairs.length < LARGE_ARRAY_SIZE - 1)) {
+      pairs.push([key, value]);
+      this.size = ++data.size;
+      return this;
+    }
+    data = this.__data__ = new MapCache(pairs);
+  }
+  data.set(key, value);
+  this.size = data.size;
+  return this;
+}
+
+// Add methods to `Stack`.
+Stack.prototype.clear = stackClear;
+Stack.prototype['delete'] = stackDelete;
+Stack.prototype.get = stackGet;
+Stack.prototype.has = stackHas;
+Stack.prototype.set = stackSet;
+
+/**
+ * Creates an array of the enumerable property names of the array-like `value`.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @param {boolean} inherited Specify returning inherited property names.
+ * @returns {Array} Returns the array of property names.
+ */
+function arrayLikeKeys(value, inherited) {
+  var isArr = isArray(value),
+      isArg = !isArr && isArguments(value),
+      isBuff = !isArr && !isArg && isBuffer(value),
+      isType = !isArr && !isArg && !isBuff && isTypedArray(value),
+      skipIndexes = isArr || isArg || isBuff || isType,
+      result = skipIndexes ? baseTimes(value.length, String) : [],
+      length = result.length;
+
+  for (var key in value) {
+    if ((inherited || hasOwnProperty.call(value, key)) &&
+        !(skipIndexes && (
+           // Safari 9 has enumerable `arguments.length` in strict mode.
+           key == 'length' ||
+           // Node.js 0.10 has enumerable non-index properties on buffers.
+           (isBuff && (key == 'offset' || key == 'parent')) ||
+           // PhantomJS 2 has enumerable non-index properties on typed arrays.
+           (isType && (key == 'buffer' || key == 'byteLength' || key == 'byteOffset')) ||
+           // Skip index properties.
+           isIndex(key, length)
+        ))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Gets the index at which the `key` is found in `array` of key-value pairs.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} key The key to search for.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function assocIndexOf(array, key) {
+  var length = array.length;
+  while (length--) {
+    if (eq(array[length][0], key)) {
+      return length;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `getAllKeys` and `getAllKeysIn` which uses
+ * `keysFunc` and `symbolsFunc` to get the enumerable property names and
+ * symbols of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {Function} keysFunc The function to get the keys of `object`.
+ * @param {Function} symbolsFunc The function to get the symbols of `object`.
+ * @returns {Array} Returns the array of property names and symbols.
+ */
+function baseGetAllKeys(object, keysFunc, symbolsFunc) {
+  var result = keysFunc(object);
+  return isArray(object) ? result : arrayPush(result, symbolsFunc(object));
+}
+
+/**
+ * The base implementation of `getTag` without fallbacks for buggy environments.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the `toStringTag`.
+ */
+function baseGetTag(value) {
+  if (value == null) {
+    return value === undefined ? undefinedTag : nullTag;
+  }
+  return (symToStringTag && symToStringTag in Object(value))
+    ? getRawTag(value)
+    : objectToString(value);
+}
+
+/**
+ * The base implementation of `_.isArguments`.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ */
+function baseIsArguments(value) {
+  return isObjectLike(value) && baseGetTag(value) == argsTag;
+}
+
+/**
+ * The base implementation of `_.isEqual` which supports partial comparisons
+ * and tracks traversed objects.
+ *
+ * @private
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @param {boolean} bitmask The bitmask flags.
+ *  1 - Unordered comparison
+ *  2 - Partial comparison
+ * @param {Function} [customizer] The function to customize comparisons.
+ * @param {Object} [stack] Tracks traversed `value` and `other` objects.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ */
+function baseIsEqual(value, other, bitmask, customizer, stack) {
+  if (value === other) {
+    return true;
+  }
+  if (value == null || other == null || (!isObjectLike(value) && !isObjectLike(other))) {
+    return value !== value && other !== other;
+  }
+  return baseIsEqualDeep(value, other, bitmask, customizer, baseIsEqual, stack);
+}
+
+/**
+ * A specialized version of `baseIsEqual` for arrays and objects which performs
+ * deep comparisons and tracks traversed objects enabling objects with circular
+ * references to be compared.
+ *
+ * @private
+ * @param {Object} object The object to compare.
+ * @param {Object} other The other object to compare.
+ * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
+ * @param {Function} customizer The function to customize comparisons.
+ * @param {Function} equalFunc The function to determine equivalents of values.
+ * @param {Object} [stack] Tracks traversed `object` and `other` objects.
+ * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
+ */
+function baseIsEqualDeep(object, other, bitmask, customizer, equalFunc, stack) {
+  var objIsArr = isArray(object),
+      othIsArr = isArray(other),
+      objTag = objIsArr ? arrayTag : getTag(object),
+      othTag = othIsArr ? arrayTag : getTag(other);
+
+  objTag = objTag == argsTag ? objectTag : objTag;
+  othTag = othTag == argsTag ? objectTag : othTag;
+
+  var objIsObj = objTag == objectTag,
+      othIsObj = othTag == objectTag,
+      isSameTag = objTag == othTag;
+
+  if (isSameTag && isBuffer(object)) {
+    if (!isBuffer(other)) {
+      return false;
+    }
+    objIsArr = true;
+    objIsObj = false;
+  }
+  if (isSameTag && !objIsObj) {
+    stack || (stack = new Stack);
+    return (objIsArr || isTypedArray(object))
+      ? equalArrays(object, other, bitmask, customizer, equalFunc, stack)
+      : equalByTag(object, other, objTag, bitmask, customizer, equalFunc, stack);
+  }
+  if (!(bitmask & COMPARE_PARTIAL_FLAG)) {
+    var objIsWrapped = objIsObj && hasOwnProperty.call(object, '__wrapped__'),
+        othIsWrapped = othIsObj && hasOwnProperty.call(other, '__wrapped__');
+
+    if (objIsWrapped || othIsWrapped) {
+      var objUnwrapped = objIsWrapped ? object.value() : object,
+          othUnwrapped = othIsWrapped ? other.value() : other;
+
+      stack || (stack = new Stack);
+      return equalFunc(objUnwrapped, othUnwrapped, bitmask, customizer, stack);
+    }
+  }
+  if (!isSameTag) {
+    return false;
+  }
+  stack || (stack = new Stack);
+  return equalObjects(object, other, bitmask, customizer, equalFunc, stack);
+}
+
+/**
+ * The base implementation of `_.isNative` without bad shim checks.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function,
+ *  else `false`.
+ */
+function baseIsNative(value) {
+  if (!isObject(value) || isMasked(value)) {
+    return false;
+  }
+  var pattern = isFunction(value) ? reIsNative : reIsHostCtor;
+  return pattern.test(toSource(value));
+}
+
+/**
+ * The base implementation of `_.isTypedArray` without Node.js optimizations.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
+ */
+function baseIsTypedArray(value) {
+  return isObjectLike(value) &&
+    isLength(value.length) && !!typedArrayTags[baseGetTag(value)];
+}
+
+/**
+ * The base implementation of `_.keys` which doesn't treat sparse arrays as dense.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function baseKeys(object) {
+  if (!isPrototype(object)) {
+    return nativeKeys(object);
+  }
+  var result = [];
+  for (var key in Object(object)) {
+    if (hasOwnProperty.call(object, key) && key != 'constructor') {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * A specialized version of `baseIsEqualDeep` for arrays with support for
+ * partial deep comparisons.
+ *
+ * @private
+ * @param {Array} array The array to compare.
+ * @param {Array} other The other array to compare.
+ * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
+ * @param {Function} customizer The function to customize comparisons.
+ * @param {Function} equalFunc The function to determine equivalents of values.
+ * @param {Object} stack Tracks traversed `array` and `other` objects.
+ * @returns {boolean} Returns `true` if the arrays are equivalent, else `false`.
+ */
+function equalArrays(array, other, bitmask, customizer, equalFunc, stack) {
+  var isPartial = bitmask & COMPARE_PARTIAL_FLAG,
+      arrLength = array.length,
+      othLength = other.length;
+
+  if (arrLength != othLength && !(isPartial && othLength > arrLength)) {
+    return false;
+  }
+  // Assume cyclic values are equal.
+  var stacked = stack.get(array);
+  if (stacked && stack.get(other)) {
+    return stacked == other;
+  }
+  var index = -1,
+      result = true,
+      seen = (bitmask & COMPARE_UNORDERED_FLAG) ? new SetCache : undefined;
+
+  stack.set(array, other);
+  stack.set(other, array);
+
+  // Ignore non-index properties.
+  while (++index < arrLength) {
+    var arrValue = array[index],
+        othValue = other[index];
+
+    if (customizer) {
+      var compared = isPartial
+        ? customizer(othValue, arrValue, index, other, array, stack)
+        : customizer(arrValue, othValue, index, array, other, stack);
+    }
+    if (compared !== undefined) {
+      if (compared) {
+        continue;
+      }
+      result = false;
+      break;
+    }
+    // Recursively compare arrays (susceptible to call stack limits).
+    if (seen) {
+      if (!arraySome(other, function(othValue, othIndex) {
+            if (!cacheHas(seen, othIndex) &&
+                (arrValue === othValue || equalFunc(arrValue, othValue, bitmask, customizer, stack))) {
+              return seen.push(othIndex);
+            }
+          })) {
+        result = false;
+        break;
+      }
+    } else if (!(
+          arrValue === othValue ||
+            equalFunc(arrValue, othValue, bitmask, customizer, stack)
+        )) {
+      result = false;
+      break;
+    }
+  }
+  stack['delete'](array);
+  stack['delete'](other);
+  return result;
+}
+
+/**
+ * A specialized version of `baseIsEqualDeep` for comparing objects of
+ * the same `toStringTag`.
+ *
+ * **Note:** This function only supports comparing values with tags of
+ * `Boolean`, `Date`, `Error`, `Number`, `RegExp`, or `String`.
+ *
+ * @private
+ * @param {Object} object The object to compare.
+ * @param {Object} other The other object to compare.
+ * @param {string} tag The `toStringTag` of the objects to compare.
+ * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
+ * @param {Function} customizer The function to customize comparisons.
+ * @param {Function} equalFunc The function to determine equivalents of values.
+ * @param {Object} stack Tracks traversed `object` and `other` objects.
+ * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
+ */
+function equalByTag(object, other, tag, bitmask, customizer, equalFunc, stack) {
+  switch (tag) {
+    case dataViewTag:
+      if ((object.byteLength != other.byteLength) ||
+          (object.byteOffset != other.byteOffset)) {
+        return false;
+      }
+      object = object.buffer;
+      other = other.buffer;
+
+    case arrayBufferTag:
+      if ((object.byteLength != other.byteLength) ||
+          !equalFunc(new Uint8Array(object), new Uint8Array(other))) {
+        return false;
+      }
+      return true;
+
+    case boolTag:
+    case dateTag:
+    case numberTag:
+      // Coerce booleans to `1` or `0` and dates to milliseconds.
+      // Invalid dates are coerced to `NaN`.
+      return eq(+object, +other);
+
+    case errorTag:
+      return object.name == other.name && object.message == other.message;
+
+    case regexpTag:
+    case stringTag:
+      // Coerce regexes to strings and treat strings, primitives and objects,
+      // as equal. See http://www.ecma-international.org/ecma-262/7.0/#sec-regexp.prototype.tostring
+      // for more details.
+      return object == (other + '');
+
+    case mapTag:
+      var convert = mapToArray;
+
+    case setTag:
+      var isPartial = bitmask & COMPARE_PARTIAL_FLAG;
+      convert || (convert = setToArray);
+
+      if (object.size != other.size && !isPartial) {
+        return false;
+      }
+      // Assume cyclic values are equal.
+      var stacked = stack.get(object);
+      if (stacked) {
+        return stacked == other;
+      }
+      bitmask |= COMPARE_UNORDERED_FLAG;
+
+      // Recursively compare objects (susceptible to call stack limits).
+      stack.set(object, other);
+      var result = equalArrays(convert(object), convert(other), bitmask, customizer, equalFunc, stack);
+      stack['delete'](object);
+      return result;
+
+    case symbolTag:
+      if (symbolValueOf) {
+        return symbolValueOf.call(object) == symbolValueOf.call(other);
+      }
+  }
+  return false;
+}
+
+/**
+ * A specialized version of `baseIsEqualDeep` for objects with support for
+ * partial deep comparisons.
+ *
+ * @private
+ * @param {Object} object The object to compare.
+ * @param {Object} other The other object to compare.
+ * @param {number} bitmask The bitmask flags. See `baseIsEqual` for more details.
+ * @param {Function} customizer The function to customize comparisons.
+ * @param {Function} equalFunc The function to determine equivalents of values.
+ * @param {Object} stack Tracks traversed `object` and `other` objects.
+ * @returns {boolean} Returns `true` if the objects are equivalent, else `false`.
+ */
+function equalObjects(object, other, bitmask, customizer, equalFunc, stack) {
+  var isPartial = bitmask & COMPARE_PARTIAL_FLAG,
+      objProps = getAllKeys(object),
+      objLength = objProps.length,
+      othProps = getAllKeys(other),
+      othLength = othProps.length;
+
+  if (objLength != othLength && !isPartial) {
+    return false;
+  }
+  var index = objLength;
+  while (index--) {
+    var key = objProps[index];
+    if (!(isPartial ? key in other : hasOwnProperty.call(other, key))) {
+      return false;
+    }
+  }
+  // Assume cyclic values are equal.
+  var stacked = stack.get(object);
+  if (stacked && stack.get(other)) {
+    return stacked == other;
+  }
+  var result = true;
+  stack.set(object, other);
+  stack.set(other, object);
+
+  var skipCtor = isPartial;
+  while (++index < objLength) {
+    key = objProps[index];
+    var objValue = object[key],
+        othValue = other[key];
+
+    if (customizer) {
+      var compared = isPartial
+        ? customizer(othValue, objValue, key, other, object, stack)
+        : customizer(objValue, othValue, key, object, other, stack);
+    }
+    // Recursively compare objects (susceptible to call stack limits).
+    if (!(compared === undefined
+          ? (objValue === othValue || equalFunc(objValue, othValue, bitmask, customizer, stack))
+          : compared
+        )) {
+      result = false;
+      break;
+    }
+    skipCtor || (skipCtor = key == 'constructor');
+  }
+  if (result && !skipCtor) {
+    var objCtor = object.constructor,
+        othCtor = other.constructor;
+
+    // Non `Object` object instances with different constructors are not equal.
+    if (objCtor != othCtor &&
+        ('constructor' in object && 'constructor' in other) &&
+        !(typeof objCtor == 'function' && objCtor instanceof objCtor &&
+          typeof othCtor == 'function' && othCtor instanceof othCtor)) {
+      result = false;
+    }
+  }
+  stack['delete'](object);
+  stack['delete'](other);
+  return result;
+}
+
+/**
+ * Creates an array of own enumerable property names and symbols of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names and symbols.
+ */
+function getAllKeys(object) {
+  return baseGetAllKeys(object, keys, getSymbols);
+}
+
+/**
+ * Gets the data for `map`.
+ *
+ * @private
+ * @param {Object} map The map to query.
+ * @param {string} key The reference key.
+ * @returns {*} Returns the map data.
+ */
+function getMapData(map, key) {
+  var data = map.__data__;
+  return isKeyable(key)
+    ? data[typeof key == 'string' ? 'string' : 'hash']
+    : data.map;
+}
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = getValue(object, key);
+  return baseIsNative(value) ? value : undefined;
+}
+
+/**
+ * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the raw `toStringTag`.
+ */
+function getRawTag(value) {
+  var isOwn = hasOwnProperty.call(value, symToStringTag),
+      tag = value[symToStringTag];
+
+  try {
+    value[symToStringTag] = undefined;
+    var unmasked = true;
+  } catch (e) {}
+
+  var result = nativeObjectToString.call(value);
+  if (unmasked) {
+    if (isOwn) {
+      value[symToStringTag] = tag;
+    } else {
+      delete value[symToStringTag];
+    }
+  }
+  return result;
+}
+
+/**
+ * Creates an array of the own enumerable symbols of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of symbols.
+ */
+var getSymbols = !nativeGetSymbols ? stubArray : function(object) {
+  if (object == null) {
+    return [];
+  }
+  object = Object(object);
+  return arrayFilter(nativeGetSymbols(object), function(symbol) {
+    return propertyIsEnumerable.call(object, symbol);
+  });
+};
+
+/**
+ * Gets the `toStringTag` of `value`.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the `toStringTag`.
+ */
+var getTag = baseGetTag;
+
+// Fallback for data views, maps, sets, and weak maps in IE 11 and promises in Node.js < 6.
+if ((DataView && getTag(new DataView(new ArrayBuffer(1))) != dataViewTag) ||
+    (Map && getTag(new Map) != mapTag) ||
+    (Promise && getTag(Promise.resolve()) != promiseTag) ||
+    (Set && getTag(new Set) != setTag) ||
+    (WeakMap && getTag(new WeakMap) != weakMapTag)) {
+  getTag = function(value) {
+    var result = baseGetTag(value),
+        Ctor = result == objectTag ? value.constructor : undefined,
+        ctorString = Ctor ? toSource(Ctor) : '';
+
+    if (ctorString) {
+      switch (ctorString) {
+        case dataViewCtorString: return dataViewTag;
+        case mapCtorString: return mapTag;
+        case promiseCtorString: return promiseTag;
+        case setCtorString: return setTag;
+        case weakMapCtorString: return weakMapTag;
+      }
+    }
+    return result;
+  };
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return !!length &&
+    (typeof value == 'number' || reIsUint.test(value)) &&
+    (value > -1 && value % 1 == 0 && value < length);
+}
+
+/**
+ * Checks if `value` is suitable for use as unique object key.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
+ */
+function isKeyable(value) {
+  var type = typeof value;
+  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
+    ? (value !== '__proto__')
+    : (value === null);
+}
+
+/**
+ * Checks if `func` has its source masked.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` is masked, else `false`.
+ */
+function isMasked(func) {
+  return !!maskSrcKey && (maskSrcKey in func);
+}
+
+/**
+ * Checks if `value` is likely a prototype object.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a prototype, else `false`.
+ */
+function isPrototype(value) {
+  var Ctor = value && value.constructor,
+      proto = (typeof Ctor == 'function' && Ctor.prototype) || objectProto;
+
+  return value === proto;
+}
+
+/**
+ * Converts `value` to a string using `Object.prototype.toString`.
+ *
+ * @private
+ * @param {*} value The value to convert.
+ * @returns {string} Returns the converted string.
+ */
+function objectToString(value) {
+  return nativeObjectToString.call(value);
+}
+
+/**
+ * Converts `func` to its source code.
+ *
+ * @private
+ * @param {Function} func The function to convert.
+ * @returns {string} Returns the source code.
+ */
+function toSource(func) {
+  if (func != null) {
+    try {
+      return funcToString.call(func);
+    } catch (e) {}
+    try {
+      return (func + '');
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Performs a
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * comparison between two values to determine if they are equivalent.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.eq(object, object);
+ * // => true
+ *
+ * _.eq(object, other);
+ * // => false
+ *
+ * _.eq('a', 'a');
+ * // => true
+ *
+ * _.eq('a', Object('a'));
+ * // => false
+ *
+ * _.eq(NaN, NaN);
+ * // => true
+ */
+function eq(value, other) {
+  return value === other || (value !== value && other !== other);
+}
+
+/**
+ * Checks if `value` is likely an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+var isArguments = baseIsArguments(function() { return arguments; }()) ? baseIsArguments : function(value) {
+  return isObjectLike(value) && hasOwnProperty.call(value, 'callee') &&
+    !propertyIsEnumerable.call(value, 'callee');
+};
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(document.body.children);
+ * // => false
+ *
+ * _.isArray('abc');
+ * // => false
+ *
+ * _.isArray(_.noop);
+ * // => false
+ */
+var isArray = Array.isArray;
+
+/**
+ * Checks if `value` is array-like. A value is considered array-like if it's
+ * not a function and has a `value.length` that's an integer greater than or
+ * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ * @example
+ *
+ * _.isArrayLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLike(document.body.children);
+ * // => true
+ *
+ * _.isArrayLike('abc');
+ * // => true
+ *
+ * _.isArrayLike(_.noop);
+ * // => false
+ */
+function isArrayLike(value) {
+  return value != null && isLength(value.length) && !isFunction(value);
+}
+
+/**
+ * Checks if `value` is a buffer.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.3.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a buffer, else `false`.
+ * @example
+ *
+ * _.isBuffer(new Buffer(2));
+ * // => true
+ *
+ * _.isBuffer(new Uint8Array(2));
+ * // => false
+ */
+var isBuffer = nativeIsBuffer || stubFalse;
+
+/**
+ * Performs a deep comparison between two values to determine if they are
+ * equivalent.
+ *
+ * **Note:** This method supports comparing arrays, array buffers, booleans,
+ * date objects, error objects, maps, numbers, `Object` objects, regexes,
+ * sets, strings, symbols, and typed arrays. `Object` objects are compared
+ * by their own, not inherited, enumerable properties. Functions and DOM
+ * nodes are compared by strict equality, i.e. `===`.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.isEqual(object, other);
+ * // => true
+ *
+ * object === other;
+ * // => false
+ */
+function isEqual(value, other) {
+  return baseIsEqual(value, other);
+}
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  if (!isObject(value)) {
+    return false;
+  }
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 9 which returns 'object' for typed arrays and other constructors.
+  var tag = baseGetTag(value);
+  return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This method is loosely based on
+ * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ * @example
+ *
+ * _.isLength(3);
+ * // => true
+ *
+ * _.isLength(Number.MIN_VALUE);
+ * // => false
+ *
+ * _.isLength(Infinity);
+ * // => false
+ *
+ * _.isLength('3');
+ * // => false
+ */
+function isLength(value) {
+  return typeof value == 'number' &&
+    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return value != null && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return value != null && typeof value == 'object';
+}
+
+/**
+ * Checks if `value` is classified as a typed array.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
+ * @example
+ *
+ * _.isTypedArray(new Uint8Array);
+ * // => true
+ *
+ * _.isTypedArray([]);
+ * // => false
+ */
+var isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;
+
+/**
+ * Creates an array of the own enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/7.0/#sec-object.keys)
+ * for more details.
+ *
+ * @static
+ * @since 0.1.0
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
+ *
+ * _.keys('hi');
+ * // => ['0', '1']
+ */
+function keys(object) {
+  return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
+}
+
+/**
+ * This method returns a new empty array.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.13.0
+ * @category Util
+ * @returns {Array} Returns the new empty array.
+ * @example
+ *
+ * var arrays = _.times(2, _.stubArray);
+ *
+ * console.log(arrays);
+ * // => [[], []]
+ *
+ * console.log(arrays[0] === arrays[1]);
+ * // => false
+ */
+function stubArray() {
+  return [];
+}
+
+/**
+ * This method returns `false`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.13.0
+ * @category Util
+ * @returns {boolean} Returns `false`.
+ * @example
+ *
+ * _.times(2, _.stubFalse);
+ * // => [false, false]
+ */
+function stubFalse() {
+  return false;
+}
+
+module.exports = isEqual;
+
+
+/***/ }),
+
+/***/ 460:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+var isEqual = __webpack_require__(451);
+
+var xor = __webpack_require__(202);
+
+var keys = __webpack_require__(224);
+
+var _require = __webpack_require__(287),
+    types = _require.types,
+    FORMAT_REGEXPS = _require.FORMAT_REGEXPS,
+    isFormat = _require.isFormat;
+
+var helpers = {
+  stringFormats: keys(FORMAT_REGEXPS),
+  isFormat: isFormat,
+  typeNames: ['integer', 'number', // make sure number is after integer (for proper type detection)
+  'string', 'array', 'object', 'boolean', 'null', 'date'],
+  getType: function getType(val) {
+    return helpers.typeNames.find(function (typeName) {
+      return types[typeName](val);
+    });
+  },
+
+  /**
+   * Tries to find the least common schema from two supplied JSON schemas. If it is unable to find
+   * such a schema, it returns null. Incompatibility in structure/types leads to returning null,
+   * except when the difference is only integer/number. Than the 'number' is used instead 'int'.
+   * Types/Structure incompatibility in array items only leads to schema that doesn't specify
+   * items structure/type.
+   * @param {object} schema1 - JSON schema
+   * @param {object} schema2 - JSON schema
+   * @returns {object|null}
+   */
+  mergeSchemaObjs: function mergeSchemaObjs(schema1, schema2) {
+    var schema1Keys = keys(schema1);
+    var schema2Keys = keys(schema2);
+
+    if (!isEqual(schema1Keys, schema2Keys)) {
+      if (schema1.type === 'array' && schema2.type === 'array') {
+        // TODO optimize???
+        if (isEqual(xor(schema1Keys, schema2Keys), ['items'])) {
+          var schemaWithoutItems = schema1Keys.length > schema2Keys.length ? schema2 : schema1;
+          var schemaWithItems = schema1Keys.length > schema2Keys.length ? schema1 : schema2;
+          var isSame = keys(schemaWithoutItems).reduce(function (acc, current) {
+            return isEqual(schemaWithoutItems[current], schemaWithItems[current]) && acc;
+          }, true);
+
+          if (isSame) {
+            return schemaWithoutItems;
+          }
+        }
+      }
+
+      if (schema1.type !== 'object' || schema2.type !== 'object') {
+        return null;
+      }
+    }
+
+    var retObj = {};
+
+    for (var i = 0, length = schema1Keys.length; i < length; i++) {
+      var key = schema1Keys[i];
+
+      if (helpers.getType(schema1[key]) === 'object') {
+        var x = helpers.mergeSchemaObjs(schema1[key], schema2[key]);
+
+        if (!x) {
+          if (schema1.type === 'object' || schema2.type === 'object') {
+            return {
+              type: 'object'
+            };
+          } // special treatment for array items. If not mergeable, we can do without them
+
+
+          if (key !== 'items' || schema1.type !== 'array' || schema2.type !== 'array') {
+            return null;
+          }
+        } else {
+          retObj[key] = x;
+        }
+      } else {
+        // simple value schema properties (not defined by object)
+        if (key === 'type') {
+          // eslint-disable-line no-lonely-if
+          if (schema1[key] !== schema2[key]) {
+            if (schema1[key] === 'integer' && schema2[key] === 'number' || schema1[key] === 'number' && schema2[key] === 'integer') {
+              retObj[key] = 'number';
+            } else {
+              return null;
+            }
+          } else {
+            retObj[key] = schema1[key];
+          }
+        } else {
+          if (!isEqual(schema1[key], schema2[key])) {
+            // TODO Is it even possible to take this path?
+            return null;
+          }
+
+          retObj[key] = schema1[key];
+        }
+      }
+    }
+
+    return retObj;
+  }
+};
+module.exports = helpers;
+
+/***/ }),
+
 /***/ 470:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -17596,6 +33346,836 @@ module.exports.proto = withIsProto;
 
 /***/ }),
 
+/***/ 493:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Client = exports.maybeLocalAddr = exports.ReadTransaction = exports.WriteTransaction = exports.Where = exports.Query = void 0;
+/**
+ * @packageDocumentation
+ * @module @textile/threads-client
+ */
+const grpc_web_1 = __webpack_require__(837);
+const threads_pb_service_1 = __webpack_require__(206);
+const pb = __importStar(__webpack_require__(340));
+const next_tick_1 = __importDefault(__webpack_require__(126));
+const threads_core_1 = __webpack_require__(905);
+const multiaddr_1 = __webpack_require__(251);
+const threads_id_1 = __webpack_require__(879);
+const to_json_schema_1 = __importDefault(__webpack_require__(2));
+const context_1 = __webpack_require__(421);
+const models_1 = __webpack_require__(305);
+Object.defineProperty(exports, "Query", { enumerable: true, get: function () { return models_1.Query; } });
+Object.defineProperty(exports, "Where", { enumerable: true, get: function () { return models_1.Where; } });
+Object.defineProperty(exports, "WriteTransaction", { enumerable: true, get: function () { return models_1.WriteTransaction; } });
+Object.defineProperty(exports, "ReadTransaction", { enumerable: true, get: function () { return models_1.ReadTransaction; } });
+function maybeLocalAddr(ip) {
+    return (['localhost', '', '::1'].includes(ip) ||
+        ip.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/) ||
+        ip.startsWith('192.168.') ||
+        ip.startsWith('10.0.') ||
+        ip.endsWith('.local'));
+}
+exports.maybeLocalAddr = maybeLocalAddr;
+/**
+ * Client is a web-gRPC wrapper client for communicating with a webgRPC-enabled Textile server.
+ * This client library can be used to interact with a local or remote Textile gRPC-service
+ * It is a wrapper around Textile's 'DB' API, which is defined here:
+ * https://github.com/textileio/go-threads/blob/master/api/pb/api.proto.
+ */
+class Client {
+    /**
+     * Creates a new gRPC client instance for accessing the Textile Threads API.
+     * @param context The context to use for interacting with the APIs. Can be modified later.
+     */
+    constructor(context = new context_1.Context()) {
+        this.context = context;
+        this.serviceHost = context.host;
+        this.rpcOptions = {
+            transport: context.transport,
+            debug: context.debug,
+        };
+        // If we have a default here, use it. Otherwise, rely on specific calls
+        this.rpcOptions.transport && grpc_web_1.grpc.setDefaultTransport(this.rpcOptions.transport);
+    }
+    /**
+     * Create a new gRPC client instance from a supplied user auth object.
+     * Assumes all default gRPC settlings. For customization options, use a context object directly.
+     * The callback method will automatically refresh expiring credentials.
+     * @param auth The user auth object or an async callback that returns a user auth object.
+     * @example
+     * ```typescript
+     * import {UserAuth, Client} from '@textile/threads'
+     *
+     * function create (auth: UserAuth) {
+     *   return Client.withUserAuth(auth)
+     * }
+     * ```
+     * @example
+     * ```typescript
+     * import {UserAuth, Client} from '@textile/threads'
+     *
+     * function setCallback (callback: () => Promise<UserAuth>) {
+     *   return Client.withUserAuth(callback)
+     * }
+     * ```
+     */
+    static withUserAuth(auth, host = context_1.defaultHost, debug = false) {
+        const context = typeof auth === 'object'
+            ? context_1.Context.fromUserAuth(auth, host, debug)
+            : context_1.Context.fromUserAuthCallback(auth, host, debug);
+        return new Client(context);
+    }
+    /**
+     * Create a new gRPC client instance from a supplied key and secret
+     * @param key The KeyInfo object containing {key: string, secret: string, type: 0}. 0 === User Group Key, 1 === Account Key
+     * @example
+     * ```typescript
+     * import {KeyInfo, Client} from '@textile/threads'
+     *
+     * async function create (keyInfo: KeyInfo) {
+     *   return await Client.withKeyInfo(keyInfo)
+     * }
+     * ```
+     */
+    static withKeyInfo(key, host = context_1.defaultHost, debug = false) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const context = new context_1.Context(host, debug);
+            yield context.withKeyInfo(key);
+            return new Client(context);
+        });
+    }
+    /**
+     * Create a random user identity.
+     * @example
+     * ```typescript
+     * import {Client} from '@textile/threads'
+     *
+     * async function newIdentity () {
+     *   const user = await Client.randomIdentity()
+     *   return user
+     * }
+     * ```
+     */
+    static randomIdentity() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return threads_core_1.Libp2pCryptoIdentity.fromRandom();
+        });
+    }
+    /**
+     * Obtain a token for interacting with the remote API.
+     * @param identity A user identity to use for creating records in the database. A random identity
+     * can be created with `Client.randomIdentity(), however, it is not easy/possible to migrate
+     * identities after the fact. Please store or otherwise persist any identity information if
+     * you wish to retrieve user data later, or use an external identity provider.
+     * @param ctx Context object containing web-gRPC headers and settings.
+     * @example
+     * ```typescript
+     * import {Client, Identity} from '@textile/threads'
+     *
+     * async function newToken (client: Client, user: Identity) {
+     *   // Token is added to the client connection at the same time
+     *   const token = await client.getToken(user)
+     *   return token
+     * }
+     * ```
+     */
+    getToken(identity, ctx) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.getTokenChallenge(identity.public.toString(), (challenge) => __awaiter(this, void 0, void 0, function* () {
+                return identity.sign(challenge);
+            }), ctx);
+        });
+    }
+    /**
+     * Obtain a token for interacting with the remote API.
+     * @param publicKey The public key of a user identity to use for creating records in the database.
+     * A random identity can be created with `Client.randomIdentity(), however, it is not
+     * easy/possible to migrate identities after the fact. Please store or otherwise persist any
+     * identity information if you wish to retrieve user data later, or use an external identity
+     * provider.
+     * @param callback A callback function that takes a `challenge` argument and returns a signed
+     * message using the input challenge and the private key associated with `publicKey`.
+     * @param ctx Context object containing web-gRPC headers and settings.
+     * @note `publicKey` must be the corresponding public key of the private key used in `callback`.
+     */
+    getTokenChallenge(publicKey, callback, ctx) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = grpc_web_1.grpc.client(threads_pb_service_1.API.GetToken, {
+                host: this.serviceHost,
+                transport: this.rpcOptions.transport,
+                debug: this.rpcOptions.debug,
+            });
+            return new Promise((resolve, reject) => {
+                let token = '';
+                client.onMessage((message) => __awaiter(this, void 0, void 0, function* () {
+                    if (message.hasChallenge()) {
+                        const challenge = message.getChallenge_asU8();
+                        const signature = yield callback(challenge);
+                        const req = new pb.GetTokenRequest();
+                        req.setSignature(signature);
+                        client.send(req);
+                        client.finishSend();
+                    }
+                    else if (message.hasToken()) {
+                        token = message.getToken();
+                    }
+                }));
+                client.onEnd((code, message, _trailers) => {
+                    client.close();
+                    if (code === grpc_web_1.grpc.Code.OK) {
+                        this.context.withToken(token);
+                        resolve(token);
+                    }
+                    else {
+                        reject(new Error(message));
+                    }
+                });
+                const req = new pb.GetTokenRequest();
+                req.setKey(publicKey);
+                this.context.toMetadata(ctx).then((metadata) => {
+                    client.start(metadata);
+                    client.send(req);
+                });
+            });
+        });
+    }
+    /**
+     * newDB creates a new store on the remote node.
+     * @param threadID the ID of the database
+     * @param name The human-readable name for the database
+     * @example
+     * ```typescript
+     * import {Client, ThreadID} from '@textile/threads'
+     *
+     * async function createDB (client: Client) {
+     *   const thread: ThreadID = await client.newDB()
+     *   return thread
+     * }
+     * ```
+     */
+    newDB(threadID, name) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const dbID = threadID !== null && threadID !== void 0 ? threadID : threads_id_1.ThreadID.fromRandom();
+            const req = new pb.NewDBRequest();
+            req.setDbid(dbID.toBytes());
+            if (name !== undefined) {
+                this.context.withThreadName(name);
+                req.setName(name);
+            }
+            yield this.unary(threads_pb_service_1.API.NewDB, req);
+            // Update our context with out new thread id
+            this.context.withThread(dbID.toString());
+            return dbID;
+        });
+    }
+    /**
+     * open creates and enters a new store on the remote node.
+     * @param threadID the ID of the database
+     * @param name The human-readable name for the database
+     * @example
+     * ```typescript
+     * import {Client, ThreadID} from '@textile/threads'
+     *
+     * async function openDB (client: Client, threadID: ThreadID) {
+     *   await client.open(threadID)
+     * }
+     * ```
+     */
+    open(threadID, name) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.ListDBsRequest();
+            const res = (yield this.unary(threads_pb_service_1.API.ListDBs, req));
+            for (const db of res.dbsList) {
+                const id = threads_id_1.ThreadID.fromBytes(Buffer.from(db.dbid, 'base64'));
+                if (id === threadID) {
+                    this.context.withThread(threadID.toString());
+                    return;
+                }
+            }
+            yield this.newDB(threadID, name);
+            this.context.withThread(threadID.toString());
+        });
+    }
+    /**
+     * Deletes an entire DB.
+     * @param threadID the ID of the database.
+     * @example
+     * ```typescript
+     * import {Client, ThreadID} from '@textile/threads'
+     *
+     * async function deleteDB (client: Client, thread: ThreadID) {
+     *   await client.deleteDB(thread)
+     *   return
+     * }
+     * ```
+     */
+    deleteDB(threadID) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.DeleteDBRequest();
+            req.setDbid(threadID.toBytes());
+            yield this.unary(threads_pb_service_1.API.DeleteDB, req);
+            return;
+        });
+    }
+    /**
+     * Lists all known DBs.
+     * @note this API is blocked on the Hub.
+     * @see {listThreads} available via `@textile/hub` for an alternative.
+     */
+    listDBs() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.ListDBsRequest();
+            const res = (yield this.unary(threads_pb_service_1.API.ListDBs, req));
+            const dbs = {};
+            for (const db of res.dbsList) {
+                const id = threads_id_1.ThreadID.fromBytes(Buffer.from(db.dbid, 'base64')).toString();
+                dbs[id] = db.info;
+            }
+            return dbs;
+        });
+    }
+    /**
+     * newCollection registers a new collection schema under the given name.
+     * The schema must be a valid json-schema.org schema, and can be a JSON string or object.
+     * @param threadID the ID of the database
+     * @param name The human-readable name for the collection.
+     * @param schema The actual json-schema.org compatible schema object.
+     * @param indexes A set of index definitions for indexing instance fields.
+     */
+    newCollection(threadID, name, schema, indexes) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.NewCollectionRequest();
+            const config = new pb.CollectionConfig();
+            config.setName(name);
+            config.setSchema(Buffer.from(JSON.stringify(schema)));
+            const idx = [];
+            for (const item of indexes !== null && indexes !== void 0 ? indexes : []) {
+                const index = new pb.Index();
+                index.setPath(item.path);
+                index.setUnique(item.unique);
+                idx.push(index);
+            }
+            config.setIndexesList(idx);
+            req.setDbid(threadID.toBytes());
+            req.setConfig(config);
+            yield this.unary(threads_pb_service_1.API.NewCollection, req);
+            return;
+        });
+    }
+    /**
+     * newCollectionFromObject creates and registers a new collection under the given name.
+     * The input object must be serializable to JSON, and contain only json-schema.org types.
+     * @param threadID the ID of the database
+     * @param name The human-readable name for the collection.
+     * @param obj The actual object to attempt to extract a schema from.
+     * @param indexes A set of index definitions for indexing instance fields.
+     * @example
+     * ```typescript
+     * import {Client, ThreadID} from '@textile/threads'
+     *
+     * async function fromObject (client: Client, thread: ThreadID, name: string, obj: any) {
+     *   await client.newCollectionFromObject(thread, name, obj)
+     *   return
+     * }
+     *
+     * // Example object
+     * // const person = {name: 'Buzz', missions: 3}
+     * ```
+     */
+    newCollectionFromObject(threadID, name, obj, indexes) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const schema = to_json_schema_1.default(obj);
+            return this.newCollection(threadID, name, schema, indexes);
+        });
+    }
+    /**
+     * updateCollection updates an existing collection.
+     * Currenrly, updates can include name and schema.
+     * @todo Allow update of indexing information.
+     * @param threadID the ID of the database
+     * @param name The human-readable name for the collection.
+     * @param config The new collection configuration values to use when updating.
+     */
+    updateCollection(threadID, name, schema, indexes) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.UpdateCollectionRequest();
+            const conf = new pb.CollectionConfig();
+            conf.setName(name);
+            conf.setSchema(Buffer.from(JSON.stringify(schema)));
+            const idx = [];
+            for (const item of indexes !== null && indexes !== void 0 ? indexes : []) {
+                const index = new pb.Index();
+                index.setPath(item.path);
+                index.setUnique(item.unique);
+                idx.push(index);
+            }
+            conf.setIndexesList(idx);
+            req.setDbid(threadID.toBytes());
+            req.setConfig(conf);
+            yield this.unary(threads_pb_service_1.API.UpdateCollection, req);
+            return;
+        });
+    }
+    /**
+     * deleteCollection deletes an existing collection.
+     * @param threadID the ID of the database.
+     * @param name The human-readable name for the collection.
+     * @param schema The actual json-schema.org compatible schema object.
+     * @example
+     * ```typescript
+     * import {Client, ThreadID} from '@textile/threads'
+     *
+     * async function deleteCollection (client: Client, thread: ThreadID, name: string) {
+     *   await client.deleteCollection(thread, name)
+     *   return
+     * }
+     *
+     * // Example object
+     * // const person = {name: 'Buzz', missions: 3}
+     * ```
+     */
+    deleteCollection(threadID, name) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.DeleteCollectionRequest();
+            req.setDbid(threadID.toBytes());
+            req.setName(name);
+            yield this.unary(threads_pb_service_1.API.DeleteCollection, req);
+            return;
+        });
+    }
+    /**
+     * getCollectionIndexes returns an existing collection's indexes.
+     * @param threadID the ID of the database.
+     * @param name The human-readable name for the collection.
+     */
+    getCollectionIndexes(threadID, name) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.GetCollectionIndexesRequest();
+            req.setDbid(threadID.toBytes());
+            req.setName(name);
+            const res = (yield this.unary(threads_pb_service_1.API.GetCollectionIndexes, req));
+            return res.indexesList;
+        });
+    }
+    /**
+     * newDBFromAddr initializes the client with the given store, connecting to the given
+     * thread address (database). It should be called before any operation on the store, and is an
+     * alternative to start, which creates a local store. newDBFromAddr should also include the
+     * read/follow key, which should be a Buffer, Uint8Array or base32-encoded string.
+     * @see getDBInfo for a possible source of the address and keys.
+     * @see ThreadKey for information about thread keys.
+     * @param address The address for the thread with which to connect.
+     * Should be of the form /ip4/<url/ip-address>/tcp/<port>/p2p/<peer-id>/thread/<thread-id>
+     * @param key The set of keys to use to connect to the database
+     * @param collections Array of `name` and JSON schema pairs for seeding the DB with collections.
+     */
+    newDBFromAddr(address, key, collections) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.NewDBFromAddrRequest();
+            const addr = new multiaddr_1.Multiaddr(address).buffer;
+            req.setAddr(addr);
+            // Should always be encoded string, but might already be bytes
+            req.setKey(typeof key === 'string' ? threads_core_1.ThreadKey.fromString(key).toBytes() : key);
+            if (collections !== undefined) {
+                req.setCollectionsList(collections.map((c) => {
+                    const config = new pb.CollectionConfig();
+                    config.setName(c.name);
+                    config.setSchema(Buffer.from(JSON.stringify(c.schema)));
+                    return config;
+                }));
+            }
+            yield this.unary(threads_pb_service_1.API.NewDBFromAddr, req);
+            return;
+        });
+    }
+    /**
+     * fromInfo initializes the client with the given store, connecting to the given
+     * thread address (database). It should be called before any operation on the store, and is an
+     * alternative to start, which creates a local store. fromInfo is a helper method around
+     * newDBFromAddr that takes the 'raw' output from getDBInfo, rather than specifying an address
+     * directly.
+     * @see getDBInfo for a possible source of the address and keys.
+     * @see ThreadKey for information about thread keys.
+     * @param info The output from a call to getDBInfo on a separate peer.
+     * @param includeLocal Whether to try dialing addresses that appear to be on the local host.
+     * Defaults to false, preferring to add from public ip addresses.
+     * @param collections Array of `name` and JSON schema pairs for seeding the DB with collections.
+     */
+    joinFromInfo(info, includeLocal = false, collections) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.NewDBFromAddrRequest();
+            const filtered = info.addrs
+                .map((addr) => new multiaddr_1.Multiaddr(addr))
+                .filter((addr) => includeLocal || !maybeLocalAddr(addr.toOptions().host));
+            for (const addr of filtered) {
+                req.setAddr(addr.buffer);
+                // Should always be encoded string, but might already be bytes
+                req.setKey(typeof info.key === 'string' ? threads_core_1.ThreadKey.fromString(info.key).toBytes() : info.key);
+                if (collections !== undefined) {
+                    req.setCollectionsList(collections.map((c) => {
+                        const config = new pb.CollectionConfig();
+                        config.setName(c.name);
+                        config.setSchema(Buffer.from(JSON.stringify(c.schema)));
+                        return config;
+                    }));
+                }
+                // Try to add addrs one at a time, if one succeeds, we are done.
+                yield this.unary(threads_pb_service_1.API.NewDBFromAddr, req);
+                return;
+            }
+            throw new Error('No viable addresses for dialing');
+        });
+    }
+    /**
+     * getDBInfo returns invite 'links' unseful for inviting other peers to join a given store/thread.
+     * @param threadID the ID of the database
+     * @returns An object with an encoded thread key, and a list of multiaddrs.
+     */
+    getDBInfo(threadID) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.GetDBInfoRequest();
+            req.setDbid(threadID.toBytes());
+            const res = (yield this.unary(threads_pb_service_1.API.GetDBInfo, req));
+            const threadKey = Buffer.from(res.key, 'base64');
+            const key = threads_core_1.ThreadKey.fromBytes(threadKey);
+            const addrs = [];
+            for (const addr of res.addrsList) {
+                const a = typeof addr === 'string' ? Buffer.from(addr, 'base64') : Buffer.from(addr);
+                const address = new multiaddr_1.Multiaddr(a).toString();
+                addrs.push(address);
+            }
+            return { key: key.toString(), addrs };
+        });
+    }
+    /**
+     * Creates a new model instance in the given store.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     * @param values An array of model instances as JSON/JS objects.
+     */
+    create(threadID, collectionName, values) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.CreateRequest();
+            req.setDbid(threadID.toBytes());
+            req.setCollectionname(collectionName);
+            const list = [];
+            values.forEach((v) => {
+                list.push(Buffer.from(JSON.stringify(v)));
+            });
+            req.setInstancesList(list);
+            const res = (yield this.unary(threads_pb_service_1.API.Create, req));
+            return res.instanceidsList;
+        });
+    }
+    /**
+     * Saves changes to an existing model instance in the given store.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     * @param values An array of model instances as JSON/JS objects. Each model instance must have a valid existing `ID` property.
+     */
+    save(threadID, collectionName, values) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.SaveRequest();
+            req.setDbid(threadID.toBytes());
+            req.setCollectionname(collectionName);
+            const list = [];
+            values.forEach((v) => {
+                if (!v.hasOwnProperty('ID')) {
+                    v['ID'] = ''; // The server will add an ID if empty.
+                }
+                list.push(Buffer.from(JSON.stringify(v)));
+            });
+            req.setInstancesList(list);
+            yield this.unary(threads_pb_service_1.API.Save, req);
+            return;
+        });
+    }
+    /**
+     * Deletes an existing model instance from the given store.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     * @param IDs An array of instance ids to delete.
+     */
+    delete(threadID, collectionName, IDs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.DeleteRequest();
+            req.setDbid(threadID.toBytes());
+            req.setCollectionname(collectionName);
+            req.setInstanceidsList(IDs);
+            yield this.unary(threads_pb_service_1.API.Delete, req);
+            return;
+        });
+    }
+    /**
+     * has checks whether a given instance exists in the given store.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     * @param IDs An array of instance ids to check for.
+     */
+    has(threadID, collectionName, IDs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.HasRequest();
+            req.setDbid(threadID.toBytes());
+            req.setCollectionname(collectionName);
+            req.setInstanceidsList(IDs);
+            const res = (yield this.unary(threads_pb_service_1.API.Has, req));
+            return res.exists;
+        });
+    }
+    /**
+     * find queries the store for entities matching the given query parameters.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     * @param query The object that describes the query. User Query class or primitive QueryJSON type.
+     */
+    find(threadID, collectionName, query) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.FindRequest();
+            req.setDbid(threadID.toBytes());
+            req.setCollectionname(collectionName);
+            // @todo: Find a more isomorphic way to do this base64 round-trip
+            req.setQueryjson(Buffer.from(JSON.stringify(query)).toString('base64'));
+            const res = (yield this.unary(threads_pb_service_1.API.Find, req));
+            const ret = {
+                instancesList: res.instancesList.map((instance) => JSON.parse(Buffer.from(instance, 'base64').toString())),
+            };
+            return ret;
+        });
+    }
+    /**
+     * findByID queries the store for the id of an instance.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     * @param ID The id of the instance to search for.
+     */
+    findByID(threadID, collectionName, ID) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const req = new pb.FindByIDRequest();
+            req.setDbid(threadID.toBytes());
+            req.setCollectionname(collectionName);
+            req.setInstanceid(ID);
+            const res = (yield this.unary(threads_pb_service_1.API.FindByID, req));
+            const ret = {
+                instance: JSON.parse(Buffer.from(res.instance, 'base64').toString()),
+            };
+            return ret;
+        });
+    }
+    /**
+     * readTransaction creates a new read-only transaction object. See ReadTransaction for details.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     */
+    readTransaction(threadID, collectionName) {
+        const client = grpc_web_1.grpc.client(threads_pb_service_1.API.ReadTransaction, {
+            host: this.serviceHost,
+            transport: this.rpcOptions.transport,
+            debug: this.rpcOptions.debug,
+        });
+        return new models_1.ReadTransaction(this.context, client, threadID, collectionName);
+    }
+    /**
+     * writeTransaction creates a new writeable transaction object. See WriteTransaction for details.
+     * @param threadID the ID of the database
+     * @param collectionName The human-readable name of the model to use.
+     */
+    writeTransaction(threadID, collectionName) {
+        const client = grpc_web_1.grpc.client(threads_pb_service_1.API.WriteTransaction, {
+            host: this.serviceHost,
+            transport: this.rpcOptions.transport,
+            debug: this.rpcOptions.debug,
+        });
+        return new models_1.WriteTransaction(this.context, client, threadID, collectionName);
+    }
+    /**
+     * listen opens a long-lived connection with a remote node, running the given callback on each new update to the given instance.
+     * The return value is a `close` function, which cleanly closes the connection with the remote node.
+     * @param threadID the ID of the database
+     * @param filters contains an array of Filters
+     * @param callback The callback to call on each update to the given instance.
+     */
+    listen(threadID, filters, callback) {
+        const req = new pb.ListenRequest();
+        req.setDbid(threadID.toBytes());
+        for (const filter of filters) {
+            const requestFilter = new pb.ListenRequest.Filter();
+            if (filter.instanceID) {
+                requestFilter.setInstanceid(filter.instanceID);
+            }
+            else if (filter.collectionName) {
+                requestFilter.setCollectionname(filter.collectionName);
+            }
+            if (filter.actionTypes) {
+                for (const at of filter.actionTypes) {
+                    switch (at) {
+                        case 'ALL': {
+                            requestFilter.setAction(pb.ListenRequest.Filter.Action.ALL);
+                            break;
+                        }
+                        case 'CREATE': {
+                            requestFilter.setAction(pb.ListenRequest.Filter.Action.CREATE);
+                            break;
+                        }
+                        case 'SAVE': {
+                            requestFilter.setAction(pb.ListenRequest.Filter.Action.SAVE);
+                            break;
+                        }
+                        case 'DELETE': {
+                            requestFilter.setAction(pb.ListenRequest.Filter.Action.DELETE);
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+                requestFilter.setAction(0);
+            }
+            req.addFilters(requestFilter);
+        }
+        const client = grpc_web_1.grpc.client(threads_pb_service_1.API.Listen, {
+            host: this.serviceHost,
+            transport: this.rpcOptions.transport,
+            debug: this.rpcOptions.debug,
+        });
+        client.onMessage((message) => {
+            const ret = {
+                instance: JSON.parse(Buffer.from(message.getInstance_asU8()).toString()),
+            };
+            next_tick_1.default(() => callback(ret));
+        });
+        client.onEnd((status, message, _trailers) => {
+            if (status !== grpc_web_1.grpc.Code.OK) {
+                next_tick_1.default(() => callback(undefined, new Error(message)));
+            }
+            next_tick_1.default(callback);
+        });
+        this.context.toMetadata().then((metadata) => {
+            client.start(metadata);
+            client.send(req);
+            client.finishSend();
+        });
+        return { close: () => client.close() };
+    }
+    unary(methodDescriptor, req) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const metadata = yield this.context.toMetadata();
+            return new Promise((resolve, reject) => {
+                grpc_web_1.grpc.unary(methodDescriptor, {
+                    transport: this.rpcOptions.transport,
+                    debug: this.rpcOptions.debug,
+                    request: req,
+                    host: this.serviceHost,
+                    metadata,
+                    onEnd: (res) => {
+                        const { status, statusMessage, message } = res;
+                        if (status === grpc_web_1.grpc.Code.OK) {
+                            if (message) {
+                                resolve(message.toObject());
+                            }
+                            else {
+                                resolve();
+                            }
+                        }
+                        else {
+                            reject(new Error(statusMessage));
+                        }
+                    },
+                });
+            });
+        });
+    }
+}
+exports.Client = Client;
+// eslint-disable-next-line import/no-default-export
+exports.default = Client;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
+/***/ 501:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const Base = __webpack_require__(577)
+const baseX = __webpack_require__(973)
+const base16 = __webpack_require__(72)
+const base32 = __webpack_require__(375)
+const base64 = __webpack_require__(63)
+
+// name, code, implementation, alphabet
+const constants = [
+  ['base1', '1', '', '1'],
+  ['base2', '0', baseX, '01'],
+  ['base8', '7', baseX, '01234567'],
+  ['base10', '9', baseX, '0123456789'],
+  ['base16', 'f', base16, '0123456789abcdef'],
+  ['base32', 'b', base32, 'abcdefghijklmnopqrstuvwxyz234567'],
+  ['base32pad', 'c', base32, 'abcdefghijklmnopqrstuvwxyz234567='],
+  ['base32hex', 'v', base32, '0123456789abcdefghijklmnopqrstuv'],
+  ['base32hexpad', 't', base32, '0123456789abcdefghijklmnopqrstuv='],
+  ['base32z', 'h', base32, 'ybndrfg8ejkmcpqxot1uwisza345h769'],
+  ['base58flickr', 'Z', baseX, '123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'],
+  ['base58btc', 'z', baseX, '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'],
+  ['base64', 'm', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'],
+  ['base64pad', 'M', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='],
+  ['base64url', 'u', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'],
+  ['base64urlpad', 'U', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=']
+]
+
+const names = constants.reduce((prev, tupple) => {
+  prev[tupple[0]] = new Base(tupple[0], tupple[1], tupple[2], tupple[3])
+  return prev
+}, {})
+
+const codes = constants.reduce((prev, tupple) => {
+  prev[tupple[1]] = names[tupple[0]]
+  return prev
+}, {})
+
+module.exports = {
+  names: names,
+  codes: codes
+}
+
+
+/***/ }),
+
 /***/ 507:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -17796,6 +34376,2030 @@ function encode(num, out, offset) {
 
 /***/ }),
 
+/***/ 553:
+/***/ (function(module) {
+
+"use strict";
+
+
+const word = '[a-fA-F\\d:]';
+const b = options => options && options.includeBoundaries ?
+	`(?:(?<=\\s|^)(?=${word})|(?<=${word})(?=\\s|$))` :
+	'';
+
+const v4 = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}';
+
+const v6seg = '[a-fA-F\\d]{1,4}';
+const v6 = `
+(
+(?:${v6seg}:){7}(?:${v6seg}|:)|                                // 1:2:3:4:5:6:7::  1:2:3:4:5:6:7:8
+(?:${v6seg}:){6}(?:${v4}|:${v6seg}|:)|                         // 1:2:3:4:5:6::    1:2:3:4:5:6::8   1:2:3:4:5:6::8  1:2:3:4:5:6::1.2.3.4
+(?:${v6seg}:){5}(?::${v4}|(:${v6seg}){1,2}|:)|                 // 1:2:3:4:5::      1:2:3:4:5::7:8   1:2:3:4:5::8    1:2:3:4:5::7:1.2.3.4
+(?:${v6seg}:){4}(?:(:${v6seg}){0,1}:${v4}|(:${v6seg}){1,3}|:)| // 1:2:3:4::        1:2:3:4::6:7:8   1:2:3:4::8      1:2:3:4::6:7:1.2.3.4
+(?:${v6seg}:){3}(?:(:${v6seg}){0,2}:${v4}|(:${v6seg}){1,4}|:)| // 1:2:3::          1:2:3::5:6:7:8   1:2:3::8        1:2:3::5:6:7:1.2.3.4
+(?:${v6seg}:){2}(?:(:${v6seg}){0,3}:${v4}|(:${v6seg}){1,5}|:)| // 1:2::            1:2::4:5:6:7:8   1:2::8          1:2::4:5:6:7:1.2.3.4
+(?:${v6seg}:){1}(?:(:${v6seg}){0,4}:${v4}|(:${v6seg}){1,6}|:)| // 1::              1::3:4:5:6:7:8   1::8            1::3:4:5:6:7:1.2.3.4
+(?::((?::${v6seg}){0,5}:${v4}|(?::${v6seg}){1,7}|:))           // ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8  ::8             ::1.2.3.4
+)(%[0-9a-zA-Z]{1,})?                                           // %eth0            %1
+`.replace(/\s*\/\/.*$/gm, '').replace(/\n/g, '').trim();
+
+const ip = options => options && options.exact ?
+	new RegExp(`(?:^${v4}$)|(?:^${v6}$)`) :
+	new RegExp(`(?:${b(options)}${v4}${b(options)})|(?:${b(options)}${v6}${b(options)})`, 'g');
+
+ip.v4 = options => options && options.exact ? new RegExp(`^${v4}$`) : new RegExp(`${b(options)}${v4}${b(options)}`, 'g');
+ip.v6 = options => options && options.exact ? new RegExp(`^${v6}$`) : new RegExp(`${b(options)}${v6}${b(options)}`, 'g');
+
+module.exports = ip;
+
+
+/***/ }),
+
+/***/ 554:
+/***/ (function(module, exports, __webpack_require__) {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+/**
+ * Lodash (Custom Build) <https://lodash.com/>
+ * Build: `lodash modularize exports="npm" -o ./`
+ * Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
+ * Released under MIT license <https://lodash.com/license>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ */
+
+/** Used as the size to enable large array optimizations. */
+var LARGE_ARRAY_SIZE = 200;
+
+/** Used to stand-in for `undefined` hash values. */
+var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+/** Used to detect hot functions by number of calls within a span of milliseconds. */
+var HOT_COUNT = 800,
+    HOT_SPAN = 16;
+
+/** Used as references for various `Number` constants. */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/** `Object#toString` result references. */
+var argsTag = '[object Arguments]',
+    arrayTag = '[object Array]',
+    asyncTag = '[object AsyncFunction]',
+    boolTag = '[object Boolean]',
+    dateTag = '[object Date]',
+    errorTag = '[object Error]',
+    funcTag = '[object Function]',
+    genTag = '[object GeneratorFunction]',
+    mapTag = '[object Map]',
+    numberTag = '[object Number]',
+    nullTag = '[object Null]',
+    objectTag = '[object Object]',
+    proxyTag = '[object Proxy]',
+    regexpTag = '[object RegExp]',
+    setTag = '[object Set]',
+    stringTag = '[object String]',
+    undefinedTag = '[object Undefined]',
+    weakMapTag = '[object WeakMap]';
+
+var arrayBufferTag = '[object ArrayBuffer]',
+    dataViewTag = '[object DataView]',
+    float32Tag = '[object Float32Array]',
+    float64Tag = '[object Float64Array]',
+    int8Tag = '[object Int8Array]',
+    int16Tag = '[object Int16Array]',
+    int32Tag = '[object Int32Array]',
+    uint8Tag = '[object Uint8Array]',
+    uint8ClampedTag = '[object Uint8ClampedArray]',
+    uint16Tag = '[object Uint16Array]',
+    uint32Tag = '[object Uint32Array]';
+
+/**
+ * Used to match `RegExp`
+ * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
+ */
+var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+
+/** Used to detect host constructors (Safari). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^(?:0|[1-9]\d*)$/;
+
+/** Used to identify `toStringTag` values of typed arrays. */
+var typedArrayTags = {};
+typedArrayTags[float32Tag] = typedArrayTags[float64Tag] =
+typedArrayTags[int8Tag] = typedArrayTags[int16Tag] =
+typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =
+typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =
+typedArrayTags[uint32Tag] = true;
+typedArrayTags[argsTag] = typedArrayTags[arrayTag] =
+typedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] =
+typedArrayTags[dataViewTag] = typedArrayTags[dateTag] =
+typedArrayTags[errorTag] = typedArrayTags[funcTag] =
+typedArrayTags[mapTag] = typedArrayTags[numberTag] =
+typedArrayTags[objectTag] = typedArrayTags[regexpTag] =
+typedArrayTags[setTag] = typedArrayTags[stringTag] =
+typedArrayTags[weakMapTag] = false;
+
+/** Detect free variable `global` from Node.js. */
+var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
+
+/** Detect free variable `self`. */
+var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+/** Used as a reference to the global object. */
+var root = freeGlobal || freeSelf || Function('return this')();
+
+/** Detect free variable `exports`. */
+var freeExports =  true && exports && !exports.nodeType && exports;
+
+/** Detect free variable `module`. */
+var freeModule = freeExports && "object" == 'object' && module && !module.nodeType && module;
+
+/** Detect the popular CommonJS extension `module.exports`. */
+var moduleExports = freeModule && freeModule.exports === freeExports;
+
+/** Detect free variable `process` from Node.js. */
+var freeProcess = moduleExports && freeGlobal.process;
+
+/** Used to access faster Node.js helpers. */
+var nodeUtil = (function() {
+  try {
+    // Use `util.types` for Node.js 10+.
+    var types = freeModule && freeModule.require && freeModule.require('util').types;
+
+    if (types) {
+      return types;
+    }
+
+    // Legacy `process.binding('util')` for Node.js < 10.
+    return freeProcess && freeProcess.binding && freeProcess.binding('util');
+  } catch (e) {}
+}());
+
+/* Node.js helper references. */
+var nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;
+
+/**
+ * A faster alternative to `Function#apply`, this function invokes `func`
+ * with the `this` binding of `thisArg` and the arguments of `args`.
+ *
+ * @private
+ * @param {Function} func The function to invoke.
+ * @param {*} thisArg The `this` binding of `func`.
+ * @param {Array} args The arguments to invoke `func` with.
+ * @returns {*} Returns the result of `func`.
+ */
+function apply(func, thisArg, args) {
+  switch (args.length) {
+    case 0: return func.call(thisArg);
+    case 1: return func.call(thisArg, args[0]);
+    case 2: return func.call(thisArg, args[0], args[1]);
+    case 3: return func.call(thisArg, args[0], args[1], args[2]);
+  }
+  return func.apply(thisArg, args);
+}
+
+/**
+ * The base implementation of `_.times` without support for iteratee shorthands
+ * or max array length checks.
+ *
+ * @private
+ * @param {number} n The number of times to invoke `iteratee`.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns the array of results.
+ */
+function baseTimes(n, iteratee) {
+  var index = -1,
+      result = Array(n);
+
+  while (++index < n) {
+    result[index] = iteratee(index);
+  }
+  return result;
+}
+
+/**
+ * The base implementation of `_.unary` without support for storing metadata.
+ *
+ * @private
+ * @param {Function} func The function to cap arguments for.
+ * @returns {Function} Returns the new capped function.
+ */
+function baseUnary(func) {
+  return function(value) {
+    return func(value);
+  };
+}
+
+/**
+ * Gets the value at `key` of `object`.
+ *
+ * @private
+ * @param {Object} [object] The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function getValue(object, key) {
+  return object == null ? undefined : object[key];
+}
+
+/**
+ * Creates a unary function that invokes `func` with its argument transformed.
+ *
+ * @private
+ * @param {Function} func The function to wrap.
+ * @param {Function} transform The argument transform.
+ * @returns {Function} Returns the new function.
+ */
+function overArg(func, transform) {
+  return function(arg) {
+    return func(transform(arg));
+  };
+}
+
+/** Used for built-in method references. */
+var arrayProto = Array.prototype,
+    funcProto = Function.prototype,
+    objectProto = Object.prototype;
+
+/** Used to detect overreaching core-js shims. */
+var coreJsData = root['__core-js_shared__'];
+
+/** Used to resolve the decompiled source of functions. */
+var funcToString = funcProto.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Used to detect methods masquerading as native. */
+var maskSrcKey = (function() {
+  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
+  return uid ? ('Symbol(src)_1.' + uid) : '';
+}());
+
+/**
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var nativeObjectToString = objectProto.toString;
+
+/** Used to infer the `Object` constructor. */
+var objectCtorString = funcToString.call(Object);
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/** Built-in value references. */
+var Buffer = moduleExports ? root.Buffer : undefined,
+    Symbol = root.Symbol,
+    Uint8Array = root.Uint8Array,
+    allocUnsafe = Buffer ? Buffer.allocUnsafe : undefined,
+    getPrototype = overArg(Object.getPrototypeOf, Object),
+    objectCreate = Object.create,
+    propertyIsEnumerable = objectProto.propertyIsEnumerable,
+    splice = arrayProto.splice,
+    symToStringTag = Symbol ? Symbol.toStringTag : undefined;
+
+var defineProperty = (function() {
+  try {
+    var func = getNative(Object, 'defineProperty');
+    func({}, '', {});
+    return func;
+  } catch (e) {}
+}());
+
+/* Built-in method references for those with the same name as other `lodash` methods. */
+var nativeIsBuffer = Buffer ? Buffer.isBuffer : undefined,
+    nativeMax = Math.max,
+    nativeNow = Date.now;
+
+/* Built-in method references that are verified to be native. */
+var Map = getNative(root, 'Map'),
+    nativeCreate = getNative(Object, 'create');
+
+/**
+ * The base implementation of `_.create` without support for assigning
+ * properties to the created object.
+ *
+ * @private
+ * @param {Object} proto The object to inherit from.
+ * @returns {Object} Returns the new object.
+ */
+var baseCreate = (function() {
+  function object() {}
+  return function(proto) {
+    if (!isObject(proto)) {
+      return {};
+    }
+    if (objectCreate) {
+      return objectCreate(proto);
+    }
+    object.prototype = proto;
+    var result = new object;
+    object.prototype = undefined;
+    return result;
+  };
+}());
+
+/**
+ * Creates a hash object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Hash(entries) {
+  var index = -1,
+      length = entries == null ? 0 : entries.length;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the hash.
+ *
+ * @private
+ * @name clear
+ * @memberOf Hash
+ */
+function hashClear() {
+  this.__data__ = nativeCreate ? nativeCreate(null) : {};
+  this.size = 0;
+}
+
+/**
+ * Removes `key` and its value from the hash.
+ *
+ * @private
+ * @name delete
+ * @memberOf Hash
+ * @param {Object} hash The hash to modify.
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function hashDelete(key) {
+  var result = this.has(key) && delete this.__data__[key];
+  this.size -= result ? 1 : 0;
+  return result;
+}
+
+/**
+ * Gets the hash value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Hash
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function hashGet(key) {
+  var data = this.__data__;
+  if (nativeCreate) {
+    var result = data[key];
+    return result === HASH_UNDEFINED ? undefined : result;
+  }
+  return hasOwnProperty.call(data, key) ? data[key] : undefined;
+}
+
+/**
+ * Checks if a hash value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Hash
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function hashHas(key) {
+  var data = this.__data__;
+  return nativeCreate ? (data[key] !== undefined) : hasOwnProperty.call(data, key);
+}
+
+/**
+ * Sets the hash `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Hash
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the hash instance.
+ */
+function hashSet(key, value) {
+  var data = this.__data__;
+  this.size += this.has(key) ? 0 : 1;
+  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
+  return this;
+}
+
+// Add methods to `Hash`.
+Hash.prototype.clear = hashClear;
+Hash.prototype['delete'] = hashDelete;
+Hash.prototype.get = hashGet;
+Hash.prototype.has = hashHas;
+Hash.prototype.set = hashSet;
+
+/**
+ * Creates an list cache object.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function ListCache(entries) {
+  var index = -1,
+      length = entries == null ? 0 : entries.length;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the list cache.
+ *
+ * @private
+ * @name clear
+ * @memberOf ListCache
+ */
+function listCacheClear() {
+  this.__data__ = [];
+  this.size = 0;
+}
+
+/**
+ * Removes `key` and its value from the list cache.
+ *
+ * @private
+ * @name delete
+ * @memberOf ListCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function listCacheDelete(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    return false;
+  }
+  var lastIndex = data.length - 1;
+  if (index == lastIndex) {
+    data.pop();
+  } else {
+    splice.call(data, index, 1);
+  }
+  --this.size;
+  return true;
+}
+
+/**
+ * Gets the list cache value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf ListCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function listCacheGet(key) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  return index < 0 ? undefined : data[index][1];
+}
+
+/**
+ * Checks if a list cache value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf ListCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function listCacheHas(key) {
+  return assocIndexOf(this.__data__, key) > -1;
+}
+
+/**
+ * Sets the list cache `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf ListCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the list cache instance.
+ */
+function listCacheSet(key, value) {
+  var data = this.__data__,
+      index = assocIndexOf(data, key);
+
+  if (index < 0) {
+    ++this.size;
+    data.push([key, value]);
+  } else {
+    data[index][1] = value;
+  }
+  return this;
+}
+
+// Add methods to `ListCache`.
+ListCache.prototype.clear = listCacheClear;
+ListCache.prototype['delete'] = listCacheDelete;
+ListCache.prototype.get = listCacheGet;
+ListCache.prototype.has = listCacheHas;
+ListCache.prototype.set = listCacheSet;
+
+/**
+ * Creates a map cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function MapCache(entries) {
+  var index = -1,
+      length = entries == null ? 0 : entries.length;
+
+  this.clear();
+  while (++index < length) {
+    var entry = entries[index];
+    this.set(entry[0], entry[1]);
+  }
+}
+
+/**
+ * Removes all key-value entries from the map.
+ *
+ * @private
+ * @name clear
+ * @memberOf MapCache
+ */
+function mapCacheClear() {
+  this.size = 0;
+  this.__data__ = {
+    'hash': new Hash,
+    'map': new (Map || ListCache),
+    'string': new Hash
+  };
+}
+
+/**
+ * Removes `key` and its value from the map.
+ *
+ * @private
+ * @name delete
+ * @memberOf MapCache
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function mapCacheDelete(key) {
+  var result = getMapData(this, key)['delete'](key);
+  this.size -= result ? 1 : 0;
+  return result;
+}
+
+/**
+ * Gets the map value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf MapCache
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function mapCacheGet(key) {
+  return getMapData(this, key).get(key);
+}
+
+/**
+ * Checks if a map value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf MapCache
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function mapCacheHas(key) {
+  return getMapData(this, key).has(key);
+}
+
+/**
+ * Sets the map `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf MapCache
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the map cache instance.
+ */
+function mapCacheSet(key, value) {
+  var data = getMapData(this, key),
+      size = data.size;
+
+  data.set(key, value);
+  this.size += data.size == size ? 0 : 1;
+  return this;
+}
+
+// Add methods to `MapCache`.
+MapCache.prototype.clear = mapCacheClear;
+MapCache.prototype['delete'] = mapCacheDelete;
+MapCache.prototype.get = mapCacheGet;
+MapCache.prototype.has = mapCacheHas;
+MapCache.prototype.set = mapCacheSet;
+
+/**
+ * Creates a stack cache object to store key-value pairs.
+ *
+ * @private
+ * @constructor
+ * @param {Array} [entries] The key-value pairs to cache.
+ */
+function Stack(entries) {
+  var data = this.__data__ = new ListCache(entries);
+  this.size = data.size;
+}
+
+/**
+ * Removes all key-value entries from the stack.
+ *
+ * @private
+ * @name clear
+ * @memberOf Stack
+ */
+function stackClear() {
+  this.__data__ = new ListCache;
+  this.size = 0;
+}
+
+/**
+ * Removes `key` and its value from the stack.
+ *
+ * @private
+ * @name delete
+ * @memberOf Stack
+ * @param {string} key The key of the value to remove.
+ * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+ */
+function stackDelete(key) {
+  var data = this.__data__,
+      result = data['delete'](key);
+
+  this.size = data.size;
+  return result;
+}
+
+/**
+ * Gets the stack value for `key`.
+ *
+ * @private
+ * @name get
+ * @memberOf Stack
+ * @param {string} key The key of the value to get.
+ * @returns {*} Returns the entry value.
+ */
+function stackGet(key) {
+  return this.__data__.get(key);
+}
+
+/**
+ * Checks if a stack value for `key` exists.
+ *
+ * @private
+ * @name has
+ * @memberOf Stack
+ * @param {string} key The key of the entry to check.
+ * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+ */
+function stackHas(key) {
+  return this.__data__.has(key);
+}
+
+/**
+ * Sets the stack `key` to `value`.
+ *
+ * @private
+ * @name set
+ * @memberOf Stack
+ * @param {string} key The key of the value to set.
+ * @param {*} value The value to set.
+ * @returns {Object} Returns the stack cache instance.
+ */
+function stackSet(key, value) {
+  var data = this.__data__;
+  if (data instanceof ListCache) {
+    var pairs = data.__data__;
+    if (!Map || (pairs.length < LARGE_ARRAY_SIZE - 1)) {
+      pairs.push([key, value]);
+      this.size = ++data.size;
+      return this;
+    }
+    data = this.__data__ = new MapCache(pairs);
+  }
+  data.set(key, value);
+  this.size = data.size;
+  return this;
+}
+
+// Add methods to `Stack`.
+Stack.prototype.clear = stackClear;
+Stack.prototype['delete'] = stackDelete;
+Stack.prototype.get = stackGet;
+Stack.prototype.has = stackHas;
+Stack.prototype.set = stackSet;
+
+/**
+ * Creates an array of the enumerable property names of the array-like `value`.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @param {boolean} inherited Specify returning inherited property names.
+ * @returns {Array} Returns the array of property names.
+ */
+function arrayLikeKeys(value, inherited) {
+  var isArr = isArray(value),
+      isArg = !isArr && isArguments(value),
+      isBuff = !isArr && !isArg && isBuffer(value),
+      isType = !isArr && !isArg && !isBuff && isTypedArray(value),
+      skipIndexes = isArr || isArg || isBuff || isType,
+      result = skipIndexes ? baseTimes(value.length, String) : [],
+      length = result.length;
+
+  for (var key in value) {
+    if ((inherited || hasOwnProperty.call(value, key)) &&
+        !(skipIndexes && (
+           // Safari 9 has enumerable `arguments.length` in strict mode.
+           key == 'length' ||
+           // Node.js 0.10 has enumerable non-index properties on buffers.
+           (isBuff && (key == 'offset' || key == 'parent')) ||
+           // PhantomJS 2 has enumerable non-index properties on typed arrays.
+           (isType && (key == 'buffer' || key == 'byteLength' || key == 'byteOffset')) ||
+           // Skip index properties.
+           isIndex(key, length)
+        ))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * This function is like `assignValue` except that it doesn't assign
+ * `undefined` values.
+ *
+ * @private
+ * @param {Object} object The object to modify.
+ * @param {string} key The key of the property to assign.
+ * @param {*} value The value to assign.
+ */
+function assignMergeValue(object, key, value) {
+  if ((value !== undefined && !eq(object[key], value)) ||
+      (value === undefined && !(key in object))) {
+    baseAssignValue(object, key, value);
+  }
+}
+
+/**
+ * Assigns `value` to `key` of `object` if the existing value is not equivalent
+ * using [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * for equality comparisons.
+ *
+ * @private
+ * @param {Object} object The object to modify.
+ * @param {string} key The key of the property to assign.
+ * @param {*} value The value to assign.
+ */
+function assignValue(object, key, value) {
+  var objValue = object[key];
+  if (!(hasOwnProperty.call(object, key) && eq(objValue, value)) ||
+      (value === undefined && !(key in object))) {
+    baseAssignValue(object, key, value);
+  }
+}
+
+/**
+ * Gets the index at which the `key` is found in `array` of key-value pairs.
+ *
+ * @private
+ * @param {Array} array The array to inspect.
+ * @param {*} key The key to search for.
+ * @returns {number} Returns the index of the matched value, else `-1`.
+ */
+function assocIndexOf(array, key) {
+  var length = array.length;
+  while (length--) {
+    if (eq(array[length][0], key)) {
+      return length;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The base implementation of `assignValue` and `assignMergeValue` without
+ * value checks.
+ *
+ * @private
+ * @param {Object} object The object to modify.
+ * @param {string} key The key of the property to assign.
+ * @param {*} value The value to assign.
+ */
+function baseAssignValue(object, key, value) {
+  if (key == '__proto__' && defineProperty) {
+    defineProperty(object, key, {
+      'configurable': true,
+      'enumerable': true,
+      'value': value,
+      'writable': true
+    });
+  } else {
+    object[key] = value;
+  }
+}
+
+/**
+ * The base implementation of `baseForOwn` which iterates over `object`
+ * properties returned by `keysFunc` and invokes `iteratee` for each property.
+ * Iteratee functions may exit iteration early by explicitly returning `false`.
+ *
+ * @private
+ * @param {Object} object The object to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @param {Function} keysFunc The function to get the keys of `object`.
+ * @returns {Object} Returns `object`.
+ */
+var baseFor = createBaseFor();
+
+/**
+ * The base implementation of `getTag` without fallbacks for buggy environments.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the `toStringTag`.
+ */
+function baseGetTag(value) {
+  if (value == null) {
+    return value === undefined ? undefinedTag : nullTag;
+  }
+  return (symToStringTag && symToStringTag in Object(value))
+    ? getRawTag(value)
+    : objectToString(value);
+}
+
+/**
+ * The base implementation of `_.isArguments`.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ */
+function baseIsArguments(value) {
+  return isObjectLike(value) && baseGetTag(value) == argsTag;
+}
+
+/**
+ * The base implementation of `_.isNative` without bad shim checks.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function,
+ *  else `false`.
+ */
+function baseIsNative(value) {
+  if (!isObject(value) || isMasked(value)) {
+    return false;
+  }
+  var pattern = isFunction(value) ? reIsNative : reIsHostCtor;
+  return pattern.test(toSource(value));
+}
+
+/**
+ * The base implementation of `_.isTypedArray` without Node.js optimizations.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
+ */
+function baseIsTypedArray(value) {
+  return isObjectLike(value) &&
+    isLength(value.length) && !!typedArrayTags[baseGetTag(value)];
+}
+
+/**
+ * The base implementation of `_.keysIn` which doesn't treat sparse arrays as dense.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function baseKeysIn(object) {
+  if (!isObject(object)) {
+    return nativeKeysIn(object);
+  }
+  var isProto = isPrototype(object),
+      result = [];
+
+  for (var key in object) {
+    if (!(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * The base implementation of `_.merge` without support for multiple sources.
+ *
+ * @private
+ * @param {Object} object The destination object.
+ * @param {Object} source The source object.
+ * @param {number} srcIndex The index of `source`.
+ * @param {Function} [customizer] The function to customize merged values.
+ * @param {Object} [stack] Tracks traversed source values and their merged
+ *  counterparts.
+ */
+function baseMerge(object, source, srcIndex, customizer, stack) {
+  if (object === source) {
+    return;
+  }
+  baseFor(source, function(srcValue, key) {
+    stack || (stack = new Stack);
+    if (isObject(srcValue)) {
+      baseMergeDeep(object, source, key, srcIndex, baseMerge, customizer, stack);
+    }
+    else {
+      var newValue = customizer
+        ? customizer(safeGet(object, key), srcValue, (key + ''), object, source, stack)
+        : undefined;
+
+      if (newValue === undefined) {
+        newValue = srcValue;
+      }
+      assignMergeValue(object, key, newValue);
+    }
+  }, keysIn);
+}
+
+/**
+ * A specialized version of `baseMerge` for arrays and objects which performs
+ * deep merges and tracks traversed objects enabling objects with circular
+ * references to be merged.
+ *
+ * @private
+ * @param {Object} object The destination object.
+ * @param {Object} source The source object.
+ * @param {string} key The key of the value to merge.
+ * @param {number} srcIndex The index of `source`.
+ * @param {Function} mergeFunc The function to merge values.
+ * @param {Function} [customizer] The function to customize assigned values.
+ * @param {Object} [stack] Tracks traversed source values and their merged
+ *  counterparts.
+ */
+function baseMergeDeep(object, source, key, srcIndex, mergeFunc, customizer, stack) {
+  var objValue = safeGet(object, key),
+      srcValue = safeGet(source, key),
+      stacked = stack.get(srcValue);
+
+  if (stacked) {
+    assignMergeValue(object, key, stacked);
+    return;
+  }
+  var newValue = customizer
+    ? customizer(objValue, srcValue, (key + ''), object, source, stack)
+    : undefined;
+
+  var isCommon = newValue === undefined;
+
+  if (isCommon) {
+    var isArr = isArray(srcValue),
+        isBuff = !isArr && isBuffer(srcValue),
+        isTyped = !isArr && !isBuff && isTypedArray(srcValue);
+
+    newValue = srcValue;
+    if (isArr || isBuff || isTyped) {
+      if (isArray(objValue)) {
+        newValue = objValue;
+      }
+      else if (isArrayLikeObject(objValue)) {
+        newValue = copyArray(objValue);
+      }
+      else if (isBuff) {
+        isCommon = false;
+        newValue = cloneBuffer(srcValue, true);
+      }
+      else if (isTyped) {
+        isCommon = false;
+        newValue = cloneTypedArray(srcValue, true);
+      }
+      else {
+        newValue = [];
+      }
+    }
+    else if (isPlainObject(srcValue) || isArguments(srcValue)) {
+      newValue = objValue;
+      if (isArguments(objValue)) {
+        newValue = toPlainObject(objValue);
+      }
+      else if (!isObject(objValue) || isFunction(objValue)) {
+        newValue = initCloneObject(srcValue);
+      }
+    }
+    else {
+      isCommon = false;
+    }
+  }
+  if (isCommon) {
+    // Recursively merge objects and arrays (susceptible to call stack limits).
+    stack.set(srcValue, newValue);
+    mergeFunc(newValue, srcValue, srcIndex, customizer, stack);
+    stack['delete'](srcValue);
+  }
+  assignMergeValue(object, key, newValue);
+}
+
+/**
+ * The base implementation of `_.rest` which doesn't validate or coerce arguments.
+ *
+ * @private
+ * @param {Function} func The function to apply a rest parameter to.
+ * @param {number} [start=func.length-1] The start position of the rest parameter.
+ * @returns {Function} Returns the new function.
+ */
+function baseRest(func, start) {
+  return setToString(overRest(func, start, identity), func + '');
+}
+
+/**
+ * The base implementation of `setToString` without support for hot loop shorting.
+ *
+ * @private
+ * @param {Function} func The function to modify.
+ * @param {Function} string The `toString` result.
+ * @returns {Function} Returns `func`.
+ */
+var baseSetToString = !defineProperty ? identity : function(func, string) {
+  return defineProperty(func, 'toString', {
+    'configurable': true,
+    'enumerable': false,
+    'value': constant(string),
+    'writable': true
+  });
+};
+
+/**
+ * Creates a clone of  `buffer`.
+ *
+ * @private
+ * @param {Buffer} buffer The buffer to clone.
+ * @param {boolean} [isDeep] Specify a deep clone.
+ * @returns {Buffer} Returns the cloned buffer.
+ */
+function cloneBuffer(buffer, isDeep) {
+  if (isDeep) {
+    return buffer.slice();
+  }
+  var length = buffer.length,
+      result = allocUnsafe ? allocUnsafe(length) : new buffer.constructor(length);
+
+  buffer.copy(result);
+  return result;
+}
+
+/**
+ * Creates a clone of `arrayBuffer`.
+ *
+ * @private
+ * @param {ArrayBuffer} arrayBuffer The array buffer to clone.
+ * @returns {ArrayBuffer} Returns the cloned array buffer.
+ */
+function cloneArrayBuffer(arrayBuffer) {
+  var result = new arrayBuffer.constructor(arrayBuffer.byteLength);
+  new Uint8Array(result).set(new Uint8Array(arrayBuffer));
+  return result;
+}
+
+/**
+ * Creates a clone of `typedArray`.
+ *
+ * @private
+ * @param {Object} typedArray The typed array to clone.
+ * @param {boolean} [isDeep] Specify a deep clone.
+ * @returns {Object} Returns the cloned typed array.
+ */
+function cloneTypedArray(typedArray, isDeep) {
+  var buffer = isDeep ? cloneArrayBuffer(typedArray.buffer) : typedArray.buffer;
+  return new typedArray.constructor(buffer, typedArray.byteOffset, typedArray.length);
+}
+
+/**
+ * Copies the values of `source` to `array`.
+ *
+ * @private
+ * @param {Array} source The array to copy values from.
+ * @param {Array} [array=[]] The array to copy values to.
+ * @returns {Array} Returns `array`.
+ */
+function copyArray(source, array) {
+  var index = -1,
+      length = source.length;
+
+  array || (array = Array(length));
+  while (++index < length) {
+    array[index] = source[index];
+  }
+  return array;
+}
+
+/**
+ * Copies properties of `source` to `object`.
+ *
+ * @private
+ * @param {Object} source The object to copy properties from.
+ * @param {Array} props The property identifiers to copy.
+ * @param {Object} [object={}] The object to copy properties to.
+ * @param {Function} [customizer] The function to customize copied values.
+ * @returns {Object} Returns `object`.
+ */
+function copyObject(source, props, object, customizer) {
+  var isNew = !object;
+  object || (object = {});
+
+  var index = -1,
+      length = props.length;
+
+  while (++index < length) {
+    var key = props[index];
+
+    var newValue = customizer
+      ? customizer(object[key], source[key], key, object, source)
+      : undefined;
+
+    if (newValue === undefined) {
+      newValue = source[key];
+    }
+    if (isNew) {
+      baseAssignValue(object, key, newValue);
+    } else {
+      assignValue(object, key, newValue);
+    }
+  }
+  return object;
+}
+
+/**
+ * Creates a function like `_.assign`.
+ *
+ * @private
+ * @param {Function} assigner The function to assign values.
+ * @returns {Function} Returns the new assigner function.
+ */
+function createAssigner(assigner) {
+  return baseRest(function(object, sources) {
+    var index = -1,
+        length = sources.length,
+        customizer = length > 1 ? sources[length - 1] : undefined,
+        guard = length > 2 ? sources[2] : undefined;
+
+    customizer = (assigner.length > 3 && typeof customizer == 'function')
+      ? (length--, customizer)
+      : undefined;
+
+    if (guard && isIterateeCall(sources[0], sources[1], guard)) {
+      customizer = length < 3 ? undefined : customizer;
+      length = 1;
+    }
+    object = Object(object);
+    while (++index < length) {
+      var source = sources[index];
+      if (source) {
+        assigner(object, source, index, customizer);
+      }
+    }
+    return object;
+  });
+}
+
+/**
+ * Creates a base function for methods like `_.forIn` and `_.forOwn`.
+ *
+ * @private
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {Function} Returns the new base function.
+ */
+function createBaseFor(fromRight) {
+  return function(object, iteratee, keysFunc) {
+    var index = -1,
+        iterable = Object(object),
+        props = keysFunc(object),
+        length = props.length;
+
+    while (length--) {
+      var key = props[fromRight ? length : ++index];
+      if (iteratee(iterable[key], key, iterable) === false) {
+        break;
+      }
+    }
+    return object;
+  };
+}
+
+/**
+ * Gets the data for `map`.
+ *
+ * @private
+ * @param {Object} map The map to query.
+ * @param {string} key The reference key.
+ * @returns {*} Returns the map data.
+ */
+function getMapData(map, key) {
+  var data = map.__data__;
+  return isKeyable(key)
+    ? data[typeof key == 'string' ? 'string' : 'hash']
+    : data.map;
+}
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = getValue(object, key);
+  return baseIsNative(value) ? value : undefined;
+}
+
+/**
+ * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
+ *
+ * @private
+ * @param {*} value The value to query.
+ * @returns {string} Returns the raw `toStringTag`.
+ */
+function getRawTag(value) {
+  var isOwn = hasOwnProperty.call(value, symToStringTag),
+      tag = value[symToStringTag];
+
+  try {
+    value[symToStringTag] = undefined;
+    var unmasked = true;
+  } catch (e) {}
+
+  var result = nativeObjectToString.call(value);
+  if (unmasked) {
+    if (isOwn) {
+      value[symToStringTag] = tag;
+    } else {
+      delete value[symToStringTag];
+    }
+  }
+  return result;
+}
+
+/**
+ * Initializes an object clone.
+ *
+ * @private
+ * @param {Object} object The object to clone.
+ * @returns {Object} Returns the initialized clone.
+ */
+function initCloneObject(object) {
+  return (typeof object.constructor == 'function' && !isPrototype(object))
+    ? baseCreate(getPrototype(object))
+    : {};
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  var type = typeof value;
+  length = length == null ? MAX_SAFE_INTEGER : length;
+
+  return !!length &&
+    (type == 'number' ||
+      (type != 'symbol' && reIsUint.test(value))) &&
+        (value > -1 && value % 1 == 0 && value < length);
+}
+
+/**
+ * Checks if the given arguments are from an iteratee call.
+ *
+ * @private
+ * @param {*} value The potential iteratee value argument.
+ * @param {*} index The potential iteratee index or key argument.
+ * @param {*} object The potential iteratee object argument.
+ * @returns {boolean} Returns `true` if the arguments are from an iteratee call,
+ *  else `false`.
+ */
+function isIterateeCall(value, index, object) {
+  if (!isObject(object)) {
+    return false;
+  }
+  var type = typeof index;
+  if (type == 'number'
+        ? (isArrayLike(object) && isIndex(index, object.length))
+        : (type == 'string' && index in object)
+      ) {
+    return eq(object[index], value);
+  }
+  return false;
+}
+
+/**
+ * Checks if `value` is suitable for use as unique object key.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
+ */
+function isKeyable(value) {
+  var type = typeof value;
+  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
+    ? (value !== '__proto__')
+    : (value === null);
+}
+
+/**
+ * Checks if `func` has its source masked.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` is masked, else `false`.
+ */
+function isMasked(func) {
+  return !!maskSrcKey && (maskSrcKey in func);
+}
+
+/**
+ * Checks if `value` is likely a prototype object.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a prototype, else `false`.
+ */
+function isPrototype(value) {
+  var Ctor = value && value.constructor,
+      proto = (typeof Ctor == 'function' && Ctor.prototype) || objectProto;
+
+  return value === proto;
+}
+
+/**
+ * This function is like
+ * [`Object.keys`](http://ecma-international.org/ecma-262/7.0/#sec-object.keys)
+ * except that it includes inherited enumerable properties.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function nativeKeysIn(object) {
+  var result = [];
+  if (object != null) {
+    for (var key in Object(object)) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Converts `value` to a string using `Object.prototype.toString`.
+ *
+ * @private
+ * @param {*} value The value to convert.
+ * @returns {string} Returns the converted string.
+ */
+function objectToString(value) {
+  return nativeObjectToString.call(value);
+}
+
+/**
+ * A specialized version of `baseRest` which transforms the rest array.
+ *
+ * @private
+ * @param {Function} func The function to apply a rest parameter to.
+ * @param {number} [start=func.length-1] The start position of the rest parameter.
+ * @param {Function} transform The rest array transform.
+ * @returns {Function} Returns the new function.
+ */
+function overRest(func, start, transform) {
+  start = nativeMax(start === undefined ? (func.length - 1) : start, 0);
+  return function() {
+    var args = arguments,
+        index = -1,
+        length = nativeMax(args.length - start, 0),
+        array = Array(length);
+
+    while (++index < length) {
+      array[index] = args[start + index];
+    }
+    index = -1;
+    var otherArgs = Array(start + 1);
+    while (++index < start) {
+      otherArgs[index] = args[index];
+    }
+    otherArgs[start] = transform(array);
+    return apply(func, this, otherArgs);
+  };
+}
+
+/**
+ * Gets the value at `key`, unless `key` is "__proto__" or "constructor".
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function safeGet(object, key) {
+  if (key === 'constructor' && typeof object[key] === 'function') {
+    return;
+  }
+
+  if (key == '__proto__') {
+    return;
+  }
+
+  return object[key];
+}
+
+/**
+ * Sets the `toString` method of `func` to return `string`.
+ *
+ * @private
+ * @param {Function} func The function to modify.
+ * @param {Function} string The `toString` result.
+ * @returns {Function} Returns `func`.
+ */
+var setToString = shortOut(baseSetToString);
+
+/**
+ * Creates a function that'll short out and invoke `identity` instead
+ * of `func` when it's called `HOT_COUNT` or more times in `HOT_SPAN`
+ * milliseconds.
+ *
+ * @private
+ * @param {Function} func The function to restrict.
+ * @returns {Function} Returns the new shortable function.
+ */
+function shortOut(func) {
+  var count = 0,
+      lastCalled = 0;
+
+  return function() {
+    var stamp = nativeNow(),
+        remaining = HOT_SPAN - (stamp - lastCalled);
+
+    lastCalled = stamp;
+    if (remaining > 0) {
+      if (++count >= HOT_COUNT) {
+        return arguments[0];
+      }
+    } else {
+      count = 0;
+    }
+    return func.apply(undefined, arguments);
+  };
+}
+
+/**
+ * Converts `func` to its source code.
+ *
+ * @private
+ * @param {Function} func The function to convert.
+ * @returns {string} Returns the source code.
+ */
+function toSource(func) {
+  if (func != null) {
+    try {
+      return funcToString.call(func);
+    } catch (e) {}
+    try {
+      return (func + '');
+    } catch (e) {}
+  }
+  return '';
+}
+
+/**
+ * Performs a
+ * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
+ * comparison between two values to determine if they are equivalent.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to compare.
+ * @param {*} other The other value to compare.
+ * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ * var other = { 'a': 1 };
+ *
+ * _.eq(object, object);
+ * // => true
+ *
+ * _.eq(object, other);
+ * // => false
+ *
+ * _.eq('a', 'a');
+ * // => true
+ *
+ * _.eq('a', Object('a'));
+ * // => false
+ *
+ * _.eq(NaN, NaN);
+ * // => true
+ */
+function eq(value, other) {
+  return value === other || (value !== value && other !== other);
+}
+
+/**
+ * Checks if `value` is likely an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an `arguments` object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+var isArguments = baseIsArguments(function() { return arguments; }()) ? baseIsArguments : function(value) {
+  return isObjectLike(value) && hasOwnProperty.call(value, 'callee') &&
+    !propertyIsEnumerable.call(value, 'callee');
+};
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(document.body.children);
+ * // => false
+ *
+ * _.isArray('abc');
+ * // => false
+ *
+ * _.isArray(_.noop);
+ * // => false
+ */
+var isArray = Array.isArray;
+
+/**
+ * Checks if `value` is array-like. A value is considered array-like if it's
+ * not a function and has a `value.length` that's an integer greater than or
+ * equal to `0` and less than or equal to `Number.MAX_SAFE_INTEGER`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ * @example
+ *
+ * _.isArrayLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLike(document.body.children);
+ * // => true
+ *
+ * _.isArrayLike('abc');
+ * // => true
+ *
+ * _.isArrayLike(_.noop);
+ * // => false
+ */
+function isArrayLike(value) {
+  return value != null && isLength(value.length) && !isFunction(value);
+}
+
+/**
+ * This method is like `_.isArrayLike` except that it also checks if `value`
+ * is an object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an array-like object,
+ *  else `false`.
+ * @example
+ *
+ * _.isArrayLikeObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isArrayLikeObject(document.body.children);
+ * // => true
+ *
+ * _.isArrayLikeObject('abc');
+ * // => false
+ *
+ * _.isArrayLikeObject(_.noop);
+ * // => false
+ */
+function isArrayLikeObject(value) {
+  return isObjectLike(value) && isArrayLike(value);
+}
+
+/**
+ * Checks if `value` is a buffer.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.3.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a buffer, else `false`.
+ * @example
+ *
+ * _.isBuffer(new Buffer(2));
+ * // => true
+ *
+ * _.isBuffer(new Uint8Array(2));
+ * // => false
+ */
+var isBuffer = nativeIsBuffer || stubFalse;
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a function, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  if (!isObject(value)) {
+    return false;
+  }
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in Safari 9 which returns 'object' for typed arrays and other constructors.
+  var tag = baseGetTag(value);
+  return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This method is loosely based on
+ * [`ToLength`](http://ecma-international.org/ecma-262/7.0/#sec-tolength).
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ * @example
+ *
+ * _.isLength(3);
+ * // => true
+ *
+ * _.isLength(Number.MIN_VALUE);
+ * // => false
+ *
+ * _.isLength(Infinity);
+ * // => false
+ *
+ * _.isLength('3');
+ * // => false
+ */
+function isLength(value) {
+  return typeof value == 'number' &&
+    value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @since 0.1.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(_.noop);
+ * // => true
+ *
+ * _.isObject(null);
+ * // => false
+ */
+function isObject(value) {
+  var type = typeof value;
+  return value != null && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is object-like. A value is object-like if it's not `null`
+ * and has a `typeof` result of "object".
+ *
+ * @static
+ * @memberOf _
+ * @since 4.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @example
+ *
+ * _.isObjectLike({});
+ * // => true
+ *
+ * _.isObjectLike([1, 2, 3]);
+ * // => true
+ *
+ * _.isObjectLike(_.noop);
+ * // => false
+ *
+ * _.isObjectLike(null);
+ * // => false
+ */
+function isObjectLike(value) {
+  return value != null && typeof value == 'object';
+}
+
+/**
+ * Checks if `value` is a plain object, that is, an object created by the
+ * `Object` constructor or one with a `[[Prototype]]` of `null`.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.8.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a plain object, else `false`.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ * }
+ *
+ * _.isPlainObject(new Foo);
+ * // => false
+ *
+ * _.isPlainObject([1, 2, 3]);
+ * // => false
+ *
+ * _.isPlainObject({ 'x': 0, 'y': 0 });
+ * // => true
+ *
+ * _.isPlainObject(Object.create(null));
+ * // => true
+ */
+function isPlainObject(value) {
+  if (!isObjectLike(value) || baseGetTag(value) != objectTag) {
+    return false;
+  }
+  var proto = getPrototype(value);
+  if (proto === null) {
+    return true;
+  }
+  var Ctor = hasOwnProperty.call(proto, 'constructor') && proto.constructor;
+  return typeof Ctor == 'function' && Ctor instanceof Ctor &&
+    funcToString.call(Ctor) == objectCtorString;
+}
+
+/**
+ * Checks if `value` is classified as a typed array.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.0.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a typed array, else `false`.
+ * @example
+ *
+ * _.isTypedArray(new Uint8Array);
+ * // => true
+ *
+ * _.isTypedArray([]);
+ * // => false
+ */
+var isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;
+
+/**
+ * Converts `value` to a plain object flattening inherited enumerable string
+ * keyed properties of `value` to own properties of the plain object.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.0.0
+ * @category Lang
+ * @param {*} value The value to convert.
+ * @returns {Object} Returns the converted plain object.
+ * @example
+ *
+ * function Foo() {
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.assign({ 'a': 1 }, new Foo);
+ * // => { 'a': 1, 'b': 2 }
+ *
+ * _.assign({ 'a': 1 }, _.toPlainObject(new Foo));
+ * // => { 'a': 1, 'b': 2, 'c': 3 }
+ */
+function toPlainObject(value) {
+  return copyObject(value, keysIn(value));
+}
+
+/**
+ * Creates an array of the own and inherited enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects.
+ *
+ * @static
+ * @memberOf _
+ * @since 3.0.0
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keysIn(new Foo);
+ * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
+ */
+function keysIn(object) {
+  return isArrayLike(object) ? arrayLikeKeys(object, true) : baseKeysIn(object);
+}
+
+/**
+ * This method is like `_.assign` except that it recursively merges own and
+ * inherited enumerable string keyed properties of source objects into the
+ * destination object. Source properties that resolve to `undefined` are
+ * skipped if a destination value exists. Array and plain object properties
+ * are merged recursively. Other objects and value types are overridden by
+ * assignment. Source objects are applied from left to right. Subsequent
+ * sources overwrite property assignments of previous sources.
+ *
+ * **Note:** This method mutates `object`.
+ *
+ * @static
+ * @memberOf _
+ * @since 0.5.0
+ * @category Object
+ * @param {Object} object The destination object.
+ * @param {...Object} [sources] The source objects.
+ * @returns {Object} Returns `object`.
+ * @example
+ *
+ * var object = {
+ *   'a': [{ 'b': 2 }, { 'd': 4 }]
+ * };
+ *
+ * var other = {
+ *   'a': [{ 'c': 3 }, { 'e': 5 }]
+ * };
+ *
+ * _.merge(object, other);
+ * // => { 'a': [{ 'b': 2, 'c': 3 }, { 'd': 4, 'e': 5 }] }
+ */
+var merge = createAssigner(function(object, source, srcIndex) {
+  baseMerge(object, source, srcIndex);
+});
+
+/**
+ * Creates a function that returns `value`.
+ *
+ * @static
+ * @memberOf _
+ * @since 2.4.0
+ * @category Util
+ * @param {*} value The value to return from the new function.
+ * @returns {Function} Returns the new constant function.
+ * @example
+ *
+ * var objects = _.times(2, _.constant({ 'a': 1 }));
+ *
+ * console.log(objects);
+ * // => [{ 'a': 1 }, { 'a': 1 }]
+ *
+ * console.log(objects[0] === objects[1]);
+ * // => true
+ */
+function constant(value) {
+  return function() {
+    return value;
+  };
+}
+
+/**
+ * This method returns the first argument it receives.
+ *
+ * @static
+ * @since 0.1.0
+ * @memberOf _
+ * @category Util
+ * @param {*} value Any value.
+ * @returns {*} Returns `value`.
+ * @example
+ *
+ * var object = { 'a': 1 };
+ *
+ * console.log(_.identity(object) === object);
+ * // => true
+ */
+function identity(value) {
+  return value;
+}
+
+/**
+ * This method returns `false`.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.13.0
+ * @category Util
+ * @returns {boolean} Returns `false`.
+ * @example
+ *
+ * _.times(2, _.stubFalse);
+ * // => [false, false]
+ */
+function stubFalse() {
+  return false;
+}
+
+module.exports = merge;
+
+
+/***/ }),
+
 /***/ 561:
 /***/ (function(module) {
 
@@ -17870,6 +36474,40 @@ exports.isValidStatusCode = (code) => {
 
 /***/ }),
 
+/***/ 577:
+/***/ (function(module) {
+
+"use strict";
+
+
+class Base {
+  constructor (name, code, implementation, alphabet) {
+    this.name = name
+    this.code = code
+    this.alphabet = alphabet
+    if (implementation && alphabet) {
+      this.engine = implementation(alphabet)
+    }
+  }
+
+  encode (stringOrBuffer) {
+    return this.engine.encode(stringOrBuffer)
+  }
+
+  decode (stringOrBuffer) {
+    return this.engine.decode(stringOrBuffer)
+  }
+
+  isImplemented () {
+    return this.engine
+  }
+}
+
+module.exports = Base
+
+
+/***/ }),
+
 /***/ 603:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -17924,7 +36562,7 @@ const next_tick_1 = __importDefault(__webpack_require__(126));
 const grpc_web_1 = __webpack_require__(837);
 const context_1 = __webpack_require__(421);
 const threads_id_1 = __webpack_require__(879);
-const hub_threads_client_1 = __webpack_require__(378);
+const hub_threads_client_1 = __webpack_require__(367);
 const normalize_1 = __webpack_require__(347);
 const logger = loglevel_1.default.getLogger('buckets');
 /**
@@ -19670,6 +38308,206 @@ module.exports = Limiter;
 
 /***/ }),
 
+/***/ 668:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const { Buffer } = __webpack_require__(293)
+const ip = __webpack_require__(798)
+const protocols = __webpack_require__(805)
+const CID = __webpack_require__(437)
+const multibase = __webpack_require__(286)
+const varint = __webpack_require__(507)
+
+module.exports = Convert
+
+// converts (serializes) addresses
+function Convert (proto, a) {
+  if (a instanceof Buffer) {
+    return Convert.toString(proto, a)
+  } else {
+    return Convert.toBuffer(proto, a)
+  }
+}
+
+Convert.toString = function convertToString (proto, buf) {
+  proto = protocols(proto)
+  switch (proto.code) {
+    case 4: // ipv4
+    case 41: // ipv6
+      return buf2ip(buf)
+
+    case 6: // tcp
+    case 273: // udp
+    case 33: // dccp
+    case 132: // sctp
+      return buf2port(buf)
+
+    case 53: // dns
+    case 54: // dns4
+    case 55: // dns6
+    case 56: // dnsaddr
+    case 400: // unix
+    case 777: // memory
+      return buf2str(buf)
+
+    case 421: // ipfs
+      return buf2mh(buf)
+    case 444: // onion
+      return buf2onion(buf)
+    case 445: // onion3
+      return buf2onion(buf)
+    default:
+      return buf.toString('hex') // no clue. convert to hex
+  }
+}
+
+Convert.toBuffer = function convertToBuffer (proto, str) {
+  proto = protocols(proto)
+  switch (proto.code) {
+    case 4: // ipv4
+      return ip2buf(str)
+    case 41: // ipv6
+      return ip2buf(str)
+
+    case 6: // tcp
+    case 273: // udp
+    case 33: // dccp
+    case 132: // sctp
+      return port2buf(parseInt(str, 10))
+
+    case 53: // dns
+    case 54: // dns4
+    case 55: // dns6
+    case 56: // dnsaddr
+    case 400: // unix
+    case 777: // memory
+      return str2buf(str)
+
+    case 421: // ipfs
+      return mh2buf(str)
+    case 444: // onion
+      return onion2buf(str)
+    case 445: // onion3
+      return onion32buf(str)
+    default:
+      return Buffer.from(str, 'hex') // no clue. convert from hex
+  }
+}
+
+function ip2buf (ipString) {
+  if (!ip.isIP(ipString)) {
+    throw new Error('invalid ip address')
+  }
+  return ip.toBuffer(ipString)
+}
+
+function buf2ip (ipBuff) {
+  const ipString = ip.toString(ipBuff)
+  if (!ipString || !ip.isIP(ipString)) {
+    throw new Error('invalid ip address')
+  }
+  return ipString
+}
+
+function port2buf (port) {
+  const buf = Buffer.alloc(2)
+  buf.writeUInt16BE(port, 0)
+  return buf
+}
+
+function buf2port (buf) {
+  return buf.readUInt16BE(0)
+}
+
+function str2buf (str) {
+  const buf = Buffer.from(str)
+  const size = Buffer.from(varint.encode(buf.length))
+  return Buffer.concat([size, buf])
+}
+
+function buf2str (buf) {
+  const size = varint.decode(buf)
+  buf = buf.slice(varint.decode.bytes)
+
+  if (buf.length !== size) {
+    throw new Error('inconsistent lengths')
+  }
+
+  return buf.toString()
+}
+
+function mh2buf (hash) {
+  // the address is a varint prefixed multihash string representation
+  const mh = new CID(hash).multihash
+  const size = Buffer.from(varint.encode(mh.length))
+  return Buffer.concat([size, mh])
+}
+
+function buf2mh (buf) {
+  const size = varint.decode(buf)
+  const address = buf.slice(varint.decode.bytes)
+
+  if (address.length !== size) {
+    throw new Error('inconsistent lengths')
+  }
+  return multibase.encode('base58btc', address).toString().slice(1)
+}
+
+function onion2buf (str) {
+  const addr = str.split(':')
+  if (addr.length !== 2) {
+    throw new Error('failed to parse onion addr: ' + addr + ' does not contain a port number')
+  }
+  if (addr[0].length !== 16) {
+    throw new Error('failed to parse onion addr: ' + addr[0] + ' not a Tor onion address.')
+  }
+
+  // onion addresses do not include the multibase prefix, add it before decoding
+  const buf = multibase.decode('b' + addr[0])
+
+  // onion port number
+  const port = parseInt(addr[1], 10)
+  if (port < 1 || port > 65536) {
+    throw new Error('Port number is not in range(1, 65536)')
+  }
+  const portBuf = port2buf(port)
+  return Buffer.concat([buf, portBuf])
+}
+
+function onion32buf (str) {
+  const addr = str.split(':')
+  if (addr.length !== 2) {
+    throw new Error('failed to parse onion addr: ' + addr + ' does not contain a port number')
+  }
+  if (addr[0].length !== 56) {
+    throw new Error('failed to parse onion addr: ' + addr[0] + ' not a Tor onion3 address.')
+  }
+  // onion addresses do not include the multibase prefix, add it before decoding
+  const buf = multibase.decode('b' + addr[0])
+
+  // onion port number
+  const port = parseInt(addr[1], 10)
+  if (port < 1 || port > 65536) {
+    throw new Error('Port number is not in range(1, 65536)')
+  }
+  const portBuf = port2buf(port)
+  return Buffer.concat([buf, portBuf])
+}
+
+function buf2onion (buf) {
+  const addrBytes = buf.slice(0, buf.length - 2)
+  const portBytes = buf.slice(buf.length - 2)
+  const addr = multibase.encode('base32', addrBytes).toString().slice(1)
+  const port = buf2port(portBytes)
+  return addr + ':' + port
+}
+
+
+/***/ }),
+
 /***/ 669:
 /***/ (function(module) {
 
@@ -19782,6 +38620,721 @@ try {
 
 /***/ }),
 
+/***/ 721:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+// source: users.proto
+/**
+ * @fileoverview
+ * @enhanceable
+ * @suppress {messageConventions} JS Compiler reports an error if a variable or
+ *     field starts with 'MSG_' and isn't a translatable message.
+ * @public
+ */
+// GENERATED CODE -- DO NOT EDIT!
+
+var jspb = __webpack_require__(188);
+var goog = jspb;
+var global = Function('return this')();
+
+goog.exportSymbol('proto.users.pb.GetThreadReply', null, global);
+goog.exportSymbol('proto.users.pb.GetThreadRequest', null, global);
+goog.exportSymbol('proto.users.pb.ListThreadsReply', null, global);
+goog.exportSymbol('proto.users.pb.ListThreadsRequest', null, global);
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.users.pb.ListThreadsRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.users.pb.ListThreadsRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.users.pb.ListThreadsRequest.displayName = 'proto.users.pb.ListThreadsRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.users.pb.ListThreadsReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.users.pb.ListThreadsReply.repeatedFields_, null);
+};
+goog.inherits(proto.users.pb.ListThreadsReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.users.pb.ListThreadsReply.displayName = 'proto.users.pb.ListThreadsReply';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.users.pb.GetThreadRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.users.pb.GetThreadRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.users.pb.GetThreadRequest.displayName = 'proto.users.pb.GetThreadRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.users.pb.GetThreadReply = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.users.pb.GetThreadReply, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.users.pb.GetThreadReply.displayName = 'proto.users.pb.GetThreadReply';
+}
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.users.pb.ListThreadsRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.users.pb.ListThreadsRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.users.pb.ListThreadsRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.ListThreadsRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.users.pb.ListThreadsRequest}
+ */
+proto.users.pb.ListThreadsRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.users.pb.ListThreadsRequest;
+  return proto.users.pb.ListThreadsRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.users.pb.ListThreadsRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.users.pb.ListThreadsRequest}
+ */
+proto.users.pb.ListThreadsRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.users.pb.ListThreadsRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.users.pb.ListThreadsRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.users.pb.ListThreadsRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.ListThreadsRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.users.pb.ListThreadsReply.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.users.pb.ListThreadsReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.users.pb.ListThreadsReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.users.pb.ListThreadsReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.ListThreadsReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    listList: jspb.Message.toObjectList(msg.getListList(),
+    proto.users.pb.GetThreadReply.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.users.pb.ListThreadsReply}
+ */
+proto.users.pb.ListThreadsReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.users.pb.ListThreadsReply;
+  return proto.users.pb.ListThreadsReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.users.pb.ListThreadsReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.users.pb.ListThreadsReply}
+ */
+proto.users.pb.ListThreadsReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.users.pb.GetThreadReply;
+      reader.readMessage(value,proto.users.pb.GetThreadReply.deserializeBinaryFromReader);
+      msg.addList(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.users.pb.ListThreadsReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.users.pb.ListThreadsReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.users.pb.ListThreadsReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.ListThreadsReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getListList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.users.pb.GetThreadReply.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * repeated GetThreadReply list = 1;
+ * @return {!Array<!proto.users.pb.GetThreadReply>}
+ */
+proto.users.pb.ListThreadsReply.prototype.getListList = function() {
+  return /** @type{!Array<!proto.users.pb.GetThreadReply>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.users.pb.GetThreadReply, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.users.pb.GetThreadReply>} value
+ * @return {!proto.users.pb.ListThreadsReply} returns this
+*/
+proto.users.pb.ListThreadsReply.prototype.setListList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.users.pb.GetThreadReply=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.users.pb.GetThreadReply}
+ */
+proto.users.pb.ListThreadsReply.prototype.addList = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.users.pb.GetThreadReply, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.users.pb.ListThreadsReply} returns this
+ */
+proto.users.pb.ListThreadsReply.prototype.clearListList = function() {
+  return this.setListList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.users.pb.GetThreadRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.users.pb.GetThreadRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.users.pb.GetThreadRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.GetThreadRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.users.pb.GetThreadRequest}
+ */
+proto.users.pb.GetThreadRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.users.pb.GetThreadRequest;
+  return proto.users.pb.GetThreadRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.users.pb.GetThreadRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.users.pb.GetThreadRequest}
+ */
+proto.users.pb.GetThreadRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.users.pb.GetThreadRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.users.pb.GetThreadRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.users.pb.GetThreadRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.GetThreadRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.users.pb.GetThreadRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.users.pb.GetThreadRequest} returns this
+ */
+proto.users.pb.GetThreadRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.users.pb.GetThreadReply.prototype.toObject = function(opt_includeInstance) {
+  return proto.users.pb.GetThreadReply.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.users.pb.GetThreadReply} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.GetThreadReply.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    id: msg.getId_asB64(),
+    name: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    isdb: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.users.pb.GetThreadReply}
+ */
+proto.users.pb.GetThreadReply.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.users.pb.GetThreadReply;
+  return proto.users.pb.GetThreadReply.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.users.pb.GetThreadReply} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.users.pb.GetThreadReply}
+ */
+proto.users.pb.GetThreadReply.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setId(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    case 3:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setIsdb(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.users.pb.GetThreadReply.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.users.pb.GetThreadReply.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.users.pb.GetThreadReply} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.users.pb.GetThreadReply.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getId_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      1,
+      f
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getIsdb();
+  if (f) {
+    writer.writeBool(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bytes ID = 1;
+ * @return {!(string|Uint8Array)}
+ */
+proto.users.pb.GetThreadReply.prototype.getId = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * optional bytes ID = 1;
+ * This is a type-conversion wrapper around `getId()`
+ * @return {string}
+ */
+proto.users.pb.GetThreadReply.prototype.getId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getId()));
+};
+
+
+/**
+ * optional bytes ID = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getId()`
+ * @return {!Uint8Array}
+ */
+proto.users.pb.GetThreadReply.prototype.getId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.users.pb.GetThreadReply} returns this
+ */
+proto.users.pb.GetThreadReply.prototype.setId = function(value) {
+  return jspb.Message.setProto3BytesField(this, 1, value);
+};
+
+
+/**
+ * optional string name = 2;
+ * @return {string}
+ */
+proto.users.pb.GetThreadReply.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.users.pb.GetThreadReply} returns this
+ */
+proto.users.pb.GetThreadReply.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional bool isDB = 3;
+ * @return {boolean}
+ */
+proto.users.pb.GetThreadReply.prototype.getIsdb = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.users.pb.GetThreadReply} returns this
+ */
+proto.users.pb.GetThreadReply.prototype.setIsdb = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 3, value);
+};
+
+
+goog.object.extend(exports, proto.users.pb);
+
+
+/***/ }),
+
 /***/ 747:
 /***/ (function(module) {
 
@@ -19789,10 +39342,208 @@ module.exports = require("fs");
 
 /***/ }),
 
+/***/ 757:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.protocols = void 0;
+const V = -1;
+const _table = [
+    [4, 32, 'ip4'],
+    [6, 16, 'tcp'],
+    [33, 16, 'dccp'],
+    [41, 128, 'ip6'],
+    [42, V, 'ip6zone'],
+    [53, V, 'dns', true],
+    [54, V, 'dns4', true],
+    [55, V, 'dns6', true],
+    [56, V, 'dnsaddr', true],
+    [132, 16, 'sctp'],
+    [273, 16, 'udp'],
+    [275, 0, 'p2p-webrtc-star'],
+    [276, 0, 'p2p-webrtc-direct'],
+    [277, 0, 'p2p-stardust'],
+    [290, 0, 'p2p-circuit'],
+    [301, 0, 'udt'],
+    [302, 0, 'utp'],
+    [400, V, 'unix', false, 'path'],
+    [406, V, 'thread'],
+    // `ipfs` is added before `p2p` for legacy support.
+    // All text representations will default to `p2p`, but `ipfs` will
+    // still be supported
+    [421, V, 'ipfs'],
+    // `p2p` is the preferred name for 421, and is now the default
+    [421, V, 'p2p'],
+    [443, 0, 'https'],
+    [444, 96, 'onion'],
+    [445, 296, 'onion3'],
+    [446, V, 'garlic64'],
+    [460, 0, 'quic'],
+    [477, 0, 'ws'],
+    [478, 0, 'wss'],
+    [479, 0, 'p2p-websocket-star'],
+    [480, 0, 'http'],
+];
+function p([code, size, name, resolvable, path]) {
+    return {
+        code: code,
+        size: size,
+        name: name,
+        resolvable: Boolean(resolvable),
+        path: Boolean(path),
+    };
+}
+const _names = {};
+const _codes = {};
+// populate tables
+_table.forEach(row => {
+    const proto = p(row);
+    _codes[proto.code] = proto;
+    _names[proto.name] = proto;
+});
+function Protocols(proto) {
+    if (typeof proto === 'number') {
+        if (Protocols.codes[proto]) {
+            return Protocols.codes[proto];
+        }
+        throw new Error('no protocol with code: ' + proto);
+    }
+    else if (typeof proto === 'string' || proto instanceof String) {
+        if (Protocols.names[proto]) {
+            return Protocols.names[proto];
+        }
+        throw new Error('no protocol with name: ' + proto);
+    }
+    throw new Error('invalid protocol id type: ' + proto);
+}
+exports.protocols = Protocols;
+// eslint-disable-next-line @typescript-eslint/no-namespace
+(function (Protocols) {
+    Protocols.V = -1;
+    Protocols.lengthPrefixedVarSize = Protocols.V;
+    Protocols.table = _table;
+    Protocols.codes = _codes;
+    Protocols.names = _names;
+    Protocols.object = p;
+})(Protocols || (Protocols = {}));
+exports.protocols = Protocols;
+//# sourceMappingURL=protocols.js.map
+
+/***/ }),
+
 /***/ 761:
 /***/ (function(module) {
 
 module.exports = require("zlib");
+
+/***/ }),
+
+/***/ 798:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const { Buffer } = __webpack_require__(293)
+const isIp = __webpack_require__(29)
+
+const isIP = isIp
+const isV4 = isIp.v4
+const isV6 = isIp.v6
+
+// Copied from https://github.com/indutny/node-ip/blob/master/lib/ip.js#L7
+const toBuffer = function (ip, buff, offset) {
+  offset = ~~offset
+
+  var result
+
+  if (isV4(ip)) {
+    result = buff || Buffer.alloc(offset + 4)
+    ip.split(/\./g).map(function (byte) {
+      result[offset++] = parseInt(byte, 10) & 0xff
+    })
+  } else if (isV6(ip)) {
+    var sections = ip.split(':', 8)
+
+    var i
+    for (i = 0; i < sections.length; i++) {
+      var isv4 = isV4(sections[i])
+      var v4Buffer
+
+      if (isv4) {
+        v4Buffer = toBuffer(sections[i])
+        sections[i] = v4Buffer.slice(0, 2).toString('hex')
+      }
+
+      if (v4Buffer && ++i < 8) {
+        sections.splice(i, 0, v4Buffer.slice(2, 4).toString('hex'))
+      }
+    }
+
+    if (sections[0] === '') {
+      while (sections.length < 8) sections.unshift('0')
+    } else if (sections[sections.length - 1] === '') {
+      while (sections.length < 8) sections.push('0')
+    } else if (sections.length < 8) {
+      for (i = 0; i < sections.length && sections[i] !== ''; i++);
+      var argv = [i, '1']
+      for (i = 9 - sections.length; i > 0; i--) {
+        argv.push('0')
+      }
+      sections.splice.apply(sections, argv)
+    }
+
+    result = buff || Buffer.alloc(offset + 16)
+    for (i = 0; i < sections.length; i++) {
+      var word = parseInt(sections[i], 16)
+      result[offset++] = (word >> 8) & 0xff
+      result[offset++] = word & 0xff
+    }
+  }
+
+  if (!result) {
+    throw Error('Invalid ip address: ' + ip)
+  }
+
+  return result
+}
+
+// Copied from https://github.com/indutny/node-ip/blob/master/lib/ip.js#L63
+const toString = function (buff, offset, length) {
+  offset = ~~offset
+  length = length || (buff.length - offset)
+
+  var result = []
+  var string
+  if (length === 4) {
+    // IPv4
+    for (let i = 0; i < length; i++) {
+      result.push(buff[offset + i])
+    }
+    string = result.join('.')
+  } else if (length === 16) {
+    // IPv6
+    for (let i = 0; i < length; i += 2) {
+      result.push(buff.readUInt16BE(offset + i).toString(16))
+    }
+    string = result.join(':')
+    string = string.replace(/(^|:)0(:0)*:0(:|$)/, '$1::$3')
+    string = string.replace(/:{3,4}/, '::')
+  }
+
+  return string
+}
+
+module.exports = {
+  isIP,
+  isV4,
+  isV6,
+  toBuffer,
+  toString
+}
+
 
 /***/ }),
 
@@ -19810,6 +39561,98 @@ module.exports = {
   EMPTY_BUFFER: Buffer.alloc(0),
   NOOP: () => {}
 };
+
+
+/***/ }),
+
+/***/ 805:
+/***/ (function(module) {
+
+"use strict";
+
+
+function Protocols (proto) {
+  if (typeof (proto) === 'number') {
+    if (Protocols.codes[proto]) {
+      return Protocols.codes[proto]
+    }
+
+    throw new Error('no protocol with code: ' + proto)
+  } else if (typeof (proto) === 'string' || proto instanceof String) {
+    if (Protocols.names[proto]) {
+      return Protocols.names[proto]
+    }
+
+    throw new Error('no protocol with name: ' + proto)
+  }
+
+  throw new Error('invalid protocol id type: ' + proto)
+}
+
+const V = -1
+Protocols.lengthPrefixedVarSize = V
+Protocols.V = V
+
+Protocols.table = [
+  [4, 32, 'ip4'],
+  [6, 16, 'tcp'],
+  [33, 16, 'dccp'],
+  [41, 128, 'ip6'],
+  [42, V, 'ip6zone'],
+  [53, V, 'dns', 'resolvable'],
+  [54, V, 'dns4', 'resolvable'],
+  [55, V, 'dns6', 'resolvable'],
+  [56, V, 'dnsaddr', 'resolvable'],
+  [132, 16, 'sctp'],
+  [273, 16, 'udp'],
+  [275, 0, 'p2p-webrtc-star'],
+  [276, 0, 'p2p-webrtc-direct'],
+  [277, 0, 'p2p-stardust'],
+  [290, 0, 'p2p-circuit'],
+  [301, 0, 'udt'],
+  [302, 0, 'utp'],
+  [400, V, 'unix', false, 'path'],
+  // `ipfs` is added before `p2p` for legacy support.
+  // All text representations will default to `p2p`, but `ipfs` will
+  // still be supported
+  [421, V, 'ipfs'],
+  // `p2p` is the preferred name for 421, and is now the default
+  [421, V, 'p2p'],
+  [443, 0, 'https'],
+  [444, 96, 'onion'],
+  [445, 296, 'onion3'],
+  [446, V, 'garlic64'],
+  [460, 0, 'quic'],
+  [477, 0, 'ws'],
+  [478, 0, 'wss'],
+  [479, 0, 'p2p-websocket-star'],
+  [480, 0, 'http'],
+  [777, V, 'memory']
+]
+
+Protocols.names = {}
+Protocols.codes = {}
+
+// populate tables
+Protocols.table.map(row => {
+  const proto = p.apply(null, row)
+  Protocols.codes[proto.code] = proto
+  Protocols.names[proto.name] = proto
+})
+
+Protocols.object = p
+
+function p (code, size, name, resolvable, path) {
+  return {
+    code,
+    size,
+    name,
+    resolvable: Boolean(resolvable),
+    path: Boolean(path)
+  }
+}
+
+module.exports = Protocols
 
 
 /***/ }),
@@ -20640,6 +40483,193 @@ exports.default = ThreadID;
 
 /***/ }),
 
+/***/ 882:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+/**
+ * @packageDocumentation
+ * @module @textile/threads-client/models
+ */
+// import { QueryJSON, SortJSON, CriterionJSON, ComparisonJSON, ValueJSON, Value } from './models'
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Query = exports.Where = exports.Criterion = exports.ComparisonJSON = void 0;
+/**
+ * JSONOperation defines the set of possible operations to be used in a Query.
+ */
+var ComparisonJSON;
+(function (ComparisonJSON) {
+    ComparisonJSON[ComparisonJSON["Eq"] = 0] = "Eq";
+    ComparisonJSON[ComparisonJSON["Ne"] = 1] = "Ne";
+    ComparisonJSON[ComparisonJSON["Gt"] = 2] = "Gt";
+    ComparisonJSON[ComparisonJSON["Lt"] = 3] = "Lt";
+    ComparisonJSON[ComparisonJSON["Ge"] = 4] = "Ge";
+    ComparisonJSON[ComparisonJSON["Le"] = 5] = "Le";
+})(ComparisonJSON = exports.ComparisonJSON || (exports.ComparisonJSON = {}));
+/**
+ * @hidden
+ */
+const valueToJSONValue = (value) => {
+    switch (typeof value) {
+        case 'string':
+            return { string: value };
+        case 'boolean':
+            return { bool: value };
+        case 'number':
+            return { float: value };
+        default:
+            throw new Error('unsupported JSON value type');
+    }
+};
+/**
+ * Criterion is a partial condition that can specify comparison operator for a field.
+ */
+class Criterion {
+    constructor(fieldPath, operation, value, query) {
+        this.fieldPath = fieldPath;
+        this.operation = operation;
+        this.value = value;
+        this.query = query;
+    }
+    /**
+     * eq is an equality operator against a field
+     * @param value The value to query against. Must be a valid JSON data type.
+     */
+    eq(value) {
+        return this.create(ComparisonJSON.Eq, value);
+    }
+    /**
+     * ne is a not equal operator against a field
+     * @param value The value to query against. Must be a valid JSON data type.
+     */
+    ne(value) {
+        return this.create(ComparisonJSON.Ne, value);
+    }
+    /**
+     * gt is a greater operator against a field
+     * @param value The value to query against. Must be a valid JSON data type.
+     */
+    gt(value) {
+        return this.create(ComparisonJSON.Ne, value);
+    }
+    /** lt is a less operation against a field
+     * @param value The value to query against. Must be a valid JSON data type.
+     */
+    lt(value) {
+        return this.create(ComparisonJSON.Lt, value);
+    }
+    /** ge is a greater or equal operator against a field
+     * @param value The value to query against. Must be a valid JSON data type.
+     */
+    ge(value) {
+        return this.create(ComparisonJSON.Ge, value);
+    }
+    /** le is a less or equal operator against a field
+     * @param value The value to query against. Must be a valid JSON data type.
+     */
+    le(value) {
+        return this.create(ComparisonJSON.Le, value);
+    }
+    /**
+     * create updates this Criterion with a new Operation and returns the corresponding query.
+     * @param op
+     * @param value
+     */
+    create(op, value) {
+        this.operation = op;
+        this.value = valueToJSONValue(value);
+        if (this.query === undefined) {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            this.query = new Query();
+        }
+        this.query.ands.push(this);
+        return this.query;
+    }
+    /**
+     * toJSON converts the Criterion to JSONCriterion, dropping circular references to internal Queries.
+     */
+    toJSON() {
+        const _a = this, { query } = _a, rest = __rest(_a, ["query"]);
+        return rest;
+    }
+}
+exports.Criterion = Criterion;
+/**
+ * Alias Criterion to Where for a slightly nicer API (see example below)
+ */
+const Where = Criterion;
+exports.Where = Where;
+/**
+ * Query allows to build queries to be used to fetch data from a model.
+ */
+class Query {
+    /**
+     * Query creates a new generic query object.
+     * @param ands An array of top-level Criterions to be included in the query.
+     * @param ors An array of internal queries.
+     * @param sort An object describing how to sort the query.
+     */
+    constructor(ands = [], ors = [], sort) {
+        this.ands = ands;
+        this.ors = ors;
+        this.sort = sort;
+    }
+    /**
+     * where starts to create a query condition for a field
+     * @param fieldPath The field name to query on. Can be a hierarchical path.
+     */
+    static where(fieldPath) {
+        return new Criterion(fieldPath);
+    }
+    /**
+     * and concatenates a new condition in an existing field.
+     * @param fieldPath The field name to query on. Can be a hierarchical path.
+     */
+    and(fieldPath) {
+        return new Criterion(fieldPath, undefined, undefined, this);
+    }
+    /**
+     * or concatenates a new condition that is sufficient for an instance to satisfy, independant of the current Query. Has left-associativity as: (a And b) Or c
+     * @param query The 'sub-query' to concat to the existing query.
+     */
+    or(query) {
+        this.ors.push(query);
+        return this;
+    }
+    /**
+     * orderBy specify ascending order for the query results. On multiple calls, only the last one is considered.
+     * @param fieldPath The field name to query on. Can be a hierarchical path.
+     */
+    orderBy(fieldPath) {
+        this.sort = { fieldPath, desc: false };
+        return this;
+    }
+    /**
+     * orderByDesc specify descending order for the query results. On multiple calls, only the last one is considered.
+     * @param fieldPath The field name to query on. Can be a hierarchical path.
+     */
+    orderByDesc(fieldPath) {
+        this.sort = { fieldPath, desc: true };
+        return this;
+    }
+}
+exports.Query = Query;
+//# sourceMappingURL=query.js.map
+
+/***/ }),
+
 /***/ 896:
 /***/ (function(module) {
 
@@ -20700,6 +40730,13 @@ function varintEncode (num) {
   return Buffer.from(varint.encode(num))
 }
 
+
+/***/ }),
+
+/***/ 905:
+/***/ (function(module) {
+
+module.exports = require("@textile/threads-core");
 
 /***/ }),
 
@@ -20859,6 +40896,286 @@ exports.encodingFromData = encodingFromData
 exports.names = Object.freeze(constants.names)
 exports.codes = Object.freeze(constants.codes)
 
+
+/***/ }),
+
+/***/ 945:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.protoFromTuple = exports.ParseError = exports.cleanPath = exports.isValidBuffer = exports.fromBuffer = exports.fromString = exports.stringToBuffer = exports.bufferToString = exports.bufferToTuples = exports.sizeForAddr = exports.tuplesToBuffer = exports.tuplesToStringTuples = exports.stringTuplesToTuples = exports.stringTuplesToString = exports.stringToStringTuples = void 0;
+/* eslint-disable @typescript-eslint/no-use-before-define */
+const varint_1 = __importDefault(__webpack_require__(507));
+const convert = __importStar(__webpack_require__(84));
+const protocols_1 = __webpack_require__(757);
+// string -> [[str name, str addr]... ]
+function stringToStringTuples(str) {
+    const tuples = [];
+    const parts = str.split('/').slice(1); // skip first empty elem
+    if (parts.length === 1 && parts[0] === '') {
+        return [];
+    }
+    for (let p = 0; p < parts.length; p++) {
+        const part = parts[p];
+        const proto = protocols_1.protocols(part);
+        if (proto.size === 0) {
+            tuples.push([part]);
+            continue;
+        }
+        p++; // advance addr part
+        if (p >= parts.length) {
+            throw ParseError('invalid address: ' + str);
+        }
+        // if it's a path proto, take the rest
+        if (proto.path) {
+            tuples.push([
+                part,
+                // TODO: should we need to check each path part to see if it's a proto?
+                // This would allow for other protocols to be added after a unix path,
+                // however it would have issues if the path had a protocol name in the path
+                cleanPath(parts.slice(p).join('/')),
+            ]);
+            break;
+        }
+        tuples.push([part, parts[p]]);
+    }
+    return tuples;
+}
+exports.stringToStringTuples = stringToStringTuples;
+// [[str name, str addr]... ] -> string
+function stringTuplesToString(tuples) {
+    const parts = [];
+    tuples.map(tup => {
+        const proto = protoFromTuple(tup);
+        parts.push(proto.name);
+        if (tup.length > 1) {
+            parts.push(tup[1]);
+        }
+    });
+    return cleanPath(parts.join('/'));
+}
+exports.stringTuplesToString = stringTuplesToString;
+// [[str name, str addr]... ] -> [[int code, Buffer]... ]
+function stringTuplesToTuples(tuples) {
+    return tuples.map(tup => {
+        if (!Array.isArray(tup)) {
+            tup = [tup];
+        }
+        const proto = protoFromTuple(tup);
+        if (tup.length > 1) {
+            return [proto.code, convert.toBuffer(proto.code, tup[1])];
+        }
+        return [proto.code];
+    });
+}
+exports.stringTuplesToTuples = stringTuplesToTuples;
+// [[int code, Buffer]... ] -> [[str name, str addr]... ]
+function tuplesToStringTuples(tuples) {
+    return tuples.map(tup => {
+        const proto = protoFromTuple(tup);
+        if (tup.length > 1) {
+            return [proto.code, convert.toString(proto.code, tup[1])];
+        }
+        return [proto.code];
+    });
+}
+exports.tuplesToStringTuples = tuplesToStringTuples;
+// [[int code, Buffer ]... ] -> Buffer
+function tuplesToBuffer(tuples) {
+    return fromBuffer(Buffer.concat(tuples.map(tup => {
+        const proto = protoFromTuple(tup);
+        let buf = Buffer.from(varint_1.default.encode(proto.code));
+        if (tup.length > 1) {
+            buf = Buffer.concat([buf, tup[1]]); // add address buffer
+        }
+        return buf;
+    })));
+}
+exports.tuplesToBuffer = tuplesToBuffer;
+function sizeForAddr(p, addr) {
+    if (p.size > 0) {
+        return p.size / 8;
+    }
+    else if (p.size === 0) {
+        return 0;
+    }
+    else {
+        const size = varint_1.default.decode(addr);
+        return size + varint_1.default.decode.bytes;
+    }
+}
+exports.sizeForAddr = sizeForAddr;
+// Buffer -> [[int code, Buffer ]... ]
+function bufferToTuples(buf) {
+    const tuples = [];
+    let i = 0;
+    while (i < buf.length) {
+        const code = varint_1.default.decode(buf, i);
+        const n = varint_1.default.decode.bytes;
+        const p = protocols_1.protocols(code);
+        const size = sizeForAddr(p, buf.slice(i + n));
+        if (size === 0) {
+            tuples.push([code]);
+            i += n;
+            continue;
+        }
+        const addr = buf.slice(i + n, i + n + size);
+        i += size + n;
+        if (i > buf.length) {
+            // did not end _exactly_ at buffer.length
+            throw ParseError('Invalid address buffer: ' + buf.toString('hex'));
+        }
+        // ok, tuple seems good.
+        tuples.push([code, addr]);
+    }
+    return tuples;
+}
+exports.bufferToTuples = bufferToTuples;
+// Buffer -> String
+function bufferToString(buf) {
+    const a = bufferToTuples(buf);
+    const b = tuplesToStringTuples(a);
+    return stringTuplesToString(b);
+}
+exports.bufferToString = bufferToString;
+// String -> Buffer
+function stringToBuffer(str) {
+    str = cleanPath(str);
+    const a = stringToStringTuples(str);
+    const b = stringTuplesToTuples(a);
+    return tuplesToBuffer(b);
+}
+exports.stringToBuffer = stringToBuffer;
+// String -> Buffer
+function fromString(str) {
+    return stringToBuffer(str);
+}
+exports.fromString = fromString;
+// Buffer -> Buffer
+function fromBuffer(buf) {
+    const err = validateBuffer(buf);
+    if (err)
+        throw err;
+    return Buffer.from(buf); // copy
+}
+exports.fromBuffer = fromBuffer;
+function validateBuffer(buf) {
+    try {
+        bufferToTuples(buf); // try to parse. will throw if breaks
+    }
+    catch (err) {
+        return err;
+    }
+}
+function isValidBuffer(buf) {
+    return validateBuffer(buf) === undefined;
+}
+exports.isValidBuffer = isValidBuffer;
+function cleanPath(str) {
+    return ('/' +
+        str
+            .trim()
+            .split('/')
+            .filter(a => a)
+            .join('/'));
+}
+exports.cleanPath = cleanPath;
+function ParseError(str) {
+    return new Error('Error parsing address: ' + str);
+}
+exports.ParseError = ParseError;
+function protoFromTuple(tup) {
+    const proto = protocols_1.protocols(tup[0]);
+    return proto;
+}
+exports.protoFromTuple = protoFromTuple;
+//# sourceMappingURL=codec.js.map
+
+/***/ }),
+
+/***/ 947:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Transaction = void 0;
+/**
+ * @packageDocumentation
+ * @module @textile/threads-client
+ */
+const grpc_web_1 = __webpack_require__(837);
+/**
+ * Transaction represents a bulk transaction on a store.
+ * @hidden
+ */
+class Transaction {
+    /**
+     * Transaction creates a new transaction for the given store using the given model.
+     * @param client The gRPC client to use for the transaction.
+     * @param threadID the ID of the database
+     * @param modelName The human-readable name for the model.
+     */
+    constructor(client, threadID, modelName) {
+        this.client = client;
+        this.threadID = threadID;
+        this.modelName = modelName;
+    }
+    /**
+     * end completes (flushes) the transaction. All operations between start and end will be applied as a single transaction upon a call to end.
+     */
+    end() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.client.close();
+        });
+    }
+    /**
+     * setReject rejects the current transaction, rather than flushing the results to the remote store via end.
+     * @param reject The optional reason for rejecting the transaction.
+     */
+    setReject(reject) {
+        this.client.onEnd((status, message) => {
+            if (status !== grpc_web_1.grpc.Code.OK) {
+                reject(new Error(message));
+            }
+        });
+    }
+}
+exports.Transaction = Transaction;
+//# sourceMappingURL=Transaction.js.map
 
 /***/ }),
 
@@ -21094,6 +41411,134 @@ module.exports = {
   codes
 }
 
+
+/***/ }),
+
+/***/ 966:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ReadTransaction = void 0;
+const threads_pb_1 = __webpack_require__(340);
+const Transaction_1 = __webpack_require__(947);
+/**
+ * ReadTransaction performs a read-only bulk transaction on the underlying store.
+ */
+class ReadTransaction extends Transaction_1.Transaction {
+    constructor(context, client, threadID, modelName) {
+        super(client, threadID, modelName);
+        this.context = context;
+        this.client = client;
+        this.threadID = threadID;
+        this.modelName = modelName;
+    }
+    /**
+     * start begins the transaction. All operations between start and end will be applied as a single transaction upon a call to end.
+     */
+    start() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const startReq = new threads_pb_1.StartTransactionRequest();
+            startReq.setDbid(this.threadID.toBytes());
+            startReq.setCollectionname(this.modelName);
+            const req = new threads_pb_1.ReadTransactionRequest();
+            req.setStarttransactionrequest(startReq);
+            const metadata = JSON.parse(JSON.stringify(this.context));
+            this.client.start(metadata);
+            this.client.send(req);
+        });
+    }
+    /**
+     * has checks whether a given instance exists in the given store.
+     * @param IDs An array of instance ids to check for.
+     */
+    has(IDs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const hasReq = new threads_pb_1.HasRequest();
+                hasReq.setInstanceidsList(IDs);
+                const req = new threads_pb_1.ReadTransactionRequest();
+                req.setHasrequest(hasReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getHasreply();
+                    resolve(reply ? reply.toObject().exists : false);
+                });
+                this.setReject(reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * find queries the store for entities matching the given query parameters. See Query for options.
+     * @param query The object that describes the query. See Query for options. Alternatively, see QueryJSON for the basic interface.
+     */
+    find(query) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const findReq = new threads_pb_1.FindRequest();
+                findReq.setQueryjson(Buffer.from(JSON.stringify(query)));
+                const req = new threads_pb_1.ReadTransactionRequest();
+                req.setFindrequest(findReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getFindreply();
+                    if (reply === undefined) {
+                        resolve();
+                    }
+                    else {
+                        const ret = {
+                            instancesList: reply
+                                .toObject()
+                                .instancesList.map((instance) => JSON.parse(Buffer.from(instance, 'base64').toString())),
+                        };
+                        resolve(ret);
+                    }
+                });
+                this.setReject(reject);
+                this.client.send(req);
+            });
+        });
+    }
+    /**
+     * findByID queries the store for the id of an instance.
+     * @param ID The id of the instance to search for.
+     */
+    findByID(ID) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                const findReq = new threads_pb_1.FindByIDRequest();
+                findReq.setInstanceid(ID);
+                const req = new threads_pb_1.ReadTransactionRequest();
+                req.setFindbyidrequest(findReq);
+                this.client.onMessage((message) => {
+                    const reply = message.getFindbyidreply();
+                    if (reply === undefined) {
+                        resolve();
+                    }
+                    else {
+                        const ret = {
+                            instance: JSON.parse(Buffer.from(reply.toObject().instance, 'base64').toString()),
+                        };
+                        resolve(ret);
+                    }
+                });
+                this.setReject(reject);
+                this.client.send(req);
+            });
+        });
+    }
+}
+exports.ReadTransaction = ReadTransaction;
+//# sourceMappingURL=ReadTransaction.js.map
 
 /***/ }),
 

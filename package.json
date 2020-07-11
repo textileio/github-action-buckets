@@ -9,7 +9,7 @@
     "format": "prettier --write **/*.ts",
     "format-check": "prettier --check **/*.ts",
     "lint": "eslint src/**/*.ts",
-    "pack": "ncc build -e @textile/hub-threads-client",
+    "pack": "ncc build -e @textile/threads-core",
     "test": "jest",
     "basic": "npm run build && npm run pack && npm test",
     "all": "npm run build && npm run format && npm run lint && npm run pack && npm test",
