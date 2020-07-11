@@ -34,7 +34,8 @@ async function run(): Promise<void> {
     const name: string = core.getInput('bucket')
     buckets.context.withThread(thread)
 
-    const existing = await buckets.open(name)
+    const roots = await buckets.list()
+    const existing = roots.find(bucket => bucket.name === name)
 
     const remove: string = core.getInput('remove') || ''
     if (remove === 'true') {
