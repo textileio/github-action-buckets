@@ -494,6 +494,243 @@ module.exports = require("tls");
 
 /***/ }),
 
+/***/ 20:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+/* eslint-disable guard-for-in */
+/**
+ * Multihash implementation in JavaScript.
+ *
+ * @module multihash
+ */
+
+
+const { Buffer } = __webpack_require__(293)
+const multibase = __webpack_require__(939)
+const varint = __webpack_require__(507)
+const { names } = __webpack_require__(610)
+
+const codes = {}
+
+for (const key in names) {
+  codes[names[key]] = key
+}
+exports.names = names
+exports.codes = Object.freeze(codes)
+
+/**
+ * Convert the given multihash to a hex encoded string.
+ *
+ * @param {Buffer} hash
+ * @returns {string}
+ */
+exports.toHexString = function toHexString (hash) {
+  if (!Buffer.isBuffer(hash)) {
+    throw new Error('must be passed a buffer')
+  }
+
+  return hash.toString('hex')
+}
+
+/**
+ * Convert the given hex encoded string to a multihash.
+ *
+ * @param {string} hash
+ * @returns {Buffer}
+ */
+exports.fromHexString = function fromHexString (hash) {
+  return Buffer.from(hash, 'hex')
+}
+
+/**
+ * Convert the given multihash to a base58 encoded string.
+ *
+ * @param {Buffer} hash
+ * @returns {string}
+ */
+exports.toB58String = function toB58String (hash) {
+  if (!Buffer.isBuffer(hash)) {
+    throw new Error('must be passed a buffer')
+  }
+
+  return multibase.encode('base58btc', hash).toString().slice(1)
+}
+
+/**
+ * Convert the given base58 encoded string to a multihash.
+ *
+ * @param {string|Buffer} hash
+ * @returns {Buffer}
+ */
+exports.fromB58String = function fromB58String (hash) {
+  let encoded = hash
+  if (Buffer.isBuffer(hash)) {
+    encoded = hash.toString()
+  }
+
+  return multibase.decode('z' + encoded)
+}
+
+/**
+ * Decode a hash from the given multihash.
+ *
+ * @param {Buffer} buf
+ * @returns {{code: number, name: string, length: number, digest: Buffer}} result
+ */
+exports.decode = function decode (buf) {
+  if (!(Buffer.isBuffer(buf))) {
+    throw new Error('multihash must be a Buffer')
+  }
+
+  if (buf.length < 2) {
+    throw new Error('multihash too short. must be > 2 bytes.')
+  }
+
+  const code = varint.decode(buf)
+  if (!exports.isValidCode(code)) {
+    throw new Error(`multihash unknown function code: 0x${code.toString(16)}`)
+  }
+  buf = buf.slice(varint.decode.bytes)
+
+  const len = varint.decode(buf)
+  if (len < 0) {
+    throw new Error(`multihash invalid length: ${len}`)
+  }
+  buf = buf.slice(varint.decode.bytes)
+
+  if (buf.length !== len) {
+    throw new Error(`multihash length inconsistent: 0x${buf.toString('hex')}`)
+  }
+
+  return {
+    code,
+    name: codes[code],
+    length: len,
+    digest: buf
+  }
+}
+
+/**
+ *  Encode a hash digest along with the specified function code.
+ *
+ * > **Note:** the length is derived from the length of the digest itself.
+ *
+ * @param {Buffer} digest
+ * @param {string|number} code
+ * @param {number} [length]
+ * @returns {Buffer}
+ */
+exports.encode = function encode (digest, code, length) {
+  if (!digest || code === undefined) {
+    throw new Error('multihash encode requires at least two args: digest, code')
+  }
+
+  // ensure it's a hashfunction code.
+  const hashfn = exports.coerceCode(code)
+
+  if (!(Buffer.isBuffer(digest))) {
+    throw new Error('digest should be a Buffer')
+  }
+
+  if (length == null) {
+    length = digest.length
+  }
+
+  if (length && digest.length !== length) {
+    throw new Error('digest length should be equal to specified length.')
+  }
+
+  return Buffer.concat([
+    Buffer.from(varint.encode(hashfn)),
+    Buffer.from(varint.encode(length)),
+    digest
+  ])
+}
+
+/**
+ * Converts a hash function name into the matching code.
+ * If passed a number it will return the number if it's a valid code.
+ * @param {string|number} name
+ * @returns {number}
+ */
+exports.coerceCode = function coerceCode (name) {
+  let code = name
+
+  if (typeof name === 'string') {
+    if (names[name] === undefined) {
+      throw new Error(`Unrecognized hash function named: ${name}`)
+    }
+    code = names[name]
+  }
+
+  if (typeof code !== 'number') {
+    throw new Error(`Hash function code should be a number. Got: ${code}`)
+  }
+
+  if (codes[code] === undefined && !exports.isAppCode(code)) {
+    throw new Error(`Unrecognized function code: ${code}`)
+  }
+
+  return code
+}
+
+/**
+ * Checks wether a code is part of the app range
+ *
+ * @param {number} code
+ * @returns {boolean}
+ */
+exports.isAppCode = function appCode (code) {
+  return code > 0 && code < 0x10
+}
+
+/**
+ * Checks whether a multihash code is valid.
+ *
+ * @param {number} code
+ * @returns {boolean}
+ */
+exports.isValidCode = function validCode (code) {
+  if (exports.isAppCode(code)) {
+    return true
+  }
+
+  if (codes[code]) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Check if the given buffer is a valid multihash. Throws an error if it is not valid.
+ *
+ * @param {Buffer} multihash
+ * @returns {undefined}
+ * @throws {Error}
+ */
+function validate (multihash) {
+  exports.decode(multihash) // throws if bad.
+}
+exports.validate = validate
+
+/**
+ * Returns a prefix from a valid multihash. Throws an error if it is not valid.
+ *
+ * @param {Buffer} multihash
+ * @returns {undefined}
+ * @throws {Error}
+ */
+exports.prefix = function prefix (multihash) {
+  validate(multihash)
+
+  return multihash.slice(0, 2)
+}
+
+
+/***/ }),
+
 /***/ 21:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -3563,7 +3800,8 @@ proto.buckets.pb.InitRequest.prototype.toObject = function(opt_includeInstance) 
 proto.buckets.pb.InitRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    bootstrapcid: jspb.Message.getFieldWithDefault(msg, 2, "")
+    bootstrapcid: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    pb_private: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
   };
 
   if (includeInstance) {
@@ -3608,6 +3846,10 @@ proto.buckets.pb.InitRequest.deserializeBinaryFromReader = function(msg, reader)
       var value = /** @type {string} */ (reader.readString());
       msg.setBootstrapcid(value);
       break;
+    case 3:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setPrivate(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -3651,6 +3893,13 @@ proto.buckets.pb.InitRequest.serializeBinaryToWriter = function(message, writer)
       f
     );
   }
+  f = message.getPrivate();
+  if (f) {
+    writer.writeBool(
+      3,
+      f
+    );
+  }
 };
 
 
@@ -3690,6 +3939,24 @@ proto.buckets.pb.InitRequest.prototype.setBootstrapcid = function(value) {
 };
 
 
+/**
+ * optional bool private = 3;
+ * @return {boolean}
+ */
+proto.buckets.pb.InitRequest.prototype.getPrivate = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.buckets.pb.InitRequest} returns this
+ */
+proto.buckets.pb.InitRequest.prototype.setPrivate = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 3, value);
+};
+
+
 
 
 
@@ -3724,7 +3991,8 @@ proto.buckets.pb.InitReply.toObject = function(includeInstance, msg) {
   var f, obj = {
     root: (f = msg.getRoot()) && proto.buckets.pb.Root.toObject(includeInstance, f),
     links: (f = msg.getLinks()) && proto.buckets.pb.LinksReply.toObject(includeInstance, f),
-    seed: msg.getSeed_asB64()
+    seed: msg.getSeed_asB64(),
+    seedcid: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -3775,6 +4043,10 @@ proto.buckets.pb.InitReply.deserializeBinaryFromReader = function(msg, reader) {
       var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setSeed(value);
       break;
+    case 4:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setSeedcid(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -3824,6 +4096,13 @@ proto.buckets.pb.InitReply.serializeBinaryToWriter = function(message, writer) {
   if (f.length > 0) {
     writer.writeBytes(
       3,
+      f
+    );
+  }
+  f = message.getSeedcid();
+  if (f.length > 0) {
+    writer.writeString(
+      4,
       f
     );
   }
@@ -3943,6 +4222,24 @@ proto.buckets.pb.InitReply.prototype.getSeed_asU8 = function() {
  */
 proto.buckets.pb.InitReply.prototype.setSeed = function(value) {
   return jspb.Message.setProto3BytesField(this, 3, value);
+};
+
+
+/**
+ * optional string seedCid = 4;
+ * @return {string}
+ */
+proto.buckets.pb.InitReply.prototype.getSeedcid = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.buckets.pb.InitReply} returns this
+ */
+proto.buckets.pb.InitReply.prototype.setSeedcid = function(value) {
+  return jspb.Message.setProto3StringField(this, 4, value);
 };
 
 
@@ -9233,7 +9530,7 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.serializeBinaryToWriter = functio
 
 
 /**
- * optional string ProposalCid = 1;
+ * optional string proposalCid = 1;
  * @return {string}
  */
 proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.getProposalcid = function() {
@@ -9650,7 +9947,7 @@ goog.object.extend(exports, proto.buckets.pb);
 "use strict";
 
 
-const mh = __webpack_require__(114)
+const mh = __webpack_require__(20)
 const { Buffer } = __webpack_require__(293)
 var CIDUtil = {
   /**
@@ -9979,290 +10276,6 @@ module.exports = CIDUtil
 
 /***/ }),
 
-/***/ 111:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-const { Buffer } = __webpack_require__(293)
-
-module.exports = function base64 (alphabet) {
-  // The alphabet is only used to know:
-  //   1. If padding is enabled (must contain '=')
-  //   2. If the output must be url-safe (must contain '-' and '_')
-  //   3. If the input of the output function is valid
-  // The alphabets from RFC 4648 are always used.
-  const padding = alphabet.indexOf('=') > -1
-  const url = alphabet.indexOf('-') > -1 && alphabet.indexOf('_') > -1
-
-  return {
-    encode (input) {
-      let output = ''
-
-      if (typeof input === 'string') {
-        output = Buffer.from(input).toString('base64')
-      } else {
-        output = input.toString('base64')
-      }
-
-      if (url) {
-        output = output.replace(/\+/g, '-').replace(/\//g, '_')
-      }
-
-      const pad = output.indexOf('=')
-      if (pad > 0 && !padding) {
-        output = output.substring(0, pad)
-      }
-
-      return output
-    },
-    decode (input) {
-      for (const char of input) {
-        if (alphabet.indexOf(char) < 0) {
-          throw new Error('invalid base64 character')
-        }
-      }
-
-      return Buffer.from(input, 'base64')
-    }
-  }
-}
-
-
-/***/ }),
-
-/***/ 114:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-/**
- * Multihash implementation in JavaScript.
- *
- * @module multihash
- */
-
-
-const { Buffer } = __webpack_require__(293)
-const multibase = __webpack_require__(559)
-const varint = __webpack_require__(507)
-const cs = __webpack_require__(957)
-
-exports.names = cs.names
-exports.codes = cs.codes
-exports.defaultLengths = cs.defaultLengths
-
-/**
- * Convert the given multihash to a hex encoded string.
- *
- * @param {Buffer} hash
- * @returns {string}
- */
-exports.toHexString = function toHexString (hash) {
-  if (!Buffer.isBuffer(hash)) {
-    throw new Error('must be passed a buffer')
-  }
-
-  return hash.toString('hex')
-}
-
-/**
- * Convert the given hex encoded string to a multihash.
- *
- * @param {string} hash
- * @returns {Buffer}
- */
-exports.fromHexString = function fromHexString (hash) {
-  return Buffer.from(hash, 'hex')
-}
-
-/**
- * Convert the given multihash to a base58 encoded string.
- *
- * @param {Buffer} hash
- * @returns {string}
- */
-exports.toB58String = function toB58String (hash) {
-  if (!Buffer.isBuffer(hash)) {
-    throw new Error('must be passed a buffer')
-  }
-
-  return multibase.encode('base58btc', hash).toString().slice(1)
-}
-
-/**
- * Convert the given base58 encoded string to a multihash.
- *
- * @param {string|Buffer} hash
- * @returns {Buffer}
- */
-exports.fromB58String = function fromB58String (hash) {
-  let encoded = hash
-  if (Buffer.isBuffer(hash)) {
-    encoded = hash.toString()
-  }
-
-  return multibase.decode('z' + encoded)
-}
-
-/**
- * Decode a hash from the given multihash.
- *
- * @param {Buffer} buf
- * @returns {{code: number, name: string, length: number, digest: Buffer}} result
- */
-exports.decode = function decode (buf) {
-  if (!(Buffer.isBuffer(buf))) {
-    throw new Error('multihash must be a Buffer')
-  }
-
-  if (buf.length < 2) {
-    throw new Error('multihash too short. must be > 2 bytes.')
-  }
-
-  const code = varint.decode(buf)
-  if (!exports.isValidCode(code)) {
-    throw new Error(`multihash unknown function code: 0x${code.toString(16)}`)
-  }
-  buf = buf.slice(varint.decode.bytes)
-
-  const len = varint.decode(buf)
-  if (len < 0) {
-    throw new Error(`multihash invalid length: ${len}`)
-  }
-  buf = buf.slice(varint.decode.bytes)
-
-  if (buf.length !== len) {
-    throw new Error(`multihash length inconsistent: 0x${buf.toString('hex')}`)
-  }
-
-  return {
-    code: code,
-    name: cs.codes[code],
-    length: len,
-    digest: buf
-  }
-}
-
-/**
- *  Encode a hash digest along with the specified function code.
- *
- * > **Note:** the length is derived from the length of the digest itself.
- *
- * @param {Buffer} digest
- * @param {string|number} code
- * @param {number} [length]
- * @returns {Buffer}
- */
-exports.encode = function encode (digest, code, length) {
-  if (!digest || code === undefined) {
-    throw new Error('multihash encode requires at least two args: digest, code')
-  }
-
-  // ensure it's a hashfunction code.
-  const hashfn = exports.coerceCode(code)
-
-  if (!(Buffer.isBuffer(digest))) {
-    throw new Error('digest should be a Buffer')
-  }
-
-  if (length == null) {
-    length = digest.length
-  }
-
-  if (length && digest.length !== length) {
-    throw new Error('digest length should be equal to specified length.')
-  }
-
-  return Buffer.concat([
-    Buffer.from(varint.encode(hashfn)),
-    Buffer.from(varint.encode(length)),
-    digest
-  ])
-}
-
-/**
- * Converts a hash function name into the matching code.
- * If passed a number it will return the number if it's a valid code.
- * @param {string|number} name
- * @returns {number}
- */
-exports.coerceCode = function coerceCode (name) {
-  let code = name
-
-  if (typeof name === 'string') {
-    if (cs.names[name] === undefined) {
-      throw new Error(`Unrecognized hash function named: ${name}`)
-    }
-    code = cs.names[name]
-  }
-
-  if (typeof code !== 'number') {
-    throw new Error(`Hash function code should be a number. Got: ${code}`)
-  }
-
-  if (cs.codes[code] === undefined && !exports.isAppCode(code)) {
-    throw new Error(`Unrecognized function code: ${code}`)
-  }
-
-  return code
-}
-
-/**
- * Checks wether a code is part of the app range
- *
- * @param {number} code
- * @returns {boolean}
- */
-exports.isAppCode = function appCode (code) {
-  return code > 0 && code < 0x10
-}
-
-/**
- * Checks whether a multihash code is valid.
- *
- * @param {number} code
- * @returns {boolean}
- */
-exports.isValidCode = function validCode (code) {
-  if (exports.isAppCode(code)) {
-    return true
-  }
-
-  if (cs.codes[code]) {
-    return true
-  }
-
-  return false
-}
-
-/**
- * Check if the given buffer is a valid multihash. Throws an error if it is not valid.
- *
- * @param {Buffer} multihash
- * @returns {undefined}
- * @throws {Error}
- */
-function validate (multihash) {
-  exports.decode(multihash) // throws if bad.
-}
-exports.validate = validate
-
-/**
- * Returns a prefix from a valid multihash. Throws an error if it is not valid.
- *
- * @param {Buffer} multihash
- * @returns {undefined}
- * @throws {Error}
- */
-exports.prefix = function prefix (multihash) {
-  validate(multihash)
-
-  return multihash.slice(0, 2)
-}
-
-
-/***/ }),
-
 /***/ 117:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -10574,59 +10587,84 @@ exports.realpath = function realpath(p, cache, cb) {
 /***/ }),
 
 /***/ 126:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(module) {
 
 "use strict";
 
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
+
+var ensureCallable = function (fn) {
+	if (typeof fn !== 'function') throw new TypeError(fn + " is not a function");
+	return fn;
 };
-Object.defineProperty(exports, "__esModule", { value: true });
-const fast_list_1 = __importDefault(__webpack_require__(869));
-/**
- * First-in, first-out (FIFO) buffer (queue) with default item values.
- * Optionally circular based on [[Queue.limit]].
- */
-class Queue {
-    constructor(
-    /** The length after which the queue becomes circular, i.e., discards oldest items. */
-    limit = 0) {
-        this.limit = limit;
-        this.length = 0;
-        this.list = new fast_list_1.default();
-    }
-    /**
-     * Add an item to the end of the queue.
-     */
-    enqueue(value) {
-        const { list } = this;
-        if (this.limit > 0 && list.length === this.limit) {
-            // Discard oldest item
-            list.shift();
-        }
-        this.length += 1;
-        list.push(value);
-    }
-    /**
-     * Return the oldest item from the queue.
-     */
-    dequeue() {
-        if (this.length === 0) {
-            throw Error('Queue is empty');
-        }
-        this.length -= 1;
-        return this.list.shift();
-    }
-    clear() {
-        this.length = 0;
-        this.list.drop();
-    }
-    forEach(f) {
-        this.list.forEach(f);
-    }
-}
-exports.default = Queue;
-//# sourceMappingURL=LinkedQueue.js.map
+
+var byObserver = function (Observer) {
+	var node = document.createTextNode(''), queue, currentQueue, i = 0;
+	new Observer(function () {
+		var callback;
+		if (!queue) {
+			if (!currentQueue) return;
+			queue = currentQueue;
+		} else if (currentQueue) {
+			queue = currentQueue.concat(queue);
+		}
+		currentQueue = queue;
+		queue = null;
+		if (typeof currentQueue === 'function') {
+			callback = currentQueue;
+			currentQueue = null;
+			callback();
+			return;
+		}
+		node.data = (i = ++i % 2); // Invoke other batch, to handle leftover callbacks in case of crash
+		while (currentQueue) {
+			callback = currentQueue.shift();
+			if (!currentQueue.length) currentQueue = null;
+			callback();
+		}
+	}).observe(node, { characterData: true });
+	return function (fn) {
+		ensureCallable(fn);
+		if (queue) {
+			if (typeof queue === 'function') queue = [queue, fn];
+			else queue.push(fn);
+			return;
+		}
+		queue = fn;
+		node.data = (i = ++i % 2);
+	};
+};
+
+module.exports = (function () {
+	// Node.js
+	if ((typeof process === 'object') && process && (typeof process.nextTick === 'function')) {
+		return process.nextTick;
+	}
+
+	// queueMicrotask
+	if (typeof queueMicrotask === "function") {
+		return function (cb) { queueMicrotask(ensureCallable(cb)); };
+	}
+
+	// MutationObserver
+	if ((typeof document === 'object') && document) {
+		if (typeof MutationObserver === 'function') return byObserver(MutationObserver);
+		if (typeof WebKitMutationObserver === 'function') return byObserver(WebKitMutationObserver);
+	}
+
+	// W3C Draft
+	// http://dvcs.w3.org/hg/webperf/raw-file/tip/specs/setImmediate/Overview.html
+	if (typeof setImmediate === 'function') {
+		return function (cb) { setImmediate(ensureCallable(cb)); };
+	}
+
+	// Wide available standard
+	if ((typeof setTimeout === 'function') || (typeof setTimeout === 'object')) {
+		return function (cb) { setTimeout(ensureCallable(cb), 0); };
+	}
+
+	return null;
+}());
+
 
 /***/ }),
 
@@ -11408,6 +11446,499 @@ SafeBuffer.allocUnsafeSlow = function (size) {
 
 /***/ }),
 
+/***/ 177:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsInit = exports.BucketsGrpcClient = void 0;
+const loglevel_1 = __importDefault(__webpack_require__(104));
+const buckets_pb_1 = __webpack_require__(97);
+const buckets_pb_service_1 = __webpack_require__(148);
+const cids_1 = __importDefault(__webpack_require__(437));
+const event_iterator_1 = __webpack_require__(266);
+const next_tick_1 = __importDefault(__webpack_require__(126));
+const grpc_web_1 = __webpack_require__(837);
+const context_1 = __webpack_require__(421);
+const normalize_1 = __webpack_require__(678);
+const logger = loglevel_1.default.getLogger('buckets-api');
+class BucketsGrpcClient {
+    /**
+     * Creates a new gRPC client instance for accessing the Textile Buckets API.
+     * @param context The context to use for interacting with the APIs. Can be modified later.
+     */
+    constructor(context = new context_1.Context()) {
+        this.context = context;
+        this.serviceHost = context.host;
+        this.rpcOptions = {
+            transport: context.transport,
+            debug: context.debug,
+        };
+    }
+    unary(methodDescriptor, req, ctx) {
+        return new Promise((resolve, reject) => {
+            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            grpc_web_1.grpc.unary(methodDescriptor, {
+                request: req,
+                host: this.serviceHost,
+                transport: this.rpcOptions.transport,
+                debug: this.rpcOptions.debug,
+                metadata,
+                onEnd: (res) => {
+                    const { status, statusMessage, message } = res;
+                    if (status === grpc_web_1.grpc.Code.OK) {
+                        if (message) {
+                            resolve(message);
+                        }
+                        else {
+                            resolve();
+                        }
+                    }
+                    else {
+                        reject(new Error(statusMessage));
+                    }
+                },
+            });
+        });
+    }
+}
+exports.BucketsGrpcClient = BucketsGrpcClient;
+/**
+ * Initializes a new bucket.
+ * @public
+ * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
+ * @param isPrivate encrypt the bucket contents (default `false`)
+ * @example
+ * Initialize a Bucket called "app-name-files"
+ * ```tyepscript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const init = async (buckets: Buckets) => {
+ *     return buckets.init("app-name-files")
+ * }
+ * ```
+ */
+function bucketsInit(api, name, isPrivate = false, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('init request');
+        const req = new buckets_pb_1.InitRequest();
+        req.setName(name);
+        req.setPrivate(isPrivate);
+        const res = yield api.unary(buckets_pb_service_1.API.Init, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsInit = bucketsInit;
+/**
+ * Returns the bucket root CID
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsRoot(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('root request');
+        const req = new buckets_pb_1.RootRequest();
+        req.setKey(key);
+        const res = yield api.unary(buckets_pb_service_1.API.Root, req, ctx);
+        return res.toObject().root;
+    });
+}
+exports.bucketsRoot = bucketsRoot;
+/**
+ * Returns a list of bucket links.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @example
+ * Generate the HTTP, IPNS, and IPFS links for a Bucket
+ * ```tyepscript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const getLinks = async (buckets: Buckets) => {
+ *    const links = buckets.links(bucketKey)
+ *    return links.ipfs
+ * }
+ *
+ * const getIpfs = async (buckets: Buckets) => {
+ *    const links = buckets.links(bucketKey)
+ *    return links.ipfs
+ * }
+ * ```
+ */
+function bucketsLinks(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('link request');
+        const req = new buckets_pb_1.LinksRequest();
+        req.setKey(key);
+        const res = yield api.unary(buckets_pb_service_1.API.Links, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsLinks = bucketsLinks;
+/**
+ * Returns a list of all bucket roots.
+ * @example
+ * Find an existing Bucket named "app-name-files"
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const exists = async (buckets: Buckets) => {
+ *     const roots = await buckets.list();
+ *     return roots.find((bucket) => bucket.name ===  "app-name-files")
+ * }
+ * ````
+ */
+function bucketsList(api, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list request');
+        const req = new buckets_pb_1.ListRequest();
+        const res = yield api.unary(buckets_pb_service_1.API.List, req, ctx);
+        return res.toObject().rootsList;
+    });
+}
+exports.bucketsList = bucketsList;
+/**
+ * Returns information about a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ */
+function bucketsListPath(api, key, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list path request');
+        const req = new buckets_pb_1.ListPathRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const res = yield api.unary(buckets_pb_service_1.API.ListPath, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsListPath = bucketsListPath;
+/**
+ * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
+ * @param path UnixFS path
+ */
+function bucketsListIpfsPath(api, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list path request');
+        const req = new buckets_pb_1.ListIpfsPathRequest();
+        req.setPath(path);
+        const res = yield api.unary(buckets_pb_service_1.API.ListIpfsPath, req, ctx);
+        return res.toObject().item;
+    });
+}
+exports.bucketsListIpfsPath = bucketsListIpfsPath;
+/**
+ * Pushes a file to a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param input The input file/stream/object.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ * @remarks
+ * This will return the resolved path and the bucket's new root path.
+ * @example
+ * Push a file to the root of a bucket
+ * ```tyepscript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const pushFile = async (content: string, bucketKey: string) => {
+ *    const file = { path: '/index.html', content: Buffer.from(content) }
+ *    return await buckets.pushPath(bucketKey!, 'index.html', file)
+ * }
+ * ```
+ */
+function bucketsPushPath(api, key, path, input, opts, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            var e_1, _a;
+            // Only process the first  input if there are more than one
+            const source = (yield normalize_1.normaliseInput(input).next()).value;
+            const client = grpc_web_1.grpc.client(buckets_pb_service_1.API.PushPath, {
+                host: api.serviceHost,
+                transport: api.rpcOptions.transport,
+                debug: api.rpcOptions.debug,
+            });
+            client.onMessage((message) => {
+                var _a, _b, _c;
+                if (message.hasError()) {
+                    // Reject on first error
+                    reject(new Error(message.getError()));
+                }
+                else if (message.hasEvent()) {
+                    const event = (_a = message.getEvent()) === null || _a === void 0 ? void 0 : _a.toObject();
+                    if (event === null || event === void 0 ? void 0 : event.path) {
+                        // @todo: Is there an standard library/tool for this step in JS?
+                        const pth = event.path.startsWith('/ipfs/') ? event.path.split('/ipfs/')[1] : event.path;
+                        const cid = new cids_1.default(pth);
+                        const res = {
+                            path: {
+                                path: `/ipfs/${cid.toString()}`,
+                                cid: cid,
+                                root: cid,
+                                remainder: '',
+                            },
+                            root: (_c = (_b = event.root) === null || _b === void 0 ? void 0 : _b.path) !== null && _c !== void 0 ? _c : '',
+                        };
+                        resolve(res);
+                    }
+                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
+                    }
+                }
+                else {
+                    reject(new Error('Invalid reply'));
+                }
+            });
+            client.onEnd((code) => {
+                if (code === grpc_web_1.grpc.Code.OK) {
+                    resolve();
+                }
+                else {
+                    reject(new Error(code.toString()));
+                }
+            });
+            if (source) {
+                const head = new buckets_pb_1.PushPathRequest.Header();
+                head.setPath(source.path || path);
+                head.setKey(key);
+                const req = new buckets_pb_1.PushPathRequest();
+                req.setHeader(head);
+                const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+                client.start(metadata);
+                client.send(req);
+                if (source.content) {
+                    try {
+                        for (var _b = __asyncValues(source.content), _c; _c = yield _b.next(), !_c.done;) {
+                            const chunk = _c.value;
+                            const part = new buckets_pb_1.PushPathRequest();
+                            part.setChunk(chunk);
+                            client.send(part);
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (_c && !_c.done && (_a = _b.return)) yield _a.call(_b);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                    client.finishSend();
+                }
+            }
+        }));
+    });
+}
+exports.bucketsPushPath = bucketsPushPath;
+/**
+ * Pulls the bucket path, returning the bytes of the given file.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ */
+function bucketsPullPath(api, key, path, opts, ctx) {
+    const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+    const request = new buckets_pb_1.PullPathRequest();
+    request.setKey(key);
+    request.setPath(path);
+    let written = 0;
+    const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
+        const resp = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.PullPath, {
+            host: api.serviceHost,
+            transport: api.rpcOptions.transport,
+            debug: api.rpcOptions.debug,
+            request,
+            metadata,
+            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
+                const chunk = res.getChunk_asU8();
+                push(chunk);
+                written += chunk.byteLength;
+                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                    opts.progress(written);
+                }
+            }),
+            onEnd: (status, message, _trailers) => __awaiter(this, void 0, void 0, function* () {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    fail(new Error(message));
+                }
+                stop();
+            }),
+        });
+        return () => resp.close();
+    });
+    const it = Object.assign({ [Symbol.asyncIterator]() {
+            return this;
+        } }, events[Symbol.asyncIterator]());
+    return it;
+}
+exports.bucketsPullPath = bucketsPullPath;
+/**
+ * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ */
+function bucketsPullIpfsPath(api, path, opts, ctx) {
+    const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+    const request = new buckets_pb_1.PullIpfsPathRequest();
+    request.setPath(path);
+    let written = 0;
+    const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
+        const resp = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.PullIpfsPath, {
+            host: api.serviceHost,
+            transport: api.rpcOptions.transport,
+            debug: api.rpcOptions.debug,
+            request,
+            metadata,
+            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
+                const chunk = res.getChunk_asU8();
+                push(chunk);
+                written += chunk.byteLength;
+                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                    opts.progress(written);
+                }
+            }),
+            onEnd: (status, message, _trailers) => __awaiter(this, void 0, void 0, function* () {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    fail(new Error(message));
+                }
+                stop();
+            }),
+        });
+        return () => resp.close();
+    });
+    const it = Object.assign({ [Symbol.asyncIterator]() {
+            return this;
+        } }, events[Symbol.asyncIterator]());
+    return it;
+}
+exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
+/**
+ * Removes an entire bucket. Files and directories will be unpinned.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsRemove(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove request');
+        const req = new buckets_pb_1.RemoveRequest();
+        req.setKey(key);
+        yield api.unary(buckets_pb_service_1.API.Remove, req, ctx);
+        return;
+    });
+}
+exports.bucketsRemove = bucketsRemove;
+/**
+ * Returns information about a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ */
+function bucketsRemovePath(api, key, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new buckets_pb_1.RemovePathRequest();
+        req.setKey(key);
+        req.setPath(path);
+        yield api.unary(buckets_pb_service_1.API.RemovePath, req, ctx);
+        return;
+    });
+}
+exports.bucketsRemovePath = bucketsRemovePath;
+/**
+ * archive creates a Filecoin bucket archive via Powergate.
+ * @beta
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsArchive(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive request');
+        const req = new buckets_pb_1.ArchiveRequest();
+        req.setKey(key);
+        const res = yield api.unary(buckets_pb_service_1.API.Archive, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsArchive = bucketsArchive;
+/**
+ * archiveStatus returns the status of a Filecoin bucket archive.
+ * @beta
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsArchiveStatus(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive status request');
+        const req = new buckets_pb_1.ArchiveStatusRequest();
+        req.setKey(key);
+        const res = yield api.unary(buckets_pb_service_1.API.ArchiveStatus, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsArchiveStatus = bucketsArchiveStatus;
+/**
+ * archiveInfo returns info about a Filecoin bucket archive.
+ * @beta
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsArchiveInfo(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive info request');
+        const req = new buckets_pb_1.ArchiveInfoRequest();
+        req.setKey(key);
+        const res = yield api.unary(buckets_pb_service_1.API.ArchiveInfo, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsArchiveInfo = bucketsArchiveInfo;
+/**
+ * archiveWatch watches status events from a Filecoin bucket archive.
+ * @beta
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsArchiveWatch(api, key, callback, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive watch request');
+        const req = new buckets_pb_1.ArchiveWatchRequest();
+        req.setKey(key);
+        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+        const res = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.ArchiveWatch, {
+            host: api.context.host,
+            request: req,
+            metadata,
+            onMessage: (rec) => {
+                const response = {
+                    id: rec.getJsPbMessageId(),
+                    msg: rec.getMsg(),
+                };
+                next_tick_1.default(() => callback(response));
+            },
+            onEnd: (status, message, _trailers) => {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    return callback(undefined, new Error(message));
+                }
+                callback();
+            },
+        });
+        return res.close.bind(res);
+    });
+}
+exports.bucketsArchiveWatch = bucketsArchiveWatch;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 188:
 /***/ (function(__unusedmodule, exports) {
 
@@ -11982,7 +12513,7 @@ const path_1 = __importDefault(__webpack_require__(622));
 const util_1 = __importDefault(__webpack_require__(669));
 const glob_1 = __importDefault(__webpack_require__(402));
 const core = __importStar(__webpack_require__(470));
-const buckets_1 = __webpack_require__(281);
+const api_1 = __webpack_require__(177);
 const context_1 = __webpack_require__(421);
 const readFile = util_1.default.promisify(fs_1.default.readFile);
 const globDir = util_1.default.promisify(glob_1.default);
@@ -11991,28 +12522,27 @@ function run() {
         try {
             const api = core.getInput('api');
             const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447';
-            const ctx = new context_1.Context(`${target}`);
             const key = core.getInput('key').trim();
             const secret = core.getInput('secret').trim();
             if (!key || key === '' || !secret || secret === '') {
                 core.setFailed('Invalid credentials');
                 return;
             }
+            const ctx = yield new context_1.Context(target);
             yield ctx.withKeyInfo({
                 key,
-                secret,
-                type: 0
-            }, new Date(Date.now() + 1000 * 300));
+                secret
+            });
             const thread = core.getInput('thread');
+            const name = core.getInput('bucket');
             ctx.withThread(thread);
+            const grpc = new api_1.BucketsGrpcClient(ctx);
+            const roots = yield api_1.bucketsList(grpc);
+            const existing = roots.find((bucket) => bucket.name === name);
             const remove = core.getInput('remove') || '';
             if (remove === 'true') {
-                const buckets = new buckets_1.Buckets(ctx);
-                const roots = yield buckets.list();
-                const name = core.getInput('bucket');
-                const existing = roots.find(bucket => bucket.name === name);
                 if (existing) {
-                    yield buckets.remove(existing.key);
+                    yield api_1.bucketsRemove(grpc, existing.key);
                     core.setOutput('success', 'true');
                 }
                 else {
@@ -12021,16 +12551,12 @@ function run() {
                 // success
                 return;
             }
-            const buckets = new buckets_1.Buckets(ctx);
-            const roots = yield buckets.list();
-            const name = core.getInput('bucket');
-            const existing = roots.find(bucket => bucket.name === name);
             let bucketKey = '';
             if (existing) {
                 bucketKey = existing.key;
             }
             else {
-                const created = yield buckets.init(name);
+                const created = yield api_1.bucketsInit(grpc, name);
                 if (!created.root) {
                     core.setFailed('Failed to create bucket');
                     return;
@@ -12058,9 +12584,9 @@ function run() {
                     path: `/${file}`,
                     content: buffer
                 };
-                raw = yield buckets.pushPath(bucketKey, `/${file}`, upload);
+                raw = yield api_1.bucketsPushPath(grpc, bucketKey, `/${file}`, upload);
             }
-            const links = yield buckets.links(bucketKey);
+            const links = yield api_1.bucketsLinks(grpc, bucketKey);
             const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
             core.setOutput('ipfs', ipfs);
             core.setOutput('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`);
@@ -12118,166 +12644,6 @@ module.exports = function (value) {
 /***/ (function(module) {
 
 module.exports = require("https");
-
-/***/ }),
-
-/***/ 215:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-/**
- * Exposes the promise executor callbacks (resolve, reject).
- */
-class Deferred {
-    constructor() {
-        this.promise = new Promise((resolve, reject) => {
-            this.resolve = value => {
-                resolve(value);
-                return this.promise;
-            };
-            this.reject = reason => {
-                reject(reason);
-                return this.promise;
-            };
-        });
-    }
-}
-exports.default = Deferred;
-//# sourceMappingURL=Deferred.js.map
-
-/***/ }),
-
-/***/ 216:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const Deferred_1 = __importDefault(__webpack_require__(215));
-const common_1 = __webpack_require__(401);
-const fromDom_1 = __importDefault(__webpack_require__(933));
-const fromEmitter_1 = __importDefault(__webpack_require__(256));
-class LastResult {
-    constructor() {
-        this.buffer = new Deferred_1.default();
-        this.closed = false;
-        this.resolved = false;
-        this.requested = false;
-    }
-    push(value, done = false) {
-        if (this.closed) {
-            throw Error('Iterator closed');
-        }
-        const result = {
-            value,
-            done,
-        };
-        if (this.resolved === false) {
-            this.resolved = true;
-        }
-        else {
-            this.buffer = new Deferred_1.default();
-            this.resolved = false;
-        }
-        this.requested = false;
-        this.buffer.resolve(result);
-        return this.buffer.promise;
-    }
-    async next() {
-        if (this.closed) {
-            return common_1.doneResult;
-        }
-        this.requested = true;
-        return this.buffer.promise;
-    }
-    async return(value) {
-        this.closed = true;
-        if (!this.resolved && this.requested) {
-            this.buffer.resolve(common_1.doneResult);
-        }
-        return Promise.resolve({
-            value: value,
-            done: true,
-        });
-    }
-    wrap(onReturn) {
-        const wrapped = {
-            next: () => this.next(),
-            [Symbol.asyncIterator]() {
-                return this;
-            },
-            return: (value) => {
-                if (onReturn) {
-                    onReturn();
-                }
-                return this.return(value);
-            },
-        };
-        return wrapped;
-    }
-    [Symbol.asyncIterator]() {
-        return this;
-    }
-}
-exports.default = LastResult;
-LastResult.fromDom = fromDom_1.default(() => new LastResult());
-LastResult.fromEmitter = fromEmitter_1.default(() => new LastResult());
-//# sourceMappingURL=LastResult.js.map
-
-/***/ }),
-
-/***/ 228:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const Base = __webpack_require__(924)
-const baseX = __webpack_require__(973)
-const base16 = __webpack_require__(275)
-const base32 = __webpack_require__(960)
-const base64 = __webpack_require__(111)
-
-// name, code, implementation, alphabet
-const constants = [
-  ['base1', '1', '', '1'],
-  ['base2', '0', baseX, '01'],
-  ['base8', '7', baseX, '01234567'],
-  ['base10', '9', baseX, '0123456789'],
-  ['base16', 'f', base16, '0123456789abcdef'],
-  ['base32', 'b', base32, 'abcdefghijklmnopqrstuvwxyz234567'],
-  ['base32pad', 'c', base32, 'abcdefghijklmnopqrstuvwxyz234567='],
-  ['base32hex', 'v', base32, '0123456789abcdefghijklmnopqrstuv'],
-  ['base32hexpad', 't', base32, '0123456789abcdefghijklmnopqrstuv='],
-  ['base32z', 'h', base32, 'ybndrfg8ejkmcpqxot1uwisza345h769'],
-  ['base58flickr', 'Z', baseX, '123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'],
-  ['base58btc', 'z', baseX, '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'],
-  ['base64', 'm', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'],
-  ['base64pad', 'M', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='],
-  ['base64url', 'u', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'],
-  ['base64urlpad', 'U', base64, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=']
-]
-
-const names = constants.reduce((prev, tupple) => {
-  prev[tupple[0]] = new Base(tupple[0], tupple[1], tupple[2], tupple[3])
-  return prev
-}, {})
-
-const codes = constants.reduce((prev, tupple) => {
-  prev[tupple[1]] = names[tupple[0]]
-  return prev
-}, {})
-
-module.exports = {
-  names: names,
-  codes: codes
-}
-
 
 /***/ }),
 
@@ -12800,52 +13166,38 @@ GlobSync.prototype._makeAbs = function (f) {
 
 /***/ }),
 
-/***/ 256:
-/***/ (function(__unusedmodule, exports) {
+/***/ 266:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-// TODO implement strict-event-emitter-types support
-/**
- * Convert node EventEmitter events to an async iterable iterator.
- */
-const fromEmitter = (init) => (type, emitter) => {
-    const adapter = init();
-    const listener = (event) => void adapter.push(event);
-    emitter.addListener(type, listener);
-    return adapter.wrap(() => void emitter.removeListener(type, listener));
-};
-exports.default = fromEmitter;
-//# sourceMappingURL=fromEmitter.js.map
-
-/***/ }),
-
-/***/ 275:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-const { Buffer } = __webpack_require__(293)
-
-module.exports = function base16 (alphabet) {
-  return {
-    encode (input) {
-      if (typeof input === 'string') {
-        return Buffer.from(input).toString('hex')
-      }
-      return input.toString('hex')
-    },
-    decode (input) {
-      for (const char of input) {
-        if (alphabet.indexOf(char) < 0) {
-          throw new Error('invalid base16 character')
-        }
-      }
-      return Buffer.from(input, 'hex')
-    }
-  }
+const event_iterator_1 = __webpack_require__(853);
+exports.EventIterator = event_iterator_1.EventIterator;
+function stream(evOptions) {
+    return new event_iterator_1.EventIterator(queue => {
+        this.addListener("data", queue.push);
+        this.addListener("end", queue.stop);
+        this.addListener("error", queue.fail);
+        queue.on("highWater", () => this.pause());
+        queue.on("lowWater", () => this.resume());
+        return () => {
+            this.removeListener("data", queue.push);
+            this.removeListener("end", queue.stop);
+            this.removeListener("error", queue.fail);
+            /* We are no longer interested in any data; attempt to close the stream. */
+            if (this.destroy) {
+                this.destroy();
+            }
+            else if (typeof this.close == "function") {
+                ;
+                this.close();
+            }
+        };
+    }, evOptions);
 }
+exports.stream = stream;
+exports.default = event_iterator_1.EventIterator;
 
 
 /***/ }),
@@ -12869,155 +13221,6 @@ for (const encodingName in baseTable) {
 
 module.exports = Object.freeze(varintTable)
 
-
-/***/ }),
-
-/***/ 279:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const Deferred_1 = __importDefault(__webpack_require__(215));
-const LinkedQueue_1 = __importDefault(__webpack_require__(126));
-const common_1 = __webpack_require__(401);
-const fromDom_1 = __importDefault(__webpack_require__(933));
-const fromEmitter_1 = __importDefault(__webpack_require__(256));
-/**
- * Balances a push queue with a pull queue.
- */
-class Channel {
-    constructor(pushLimit = 0, pullLimit = 0) {
-        /** Determines whether new values can be pushed or pulled */
-        this.closed = false;
-        this.pushBuffer = new LinkedQueue_1.default(pushLimit);
-        this.pullBuffer = new LinkedQueue_1.default(pullLimit);
-    }
-    /**
-     * Pull a promise of the next [[Result]].
-     */
-    next() {
-        if (this.closed) {
-            return Promise.resolve(common_1.doneResult);
-        }
-        if (this.pushBuffer.length === 0) {
-            const defer = new Deferred_1.default();
-            // Buffer the pull to be resolved later
-            this.pullBuffer.enqueue(defer);
-            // Return the buffered promise that will be resolved and dequeued when a value is pushed
-            return defer.promise;
-        }
-        const { result, defer } = this.pushBuffer.dequeue();
-        defer.resolve(result);
-        if (result.done) {
-            this.close();
-        }
-        return defer.promise;
-    }
-    /**
-     * Push the next [[Result]] value.
-     *
-     * @param value
-     * @param done If true, closes the balancer when this result is resolved
-     * @throws Throws if the balancer is already closed
-     */
-    push(value, done = false) {
-        if (this.closed) {
-            return Promise.resolve(common_1.doneResult);
-        }
-        const result = {
-            value,
-            done,
-        };
-        if (this.pullBuffer.length > 0) {
-            return this.pullBuffer.dequeue().resolve(result);
-        }
-        const defer = new Deferred_1.default();
-        this.pushBuffer.enqueue({ result, defer });
-        return defer.promise;
-    }
-    /**
-     * Returns itself, since [[Balancer]] already implements the iterator protocol.
-     */
-    [Symbol.asyncIterator]() {
-        return this;
-    }
-    /**
-     * Closes the balancer; clears the queues and makes [[Balancer.next]] only
-     * return [[closedResult]].
-     *
-     * @param value The result value to be returned
-     */
-    async return(value) {
-        this.close();
-        return {
-            done: true,
-            value: value,
-        };
-    }
-    close() {
-        if (this.closed) {
-            return;
-        }
-        this.closed = true;
-        // Clear the queues
-        this.pushBuffer.forEach(({ defer: { resolve } }) => void resolve(common_1.doneResult));
-        this.pushBuffer.clear();
-        this.pullBuffer.forEach(({ resolve }) => void resolve(common_1.doneResult));
-        this.pullBuffer.clear();
-    }
-    /**
-     * Convert [[Balancer]] to a generic async iterable iterator to hide implementation details.
-     *
-     * @param onReturn Optional callback for when the iterator is closed with [[Balancer.return]]
-     * @throws Throws if called when closed
-     */
-    wrap(onReturn) {
-        if (this.closed) {
-            throw Error('Balancer is closed');
-        }
-        return {
-            [Symbol.asyncIterator]() {
-                return this;
-            },
-            next: () => this.next(),
-            return: async (value) => {
-                if (onReturn) {
-                    onReturn();
-                }
-                return this.return(value);
-            },
-        };
-    }
-}
-exports.default = Channel;
-Channel.fromDom = fromDom_1.default(() => new Channel());
-Channel.fromEmitter = fromEmitter_1.default(() => new Channel());
-//# sourceMappingURL=Channel.js.map
-
-/***/ }),
-
-/***/ 281:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(__webpack_require__(603), exports);
-//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -14477,58 +14680,6 @@ if (typeof Object.create === 'function') {
 
 /***/ }),
 
-/***/ 322:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const Channel_1 = __importDefault(__webpack_require__(279));
-/**
- * Multicasts pushed values to a variable number of async iterable iterators
- * as receivers or subscribers.
- *
- * Does not buffer pushed values; if no receivers are registered, pushed
- * values are silently discarded.
- */
-class Multicast {
-    constructor(init = () => new Channel_1.default()) {
-        this.init = init;
-        this.receivers = new Set();
-    }
-    /**
-     * Pushes a value to all registered receivers.
-     */
-    push(value) {
-        this.receivers.forEach(balancer => balancer.push(value));
-        return this;
-    }
-    /**
-     * Creates and registers a receiver.
-     */
-    [Symbol.asyncIterator]() {
-        const producer = this.init();
-        const { receivers } = this;
-        receivers.add(producer);
-        if (this.onStart && receivers.size === 1) {
-            this.onStart();
-        }
-        return producer.wrap(() => {
-            receivers.delete(producer);
-            if (this.onStop && receivers.size === 0) {
-                this.onStop();
-            }
-        });
-    }
-}
-exports.default = Multicast;
-//# sourceMappingURL=Multicast.js.map
-
-/***/ }),
-
 /***/ 330:
 /***/ (function(module) {
 
@@ -14757,380 +14908,6 @@ function format(extensions) {
 
 module.exports = { format, parse };
 
-
-/***/ }),
-
-/***/ 347:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
-var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var g = generator.apply(thisArg, _arguments || []), i, q = [];
-    return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i;
-    function verb(n) { if (g[n]) i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; }
-    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
-    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
-    function fulfill(value) { resume("next", value); }
-    function reject(value) { resume("throw", value); }
-    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __asyncDelegator = (this && this.__asyncDelegator) || function (o) {
-    var i, p;
-    return i = {}, verb("next"), verb("throw", function (e) { throw e; }), verb("return"), i[Symbol.iterator] = function () { return this; }, i;
-    function verb(n, f) { i[n] = o[n] ? function (v) { return (p = !p) ? { value: __await(o[n](v)), done: n === "return" } : f ? f(v) : v; } : f; }
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.normaliseInput = void 0;
-/* eslint-disable @typescript-eslint/no-use-before-define */
-const buffer_1 = __webpack_require__(293);
-/**
- * Transform types
- *
- * @remarks
- * This function comes from {@link https://github.com/ipfs/js-ipfs-utils/blob/master/src/files/normalise-input.js}
- * @example
- * Supported types
- * ```yaml
- * // INPUT TYPES
- * Bytes (Buffer|ArrayBuffer|TypedArray) [single file]
- * Bloby (Blob|File) [single file]
- * String [single file]
- * { path, content: Bytes } [single file]
- * { path, content: Bloby } [single file]
- * { path, content: String } [single file]
- * { path, content: Iterable<Number> } [single file]
- * { path, content: Iterable<Bytes> } [single file]
- * { path, content: AsyncIterable<Bytes> } [single file]
- * Iterable<Number> [single file]
- * Iterable<Bytes> [single file]
- * Iterable<Bloby> [multiple files]
- * Iterable<String> [multiple files]
- * Iterable<{ path, content: Bytes }> [multiple files]
- * Iterable<{ path, content: Bloby }> [multiple files]
- * Iterable<{ path, content: String }> [multiple files]
- * Iterable<{ path, content: Iterable<Number> }> [multiple files]
- * Iterable<{ path, content: Iterable<Bytes> }> [multiple files]
- * Iterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
- * AsyncIterable<Bytes> [single file]
- * AsyncIterable<Bloby> [multiple files]
- * AsyncIterable<String> [multiple files]
- * AsyncIterable<{ path, content: Bytes }> [multiple files]
- * AsyncIterable<{ path, content: Bloby }> [multiple files]
- * AsyncIterable<{ path, content: String }> [multiple files]
- * AsyncIterable<{ path, content: Iterable<Number> }> [multiple files]
- * AsyncIterable<{ path, content: Iterable<Bytes> }> [multiple files]
- * AsyncIterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
- *
- * // OUTPUT
- * AsyncIterable<{ path, content: AsyncIterable<Buffer> }>
- * ```
- *
- * @public
- *
- * @param {Object} input
- * @return AsyncInterable<{ path, content: AsyncIterable<Buffer> }>
- */
-function normaliseInput(input) {
-    // must give us something
-    if (input === null || input === undefined) {
-        throw new Error(`Unexpected input: ${input}`);
-    }
-    // String
-    if (typeof input === 'string' || input instanceof String) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    // Buffer|ArrayBuffer|TypedArray
-    // Blob|File
-    if (isBytes(input) || isBloby(input)) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    // Iterable<?>
-    if (input[Symbol.iterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                const iterator = input[Symbol.iterator]();
-                const first = iterator.next();
-                if (first.done)
-                    return yield __await(iterator
-                    // Iterable<Number>
-                    // Iterable<Bytes>
-                    );
-                // Iterable<Number>
-                // Iterable<Bytes>
-                if (Number.isInteger(first.value) || isBytes(first.value)) {
-                    yield yield __await(toFileObject((function* () {
-                        yield first.value;
-                        yield* iterator;
-                    })()));
-                    return yield __await(void 0);
-                }
-                // Iterable<Bloby>
-                // Iterable<String>
-                // Iterable<{ path, content }>
-                if (isFileObject(first.value) || isBloby(first.value) || typeof first.value === 'string') {
-                    yield yield __await(toFileObject(first.value));
-                    for (const obj of iterator) {
-                        yield yield __await(toFileObject(obj));
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // window.ReadableStream
-    if (typeof input.getReader === 'function') {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_1, _a;
-                try {
-                    for (var _b = __asyncValues(browserStreamToIt(input)), _c; _c = yield __await(_b.next()), !_c.done;) {
-                        const obj = _c.value;
-                        yield yield __await(toFileObject(obj));
-                    }
-                }
-                catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                finally {
-                    try {
-                        if (_c && !_c.done && (_a = _b.return)) yield __await(_a.call(_b));
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                }
-            });
-        })();
-    }
-    // AsyncIterable<?>
-    if (input[Symbol.asyncIterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_2, _a;
-                const iterator = input[Symbol.asyncIterator]();
-                const first = yield __await(iterator.next());
-                if (first.done)
-                    return yield __await(iterator
-                    // AsyncIterable<Bytes>
-                    );
-                // AsyncIterable<Bytes>
-                if (isBytes(first.value)) {
-                    yield yield __await(toFileObject((function () {
-                        return __asyncGenerator(this, arguments, function* () {
-                            // eslint-disable-line require-await
-                            yield yield __await(first.value);
-                            yield __await(yield* __asyncDelegator(__asyncValues(iterator)));
-                        });
-                    })()));
-                    return yield __await(void 0);
-                }
-                // AsyncIterable<Bloby>
-                // AsyncIterable<String>
-                // AsyncIterable<{ path, content }>
-                if (isFileObject(first.value) || isBloby(first.value) || typeof first.value === 'string') {
-                    yield yield __await(toFileObject(first.value));
-                    try {
-                        for (var iterator_1 = __asyncValues(iterator), iterator_1_1; iterator_1_1 = yield __await(iterator_1.next()), !iterator_1_1.done;) {
-                            const obj = iterator_1_1.value;
-                            yield yield __await(toFileObject(obj));
-                        }
-                    }
-                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                    finally {
-                        try {
-                            if (iterator_1_1 && !iterator_1_1.done && (_a = iterator_1.return)) yield __await(_a.call(iterator_1));
-                        }
-                        finally { if (e_2) throw e_2.error; }
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // { path, content: ? }
-    // Note: Detected _after_ AsyncIterable<?> because Node.js streams have a
-    // `path` property that passes this check.
-    if (isFileObject(input)) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    throw new Error('Unexpected input: ' + typeof input);
-}
-exports.normaliseInput = normaliseInput;
-function toFileObject(input) {
-    const obj = {
-        path: input.path || '',
-        mode: input.mode,
-        mtime: input.mtime,
-    };
-    if (input.content) {
-        obj.content = toAsyncIterable(input.content);
-    }
-    else if (!input.path) {
-        // Not already a file object with path or content prop
-        obj.content = toAsyncIterable(input);
-    }
-    return obj;
-}
-function toAsyncIterable(input) {
-    // Bytes | String
-    if (isBytes(input) || typeof input === 'string') {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toBuffer(input));
-            });
-        })();
-    }
-    // Bloby
-    if (isBloby(input)) {
-        return blobToAsyncGenerator(input);
-    }
-    // Browser stream
-    if (typeof input.getReader === 'function') {
-        return browserStreamToIt(input);
-    }
-    // Iterator<?>
-    if (input[Symbol.iterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                const iterator = input[Symbol.iterator]();
-                const first = iterator.next();
-                if (first.done)
-                    return yield __await(iterator
-                    // Iterable<Number>
-                    );
-                // Iterable<Number>
-                if (Number.isInteger(first.value)) {
-                    yield yield __await(toBuffer(Array.from((function* () {
-                        yield first.value;
-                        yield* iterator;
-                    })())));
-                    return yield __await(void 0);
-                }
-                // Iterable<Bytes>
-                if (isBytes(first.value)) {
-                    yield yield __await(toBuffer(first.value));
-                    for (const chunk of iterator) {
-                        yield yield __await(toBuffer(chunk));
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // AsyncIterable<Bytes>
-    if (input[Symbol.asyncIterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_3, _a;
-                try {
-                    for (var input_1 = __asyncValues(input), input_1_1; input_1_1 = yield __await(input_1.next()), !input_1_1.done;) {
-                        const chunk = input_1_1.value;
-                        yield yield __await(toBuffer(chunk));
-                    }
-                }
-                catch (e_3_1) { e_3 = { error: e_3_1 }; }
-                finally {
-                    try {
-                        if (input_1_1 && !input_1_1.done && (_a = input_1.return)) yield __await(_a.call(input_1));
-                    }
-                    finally { if (e_3) throw e_3.error; }
-                }
-            });
-        })();
-    }
-    throw new Error(`Unexpected input: ${input}`);
-}
-function toBuffer(chunk) {
-    return isBytes(chunk) ? chunk : buffer_1.Buffer.from(chunk);
-}
-function isBytes(obj) {
-    return buffer_1.Buffer.isBuffer(obj) || ArrayBuffer.isView(obj) || obj instanceof ArrayBuffer;
-}
-function isBloby(obj) {
-    return typeof globalThis.Blob !== 'undefined' && obj instanceof globalThis.Blob;
-}
-// An object with a path or content property
-function isFileObject(obj) {
-    return typeof obj === 'object' && (obj.path || obj.content);
-}
-function blobToAsyncGenerator(blob) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-    // @ts-ignore
-    if (typeof blob.stream === 'function') {
-        // firefox < 69 does not support blob.stream()
-        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-        // @ts-ignore
-        return browserStreamToIt(blob.stream());
-    }
-    return readBlob(blob);
-}
-function browserStreamToIt(stream) {
-    return __asyncGenerator(this, arguments, function* browserStreamToIt_1() {
-        const reader = stream.getReader();
-        while (true) {
-            const result = yield __await(reader.read());
-            if (result.done) {
-                return yield __await(void 0);
-            }
-            yield yield __await(result.value);
-        }
-    });
-}
-function readBlob(blob, options) {
-    return __asyncGenerator(this, arguments, function* readBlob_1() {
-        options = options || {};
-        const reader = new globalThis.FileReader();
-        const chunkSize = options.chunkSize || 1024 * 1024;
-        let offset = options.offset || 0;
-        const getNextChunk = () => new Promise((resolve, reject) => {
-            reader.onloadend = (e) => {
-                var _a;
-                const data = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
-                resolve(data.byteLength === 0 ? null : data);
-            };
-            reader.onerror = reject;
-            const end = offset + chunkSize;
-            const slice = blob.slice(offset, end);
-            reader.readAsArrayBuffer(slice);
-            offset = end;
-        });
-        while (true) {
-            const data = yield __await(getNextChunk());
-            if (data == null) {
-                return yield __await(void 0);
-            }
-            yield yield __await(buffer_1.Buffer.from(data));
-        }
-    });
-}
-//# sourceMappingURL=normalize.js.map
 
 /***/ }),
 
@@ -15709,22 +15486,6 @@ function pbkdf2(password, salt, iterations, dkLen) {
 exports.pbkdf2 = pbkdf2;
 });
 
-
-/***/ }),
-
-/***/ 401:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-/** The result returned from closed iterators. */
-exports.doneResult = Object.freeze({
-    value: undefined,
-    done: true,
-});
-exports.donePromise = Promise.resolve(exports.doneResult);
-//# sourceMappingURL=common.js.map
 
 /***/ }),
 
@@ -16599,7 +16360,7 @@ exports.createAPISig = createAPISig;
  *   // Create an expiration and create a signature. 60s or less is recommended.
  *   const expiration = new Date(Date.now() + 60 * 1000)
  *   // Generate a new UserAuth
- *   const userAuth: UserAuth = await createUserAuth(keyInfo.key, keyInfo.secret, expiration)
+ *   const userAuth: UserAuth = await createUserAuth(keyInfo.key, keyInfo.secret ?? '', expiration)
  *   return userAuth
  * }
  * ```
@@ -16691,7 +16452,13 @@ class Context {
     static fromUserAuth(auth, host = exports.defaultHost, debug = false, transport = grpc_web_1.grpc.WebsocketTransport()) {
         const ctx = new Context(host, debug, transport);
         const { key, token } = auth, sig = __rest(auth, ["key", "token"]);
-        return ctx.withAPIKey(auth.key).withAPISig(sig).withToken(token);
+        return ctx.withAPIKey(key).withAPISig(sig).withToken(token);
+    }
+    static fromUserAuthCallback(authCallback, host = exports.defaultHost, debug = false, transport = grpc_web_1.grpc.WebsocketTransport()) {
+        const ctx = new Context(host, debug, transport);
+        // @todo: Should we now callback right away?
+        ctx.authCallback = authCallback;
+        return ctx;
     }
     get host() {
         return this._context['host'];
@@ -16757,6 +16524,9 @@ class Context {
         return __awaiter(this, void 0, void 0, function* () {
             if (key === undefined)
                 return this;
+            // Enables the use of insecure / non-signing keys
+            if (!key.secret)
+                return this.withAPIKey(key.key);
             const sig = yield security_1.createAPISig(key.secret, date);
             return this.withAPIKey(key.key).withAPISig(sig);
         });
@@ -16768,17 +16538,67 @@ class Context {
         this._context = value.toJSON();
         return this;
     }
+    /**
+     * Returns true if this Context contains an api sig msg, and that msg has expired, or if
+     * it does _not_ have an api sig msg, but it _does_ have an auth callback.
+     */
+    get isExpired() {
+        const msg = this.get('x-textile-api-sig-msg');
+        const notAuthed = msg === undefined && this.authCallback !== undefined;
+        const isExpired = msg !== undefined && new Date(msg) <= new Date();
+        return isExpired || notAuthed;
+    }
+    /**
+     * Refresh user auth with provided callback.
+     * If callback is not specified, attempts to use existing callback specified at initialization.
+     */
+    refreshUserAuth(authCallback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // If we have a new one, use it...
+            if (authCallback !== undefined) {
+                this.authCallback = authCallback;
+            }
+            // If we still don't have a callback, throw...
+            if (this.authCallback === undefined) {
+                throw new Error('Missing authCallback. See Context.fromUserAuthCallback for details.');
+            }
+            // Now do the renewal and return self...
+            const _a = yield this.authCallback(), { key, token } = _a, sig = __rest(_a, ["key", "token"]);
+            return this.withAPIKey(key).withAPISig(sig).withToken(token);
+        });
+    }
+    /**
+     * Convert Context to plain JSON object.
+     * @throws If this Context has expired.
+     * @see toMetadata for an alternative for gRPC clients that supports auto-renewal.
+     */
     toJSON() {
-        // Strip out transport. @todo: phase out transport out entirely
-        const _a = this._context, { transport } = _a, context = __rest(_a, ["transport"]);
-        const msg = context['x-textile-api-sig-msg'];
-        if (msg && new Date(msg) <= new Date()) {
+        // Strip out transport
+        // @todo: Phase out transport out entirely
+        const _a = this._context, { transport } = _a, json = __rest(_a, ["transport"]);
+        // If we're expired, throw...
+        if (this.isExpired) {
             throw security_1.expirationError;
         }
-        return context;
+        return json;
     }
-    toMetadata() {
-        return new grpc_web_1.grpc.Metadata(this.toJSON());
+    /**
+     * Convert Context to grpc Metadata object.
+     * Will automatically call the auth callback if available.
+     * @param ctx Additional context object that will be merged with this prior to conversion.
+     * @see toJSON for an alternative that returns a plain object, and throws when expired.
+     */
+    toMetadata(ctx) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const context = new Context();
+            if (this.isExpired && this.authCallback !== undefined) {
+                const _a = yield this.authCallback(), { key, token } = _a, sig = __rest(_a, ["key", "token"]);
+                // We do want to mutate this here because we want to update our auth sig
+                this.withAPIKey(key).withAPISig(sig).withToken(token);
+            }
+            // We merge this context and ctx with the empty context so as to avoid mutating this with ctx
+            return new grpc_web_1.grpc.Metadata(context.withContext(this).withContext(ctx).toJSON());
+        });
     }
     /**
      * Import various ContextInterface API properties from JSON.
@@ -16928,7 +16748,7 @@ function escapeProperty(s) {
 
 
 const { Buffer } = __webpack_require__(293)
-const mh = __webpack_require__(114)
+const mh = __webpack_require__(20)
 const multibase = __webpack_require__(939)
 const multicodec = __webpack_require__(548)
 const codecs = __webpack_require__(923)
@@ -17740,144 +17560,6 @@ function encode(num, out, offset) {
 
 /***/ }),
 
-/***/ 559:
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-/**
- * Implementation of the [multibase](https://github.com/multiformats/multibase) specification.
- * @module Multibase
- */
-
-
-const { Buffer } = __webpack_require__(293)
-const constants = __webpack_require__(228)
-
-exports = module.exports = multibase
-exports.encode = encode
-exports.decode = decode
-exports.isEncoded = isEncoded
-exports.names = Object.freeze(Object.keys(constants.names))
-exports.codes = Object.freeze(Object.keys(constants.codes))
-
-/**
- * Create a new buffer with the multibase varint+code.
- *
- * @param {string|number} nameOrCode - The multibase name or code number.
- * @param {Buffer} buf - The data to be prefixed with multibase.
- * @memberof Multibase
- * @returns {Buffer}
- */
-function multibase (nameOrCode, buf) {
-  if (!buf) {
-    throw new Error('requires an encoded buffer')
-  }
-  const base = getBase(nameOrCode)
-  const codeBuf = Buffer.from(base.code)
-
-  const name = base.name
-  validEncode(name, buf)
-  return Buffer.concat([codeBuf, buf])
-}
-
-/**
- * Encode data with the specified base and add the multibase prefix.
- *
- * @param {string|number} nameOrCode - The multibase name or code number.
- * @param {Buffer} buf - The data to be encoded.
- * @returns {Buffer}
- * @memberof Multibase
- */
-function encode (nameOrCode, buf) {
-  const base = getBase(nameOrCode)
-  const name = base.name
-
-  return multibase(name, Buffer.from(base.encode(buf)))
-}
-
-/**
- * Takes a buffer or string encoded with multibase header, decodes it and
- * returns the decoded buffer
- *
- * @param {Buffer|string} bufOrString
- * @returns {Buffer}
- * @memberof Multibase
- *
- */
-function decode (bufOrString) {
-  if (Buffer.isBuffer(bufOrString)) {
-    bufOrString = bufOrString.toString()
-  }
-
-  const code = bufOrString.substring(0, 1)
-  bufOrString = bufOrString.substring(1, bufOrString.length)
-
-  if (typeof bufOrString === 'string') {
-    bufOrString = Buffer.from(bufOrString)
-  }
-
-  const base = getBase(code)
-  return Buffer.from(base.decode(bufOrString.toString()))
-}
-
-/**
- * Is the given data multibase encoded?
- *
- * @param {Buffer|string} bufOrString
- * @returns {boolean}
- * @memberof Multibase
- */
-function isEncoded (bufOrString) {
-  if (Buffer.isBuffer(bufOrString)) {
-    bufOrString = bufOrString.toString()
-  }
-
-  // Ensure bufOrString is a string
-  if (Object.prototype.toString.call(bufOrString) !== '[object String]') {
-    return false
-  }
-
-  const code = bufOrString.substring(0, 1)
-  try {
-    const base = getBase(code)
-    return base.name
-  } catch (err) {
-    return false
-  }
-}
-
-/**
- * @param {string} name
- * @param {Buffer} buf
- * @private
- * @returns {undefined}
- */
-function validEncode (name, buf) {
-  const base = getBase(name)
-  base.decode(buf.toString())
-}
-
-function getBase (nameOrCode) {
-  let base
-
-  if (constants.names[nameOrCode]) {
-    base = constants.names[nameOrCode]
-  } else if (constants.codes[nameOrCode]) {
-    base = constants.codes[nameOrCode]
-  } else {
-    throw new Error('Unsupported encoding')
-  }
-
-  if (!base.isImplemented()) {
-    throw new Error('Base ' + nameOrCode + ' is not implemented yet')
-  }
-
-  return base
-}
-
-
-/***/ }),
-
 /***/ 561:
 /***/ (function(module) {
 
@@ -17952,410 +17634,375 @@ exports.isValidStatusCode = (code) => {
 
 /***/ }),
 
-/***/ 603:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Buckets = void 0;
-const loglevel_1 = __importDefault(__webpack_require__(104));
-const pb = __importStar(__webpack_require__(97));
-const buckets_pb_service_1 = __webpack_require__(148);
-const cids_1 = __importDefault(__webpack_require__(437));
-const queueable_1 = __webpack_require__(815);
-const grpc_web_1 = __webpack_require__(837);
-const context_1 = __webpack_require__(421);
-const normalize_1 = __webpack_require__(347);
-const logger = loglevel_1.default.getLogger('buckets');
-/**
- * Buckets is a web-gRPC wrapper client for communicating with the web-gRPC enabled Textile Buckets API.
- * @example
- * Initialize a the Bucket API
- * ```typescript
- * import { Buckets, UserAuth } from '@textile/hub'
- *
- * const init = async (auth: UserAuth) => {
- *     const buckets = Buckets.withUserAuth(auth)
- *     return buckets
- * }
- * ```
- *
- * @example
- * Find an existing Bucket
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const exists = async (buckets: Buckets, bucketName: string) => {
- *     const roots = await buckets.list();
- *     return roots.find((bucket) => bucket.name === bucketName)
- * }
- * ```
- */
-class Buckets {
-    /**
-     * Creates a new gRPC client instance for accessing the Textile Buckets API.
-     * @param context The context to use for interacting with the APIs. Can be modified later.
-     */
-    constructor(context = new context_1.Context()) {
-        this.context = context;
-        this.serviceHost = context.host;
-        this.rpcOptions = {
-            transport: context.transport,
-            debug: context.debug,
-        };
-    }
-    /**
-     * Creates a new gRPC client instance for accessing the Textile Buckets API.
-     * @param auth The user auth object.
-     */
-    static withUserAuth(auth, host = context_1.defaultHost, debug = false) {
-        const context = context_1.Context.fromUserAuth(auth, host, debug);
-        return new Buckets(context);
-    }
-    /**
-     * Create a new gRPC client Bucket instance from a supplied key and secret
-     * @param key The KeyInfo object containing {key: string, secret: string, type: 0}. 0 === User Group Key, 1 === Account Key
-     */
-    static withKeyInfo(key, host = context_1.defaultHost, debug = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const context = new context_1.Context(host, debug);
-            yield context.withKeyInfo(key);
-            return new Buckets(context);
-        });
-    }
-    /**
-     * Initializes a new bucket.
-     * @public
-     * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     * @example
-     * Initialize a Bucket called "app-name-file"
-     * ```tyepscript
-     * import { Buckets } from '@textile/hub'
-     *
-     * const init = async (buckets: Buckets, bucketName: string) => {
-     *     return buckets.init(bucketName)
-     * }
-     * ```
-     */
-    init(name, ctx) {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger.debug('init request');
-            const req = new pb.InitRequest();
-            req.setName(name);
-            const res = yield this.unary(buckets_pb_service_1.API.Init, req, ctx);
-            return res.toObject();
-        });
-    }
-    /**
-     * Returns a list of all bucket roots.
-     * @example
-     * Find an existing Bucket named "app-name-files"
-     * ```typescript
-     * import { Buckets } from '@textile/hub'
-     *
-     * const exists = async (buckets: Buckets) => {
-     *     const roots = await buckets.list();
-     *     return roots.find((bucket) => bucket.name ===  "app-name-files")
-     * }
-     * ````
-     */
-    list(ctx) {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger.debug('list request');
-            const req = new pb.ListRequest();
-            const res = yield this.unary(buckets_pb_service_1.API.List, req, ctx);
-            return res.toObject().rootsList;
-        });
-    }
-    /**
-     * Returns a list of bucket links.
-     * @param key Unique (IPNS compatible) identifier key for a bucket.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     * @example
-     * Generate the HTTP, IPNS, and IPFS links for a Bucket
-     * ```tyepscript
-     * import { Buckets } from '@textile/hub'
-     *
-     * const getLinks = async (buckets: Buckets) => {
-     *    const links = buckets.links(bucketKey)
-     *    return links.ipfs
-     * }
-     *
-     * const getIpfs = async (buckets: Buckets) => {
-     *    const links = buckets.links(bucketKey)
-     *    return links.ipfs
-     * }
-     * ```
-     */
-    links(key, ctx) {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger.debug('link request');
-            const req = new pb.LinksRequest();
-            req.setKey(key);
-            const res = yield this.unary(buckets_pb_service_1.API.Links, req, ctx);
-            return res.toObject();
-        });
-    }
-    /**
-     * Returns information about a bucket path.
-     * @param key Unique (IPNS compatible) identifier key for a bucket.
-     * @param path A file/object (sub)-path within a bucket.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     */
-    listPath(key, path, ctx) {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger.debug('list path request');
-            const req = new pb.ListPathRequest();
-            req.setKey(key);
-            req.setPath(path);
-            const res = yield this.unary(buckets_pb_service_1.API.ListPath, req, ctx);
-            return res.toObject();
-        });
-    }
-    /**
-     * Removes an entire bucket. Files and directories will be unpinned.
-     * @param key Unique (IPNS compatible) identifier key for a bucket.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     */
-    remove(key, ctx) {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger.debug('remove request');
-            const req = new pb.RemoveRequest();
-            req.setKey(key);
-            yield this.unary(buckets_pb_service_1.API.Remove, req, ctx);
-            return;
-        });
-    }
-    /**
-     * Returns information about a bucket path.
-     * @param key Unique (IPNS compatible) identifier key for a bucket.
-     * @param path A file/object (sub)-path within a bucket.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     */
-    removePath(key, path, ctx) {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger.debug('remove path request');
-            const req = new pb.RemovePathRequest();
-            req.setKey(key);
-            req.setPath(path);
-            yield this.unary(buckets_pb_service_1.API.RemovePath, req, ctx);
-            return;
-        });
-    }
-    /**
-     * Pushes a file to a bucket path.
-     * @param key Unique (IPNS compatible) identifier key for a bucket.
-     * @param path A file/object (sub)-path within a bucket.
-     * @param input The input file/stream/object.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     * @param opts Options to control response stream. Currently only supports a progress function.
-     * @remarks
-     * This will return the resolved path and the bucket's new root path.
-     * @example
-     * Push a file to the root of a bucket
-     * ```tyepscript
-     * import { Buckets } from '@textile/hub'
-     *
-     * const pushFile = async (content: string, bucketKey: string) => {
-     *    const file = { path: '/index.html', content: Buffer.from(content) }
-     *    return await buckets.pushPath(bucketKey!, 'index.html', file)
-     * }
-     * ```
-     */
-    pushPath(key, path, input, ctx, opts) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-                var e_1, _a;
-                // Only process the first  input if there are more than one
-                const source = (yield normalize_1.normaliseInput(input).next()).value;
-                const client = grpc_web_1.grpc.client(buckets_pb_service_1.API.PushPath, {
-                    host: this.serviceHost,
-                    transport: this.rpcOptions.transport,
-                    debug: this.rpcOptions.debug,
-                });
-                client.onMessage((message) => {
-                    var _a, _b, _c;
-                    if (message.hasError()) {
-                        // Reject on first error
-                        reject(new Error(message.getError()));
-                    }
-                    else if (message.hasEvent()) {
-                        const event = (_a = message.getEvent()) === null || _a === void 0 ? void 0 : _a.toObject();
-                        if (event === null || event === void 0 ? void 0 : event.path) {
-                            // @todo: Is there an standard library/tool for this step in JS?
-                            const pth = event.path.startsWith('/ipfs/') ? event.path.split('/ipfs/')[1] : event.path;
-                            const cid = new cids_1.default(pth);
-                            const res = {
-                                path: {
-                                    path: `/ipfs/${cid.toString()}`,
-                                    cid: cid,
-                                    root: cid,
-                                    remainder: '',
-                                },
-                                root: (_c = (_b = event.root) === null || _b === void 0 ? void 0 : _b.path) !== null && _c !== void 0 ? _c : '',
-                            };
-                            resolve(res);
-                        }
-                        else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                            opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
-                        }
-                    }
-                    else {
-                        reject(new Error('Invalid reply'));
-                    }
-                });
-                client.onEnd((code) => {
-                    if (code === grpc_web_1.grpc.Code.OK) {
-                        resolve();
-                    }
-                    else {
-                        reject(new Error(code.toString()));
-                    }
-                });
-                if (source) {
-                    const head = new pb.PushPathRequest.Header();
-                    head.setPath(source.path || path);
-                    head.setKey(key);
-                    const req = new pb.PushPathRequest();
-                    req.setHeader(head);
-                    const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-                    client.start(metadata);
-                    client.send(req);
-                    if (source.content) {
-                        try {
-                            for (var _b = __asyncValues(source.content), _c; _c = yield _b.next(), !_c.done;) {
-                                const chunk = _c.value;
-                                const part = new pb.PushPathRequest();
-                                part.setChunk(chunk);
-                                client.send(part);
-                            }
-                        }
-                        catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                        finally {
-                            try {
-                                if (_c && !_c.done && (_a = _b.return)) yield _a.call(_b);
-                            }
-                            finally { if (e_1) throw e_1.error; }
-                        }
-                        client.finishSend();
-                    }
-                }
-            }));
-        });
-    }
-    /**
-     * Pulls the bucket path, returning the bytes of the given file.
-     * @param key Unique (IPNS compatible) identifier key for a bucket.
-     * @param path A file/object (sub)-path within a bucket.
-     * @param ctx Context object containing web-gRPC headers and settings.
-     * @param opts Options to control response stream. Currently only supports a progress function.
-     */
-    pullPath(key, path, ctx, opts) {
-        const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const chan = new queueable_1.Channel();
-        const request = new pb.PullPathRequest();
-        request.setKey(key);
-        request.setPath(path);
-        let written = 0;
-        const response = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.PullPath, {
-            host: this.serviceHost,
-            transport: this.rpcOptions.transport,
-            debug: this.rpcOptions.debug,
-            request,
-            metadata,
-            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
-                const chunk = res.getChunk_asU8();
-                yield chan.push(chunk);
-                written += chunk.byteLength;
-                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                    opts.progress(written);
-                }
-            }),
-            onEnd: (status, message, _trailers) => __awaiter(this, void 0, void 0, function* () {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    throw new Error(message);
-                }
-                yield chan.push(Buffer.alloc(0), true);
-            }),
-        });
-        return chan.wrap(() => response.close());
-    }
-    unary(methodDescriptor, req, ctx) {
-        return new Promise((resolve, reject) => {
-            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            grpc_web_1.grpc.unary(methodDescriptor, {
-                request: req,
-                host: this.serviceHost,
-                transport: this.rpcOptions.transport,
-                debug: this.rpcOptions.debug,
-                metadata,
-                onEnd: (res) => {
-                    const { status, statusMessage, message } = res;
-                    if (status === grpc_web_1.grpc.Code.OK) {
-                        if (message) {
-                            resolve(message);
-                        }
-                        else {
-                            resolve();
-                        }
-                    }
-                    else {
-                        reject(new Error(statusMessage));
-                    }
-                },
-            });
-        });
-    }
-}
-exports.Buckets = Buckets;
-//# sourceMappingURL=buckets.js.map
-
-/***/ }),
-
 /***/ 605:
 /***/ (function(module) {
 
 module.exports = require("http");
+
+/***/ }),
+
+/***/ 610:
+/***/ (function(module) {
+
+"use strict";
+/* eslint quote-props: off */
+
+
+const names = Object.freeze({
+  'identity': 0x00,
+  'sha1': 0x11,
+  'sha2-256': 0x12,
+  'sha2-512': 0x13,
+  'sha3-512': 0x14,
+  'sha3-384': 0x15,
+  'sha3-256': 0x16,
+  'sha3-224': 0x17,
+  'shake-128': 0x18,
+  'shake-256': 0x19,
+  'keccak-224': 0x1a,
+  'keccak-256': 0x1b,
+  'keccak-384': 0x1c,
+  'keccak-512': 0x1d,
+  'blake3': 0x1e,
+  'murmur3-128': 0x22,
+  'murmur3-32': 0x23,
+  'dbl-sha2-256': 0x56,
+  'md4': 0xd4,
+  'md5': 0xd5,
+  'bmt': 0xd6,
+  'sha2-256-trunc254-padded': 0x1012,
+  'ripemd-128': 0x1052,
+  'ripemd-160': 0x1053,
+  'ripemd-256': 0x1054,
+  'ripemd-320': 0x1055,
+  'x11': 0x1100,
+  'sm3-256': 0x534d,
+  'blake2b-8': 0xb201,
+  'blake2b-16': 0xb202,
+  'blake2b-24': 0xb203,
+  'blake2b-32': 0xb204,
+  'blake2b-40': 0xb205,
+  'blake2b-48': 0xb206,
+  'blake2b-56': 0xb207,
+  'blake2b-64': 0xb208,
+  'blake2b-72': 0xb209,
+  'blake2b-80': 0xb20a,
+  'blake2b-88': 0xb20b,
+  'blake2b-96': 0xb20c,
+  'blake2b-104': 0xb20d,
+  'blake2b-112': 0xb20e,
+  'blake2b-120': 0xb20f,
+  'blake2b-128': 0xb210,
+  'blake2b-136': 0xb211,
+  'blake2b-144': 0xb212,
+  'blake2b-152': 0xb213,
+  'blake2b-160': 0xb214,
+  'blake2b-168': 0xb215,
+  'blake2b-176': 0xb216,
+  'blake2b-184': 0xb217,
+  'blake2b-192': 0xb218,
+  'blake2b-200': 0xb219,
+  'blake2b-208': 0xb21a,
+  'blake2b-216': 0xb21b,
+  'blake2b-224': 0xb21c,
+  'blake2b-232': 0xb21d,
+  'blake2b-240': 0xb21e,
+  'blake2b-248': 0xb21f,
+  'blake2b-256': 0xb220,
+  'blake2b-264': 0xb221,
+  'blake2b-272': 0xb222,
+  'blake2b-280': 0xb223,
+  'blake2b-288': 0xb224,
+  'blake2b-296': 0xb225,
+  'blake2b-304': 0xb226,
+  'blake2b-312': 0xb227,
+  'blake2b-320': 0xb228,
+  'blake2b-328': 0xb229,
+  'blake2b-336': 0xb22a,
+  'blake2b-344': 0xb22b,
+  'blake2b-352': 0xb22c,
+  'blake2b-360': 0xb22d,
+  'blake2b-368': 0xb22e,
+  'blake2b-376': 0xb22f,
+  'blake2b-384': 0xb230,
+  'blake2b-392': 0xb231,
+  'blake2b-400': 0xb232,
+  'blake2b-408': 0xb233,
+  'blake2b-416': 0xb234,
+  'blake2b-424': 0xb235,
+  'blake2b-432': 0xb236,
+  'blake2b-440': 0xb237,
+  'blake2b-448': 0xb238,
+  'blake2b-456': 0xb239,
+  'blake2b-464': 0xb23a,
+  'blake2b-472': 0xb23b,
+  'blake2b-480': 0xb23c,
+  'blake2b-488': 0xb23d,
+  'blake2b-496': 0xb23e,
+  'blake2b-504': 0xb23f,
+  'blake2b-512': 0xb240,
+  'blake2s-8': 0xb241,
+  'blake2s-16': 0xb242,
+  'blake2s-24': 0xb243,
+  'blake2s-32': 0xb244,
+  'blake2s-40': 0xb245,
+  'blake2s-48': 0xb246,
+  'blake2s-56': 0xb247,
+  'blake2s-64': 0xb248,
+  'blake2s-72': 0xb249,
+  'blake2s-80': 0xb24a,
+  'blake2s-88': 0xb24b,
+  'blake2s-96': 0xb24c,
+  'blake2s-104': 0xb24d,
+  'blake2s-112': 0xb24e,
+  'blake2s-120': 0xb24f,
+  'blake2s-128': 0xb250,
+  'blake2s-136': 0xb251,
+  'blake2s-144': 0xb252,
+  'blake2s-152': 0xb253,
+  'blake2s-160': 0xb254,
+  'blake2s-168': 0xb255,
+  'blake2s-176': 0xb256,
+  'blake2s-184': 0xb257,
+  'blake2s-192': 0xb258,
+  'blake2s-200': 0xb259,
+  'blake2s-208': 0xb25a,
+  'blake2s-216': 0xb25b,
+  'blake2s-224': 0xb25c,
+  'blake2s-232': 0xb25d,
+  'blake2s-240': 0xb25e,
+  'blake2s-248': 0xb25f,
+  'blake2s-256': 0xb260,
+  'skein256-8': 0xb301,
+  'skein256-16': 0xb302,
+  'skein256-24': 0xb303,
+  'skein256-32': 0xb304,
+  'skein256-40': 0xb305,
+  'skein256-48': 0xb306,
+  'skein256-56': 0xb307,
+  'skein256-64': 0xb308,
+  'skein256-72': 0xb309,
+  'skein256-80': 0xb30a,
+  'skein256-88': 0xb30b,
+  'skein256-96': 0xb30c,
+  'skein256-104': 0xb30d,
+  'skein256-112': 0xb30e,
+  'skein256-120': 0xb30f,
+  'skein256-128': 0xb310,
+  'skein256-136': 0xb311,
+  'skein256-144': 0xb312,
+  'skein256-152': 0xb313,
+  'skein256-160': 0xb314,
+  'skein256-168': 0xb315,
+  'skein256-176': 0xb316,
+  'skein256-184': 0xb317,
+  'skein256-192': 0xb318,
+  'skein256-200': 0xb319,
+  'skein256-208': 0xb31a,
+  'skein256-216': 0xb31b,
+  'skein256-224': 0xb31c,
+  'skein256-232': 0xb31d,
+  'skein256-240': 0xb31e,
+  'skein256-248': 0xb31f,
+  'skein256-256': 0xb320,
+  'skein512-8': 0xb321,
+  'skein512-16': 0xb322,
+  'skein512-24': 0xb323,
+  'skein512-32': 0xb324,
+  'skein512-40': 0xb325,
+  'skein512-48': 0xb326,
+  'skein512-56': 0xb327,
+  'skein512-64': 0xb328,
+  'skein512-72': 0xb329,
+  'skein512-80': 0xb32a,
+  'skein512-88': 0xb32b,
+  'skein512-96': 0xb32c,
+  'skein512-104': 0xb32d,
+  'skein512-112': 0xb32e,
+  'skein512-120': 0xb32f,
+  'skein512-128': 0xb330,
+  'skein512-136': 0xb331,
+  'skein512-144': 0xb332,
+  'skein512-152': 0xb333,
+  'skein512-160': 0xb334,
+  'skein512-168': 0xb335,
+  'skein512-176': 0xb336,
+  'skein512-184': 0xb337,
+  'skein512-192': 0xb338,
+  'skein512-200': 0xb339,
+  'skein512-208': 0xb33a,
+  'skein512-216': 0xb33b,
+  'skein512-224': 0xb33c,
+  'skein512-232': 0xb33d,
+  'skein512-240': 0xb33e,
+  'skein512-248': 0xb33f,
+  'skein512-256': 0xb340,
+  'skein512-264': 0xb341,
+  'skein512-272': 0xb342,
+  'skein512-280': 0xb343,
+  'skein512-288': 0xb344,
+  'skein512-296': 0xb345,
+  'skein512-304': 0xb346,
+  'skein512-312': 0xb347,
+  'skein512-320': 0xb348,
+  'skein512-328': 0xb349,
+  'skein512-336': 0xb34a,
+  'skein512-344': 0xb34b,
+  'skein512-352': 0xb34c,
+  'skein512-360': 0xb34d,
+  'skein512-368': 0xb34e,
+  'skein512-376': 0xb34f,
+  'skein512-384': 0xb350,
+  'skein512-392': 0xb351,
+  'skein512-400': 0xb352,
+  'skein512-408': 0xb353,
+  'skein512-416': 0xb354,
+  'skein512-424': 0xb355,
+  'skein512-432': 0xb356,
+  'skein512-440': 0xb357,
+  'skein512-448': 0xb358,
+  'skein512-456': 0xb359,
+  'skein512-464': 0xb35a,
+  'skein512-472': 0xb35b,
+  'skein512-480': 0xb35c,
+  'skein512-488': 0xb35d,
+  'skein512-496': 0xb35e,
+  'skein512-504': 0xb35f,
+  'skein512-512': 0xb360,
+  'skein1024-8': 0xb361,
+  'skein1024-16': 0xb362,
+  'skein1024-24': 0xb363,
+  'skein1024-32': 0xb364,
+  'skein1024-40': 0xb365,
+  'skein1024-48': 0xb366,
+  'skein1024-56': 0xb367,
+  'skein1024-64': 0xb368,
+  'skein1024-72': 0xb369,
+  'skein1024-80': 0xb36a,
+  'skein1024-88': 0xb36b,
+  'skein1024-96': 0xb36c,
+  'skein1024-104': 0xb36d,
+  'skein1024-112': 0xb36e,
+  'skein1024-120': 0xb36f,
+  'skein1024-128': 0xb370,
+  'skein1024-136': 0xb371,
+  'skein1024-144': 0xb372,
+  'skein1024-152': 0xb373,
+  'skein1024-160': 0xb374,
+  'skein1024-168': 0xb375,
+  'skein1024-176': 0xb376,
+  'skein1024-184': 0xb377,
+  'skein1024-192': 0xb378,
+  'skein1024-200': 0xb379,
+  'skein1024-208': 0xb37a,
+  'skein1024-216': 0xb37b,
+  'skein1024-224': 0xb37c,
+  'skein1024-232': 0xb37d,
+  'skein1024-240': 0xb37e,
+  'skein1024-248': 0xb37f,
+  'skein1024-256': 0xb380,
+  'skein1024-264': 0xb381,
+  'skein1024-272': 0xb382,
+  'skein1024-280': 0xb383,
+  'skein1024-288': 0xb384,
+  'skein1024-296': 0xb385,
+  'skein1024-304': 0xb386,
+  'skein1024-312': 0xb387,
+  'skein1024-320': 0xb388,
+  'skein1024-328': 0xb389,
+  'skein1024-336': 0xb38a,
+  'skein1024-344': 0xb38b,
+  'skein1024-352': 0xb38c,
+  'skein1024-360': 0xb38d,
+  'skein1024-368': 0xb38e,
+  'skein1024-376': 0xb38f,
+  'skein1024-384': 0xb390,
+  'skein1024-392': 0xb391,
+  'skein1024-400': 0xb392,
+  'skein1024-408': 0xb393,
+  'skein1024-416': 0xb394,
+  'skein1024-424': 0xb395,
+  'skein1024-432': 0xb396,
+  'skein1024-440': 0xb397,
+  'skein1024-448': 0xb398,
+  'skein1024-456': 0xb399,
+  'skein1024-464': 0xb39a,
+  'skein1024-472': 0xb39b,
+  'skein1024-480': 0xb39c,
+  'skein1024-488': 0xb39d,
+  'skein1024-496': 0xb39e,
+  'skein1024-504': 0xb39f,
+  'skein1024-512': 0xb3a0,
+  'skein1024-520': 0xb3a1,
+  'skein1024-528': 0xb3a2,
+  'skein1024-536': 0xb3a3,
+  'skein1024-544': 0xb3a4,
+  'skein1024-552': 0xb3a5,
+  'skein1024-560': 0xb3a6,
+  'skein1024-568': 0xb3a7,
+  'skein1024-576': 0xb3a8,
+  'skein1024-584': 0xb3a9,
+  'skein1024-592': 0xb3aa,
+  'skein1024-600': 0xb3ab,
+  'skein1024-608': 0xb3ac,
+  'skein1024-616': 0xb3ad,
+  'skein1024-624': 0xb3ae,
+  'skein1024-632': 0xb3af,
+  'skein1024-640': 0xb3b0,
+  'skein1024-648': 0xb3b1,
+  'skein1024-656': 0xb3b2,
+  'skein1024-664': 0xb3b3,
+  'skein1024-672': 0xb3b4,
+  'skein1024-680': 0xb3b5,
+  'skein1024-688': 0xb3b6,
+  'skein1024-696': 0xb3b7,
+  'skein1024-704': 0xb3b8,
+  'skein1024-712': 0xb3b9,
+  'skein1024-720': 0xb3ba,
+  'skein1024-728': 0xb3bb,
+  'skein1024-736': 0xb3bc,
+  'skein1024-744': 0xb3bd,
+  'skein1024-752': 0xb3be,
+  'skein1024-760': 0xb3bf,
+  'skein1024-768': 0xb3c0,
+  'skein1024-776': 0xb3c1,
+  'skein1024-784': 0xb3c2,
+  'skein1024-792': 0xb3c3,
+  'skein1024-800': 0xb3c4,
+  'skein1024-808': 0xb3c5,
+  'skein1024-816': 0xb3c6,
+  'skein1024-824': 0xb3c7,
+  'skein1024-832': 0xb3c8,
+  'skein1024-840': 0xb3c9,
+  'skein1024-848': 0xb3ca,
+  'skein1024-856': 0xb3cb,
+  'skein1024-864': 0xb3cc,
+  'skein1024-872': 0xb3cd,
+  'skein1024-880': 0xb3ce,
+  'skein1024-888': 0xb3cf,
+  'skein1024-896': 0xb3d0,
+  'skein1024-904': 0xb3d1,
+  'skein1024-912': 0xb3d2,
+  'skein1024-920': 0xb3d3,
+  'skein1024-928': 0xb3d4,
+  'skein1024-936': 0xb3d5,
+  'skein1024-944': 0xb3d6,
+  'skein1024-952': 0xb3d7,
+  'skein1024-960': 0xb3d8,
+  'skein1024-968': 0xb3d9,
+  'skein1024-976': 0xb3da,
+  'skein1024-984': 0xb3db,
+  'skein1024-992': 0xb3dc,
+  'skein1024-1000': 0xb3dd,
+  'skein1024-1008': 0xb3de,
+  'skein1024-1016': 0xb3df,
+  'skein1024-1024': 0xb3e0,
+  'poseidon-bls12_381-a2-fc1': 0xb401,
+  'poseidon-bls12_381-a2-fc1-sc': 0xb402
+})
+
+module.exports = { names }
+
 
 /***/ }),
 
@@ -18853,10 +18500,11 @@ module.exports = require("path");
 /***/ }),
 
 /***/ 627:
-/***/ (function(module) {
+/***/ (function(module, __unusedexports, __webpack_require__) {
 
 "use strict";
 
+const { Buffer } = __webpack_require__(293)
 
 class Base {
   constructor (name, code, implementation, alphabet) {
@@ -19208,6 +18856,380 @@ function slice (args) {
 
 /***/ }),
 
+/***/ 678:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
+var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var g = generator.apply(thisArg, _arguments || []), i, q = [];
+    return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i;
+    function verb(n) { if (g[n]) i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; }
+    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
+    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
+    function fulfill(value) { resume("next", value); }
+    function reject(value) { resume("throw", value); }
+    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __asyncDelegator = (this && this.__asyncDelegator) || function (o) {
+    var i, p;
+    return i = {}, verb("next"), verb("throw", function (e) { throw e; }), verb("return"), i[Symbol.iterator] = function () { return this; }, i;
+    function verb(n, f) { i[n] = o[n] ? function (v) { return (p = !p) ? { value: __await(o[n](v)), done: n === "return" } : f ? f(v) : v; } : f; }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.normaliseInput = void 0;
+/* eslint-disable @typescript-eslint/no-use-before-define */
+const buffer_1 = __webpack_require__(293);
+/**
+ * Transform types
+ *
+ * @remarks
+ * This function comes from {@link https://github.com/ipfs/js-ipfs-utils/blob/master/src/files/normalise-input.js}
+ * @example
+ * Supported types
+ * ```yaml
+ * // INPUT TYPES
+ * Bytes (Buffer|ArrayBuffer|TypedArray) [single file]
+ * Bloby (Blob|File) [single file]
+ * String [single file]
+ * { path, content: Bytes } [single file]
+ * { path, content: Bloby } [single file]
+ * { path, content: String } [single file]
+ * { path, content: Iterable<Number> } [single file]
+ * { path, content: Iterable<Bytes> } [single file]
+ * { path, content: AsyncIterable<Bytes> } [single file]
+ * Iterable<Number> [single file]
+ * Iterable<Bytes> [single file]
+ * Iterable<Bloby> [multiple files]
+ * Iterable<String> [multiple files]
+ * Iterable<{ path, content: Bytes }> [multiple files]
+ * Iterable<{ path, content: Bloby }> [multiple files]
+ * Iterable<{ path, content: String }> [multiple files]
+ * Iterable<{ path, content: Iterable<Number> }> [multiple files]
+ * Iterable<{ path, content: Iterable<Bytes> }> [multiple files]
+ * Iterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
+ * AsyncIterable<Bytes> [single file]
+ * AsyncIterable<Bloby> [multiple files]
+ * AsyncIterable<String> [multiple files]
+ * AsyncIterable<{ path, content: Bytes }> [multiple files]
+ * AsyncIterable<{ path, content: Bloby }> [multiple files]
+ * AsyncIterable<{ path, content: String }> [multiple files]
+ * AsyncIterable<{ path, content: Iterable<Number> }> [multiple files]
+ * AsyncIterable<{ path, content: Iterable<Bytes> }> [multiple files]
+ * AsyncIterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
+ *
+ * // OUTPUT
+ * AsyncIterable<{ path, content: AsyncIterable<Buffer> }>
+ * ```
+ *
+ * @public
+ *
+ * @param {Object} input
+ * @return AsyncInterable<{ path, content: AsyncIterable<Buffer> }>
+ */
+function normaliseInput(input) {
+    // must give us something
+    if (input === null || input === undefined) {
+        throw new Error(`Unexpected input: ${input}`);
+    }
+    // String
+    if (typeof input === 'string' || input instanceof String) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    // Buffer|ArrayBuffer|TypedArray
+    // Blob|File
+    if (isBytes(input) || isBloby(input)) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    // Iterable<?>
+    if (input[Symbol.iterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                const iterator = input[Symbol.iterator]();
+                const first = iterator.next();
+                if (first.done)
+                    return yield __await(iterator
+                    // Iterable<Number>
+                    // Iterable<Bytes>
+                    );
+                // Iterable<Number>
+                // Iterable<Bytes>
+                if (Number.isInteger(first.value) || isBytes(first.value)) {
+                    yield yield __await(toFileObject((function* () {
+                        yield first.value;
+                        yield* iterator;
+                    })()));
+                    return yield __await(void 0);
+                }
+                // Iterable<Bloby>
+                // Iterable<String>
+                // Iterable<{ path, content }>
+                if (isFileObject(first.value) || isBloby(first.value) || typeof first.value === 'string') {
+                    yield yield __await(toFileObject(first.value));
+                    for (const obj of iterator) {
+                        yield yield __await(toFileObject(obj));
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // window.ReadableStream
+    if (typeof input.getReader === 'function') {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_1, _a;
+                try {
+                    for (var _b = __asyncValues(browserStreamToIt(input)), _c; _c = yield __await(_b.next()), !_c.done;) {
+                        const obj = _c.value;
+                        yield yield __await(toFileObject(obj));
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (_c && !_c.done && (_a = _b.return)) yield __await(_a.call(_b));
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+            });
+        })();
+    }
+    // AsyncIterable<?>
+    if (input[Symbol.asyncIterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_2, _a;
+                const iterator = input[Symbol.asyncIterator]();
+                const first = yield __await(iterator.next());
+                if (first.done)
+                    return yield __await(iterator
+                    // AsyncIterable<Bytes>
+                    );
+                // AsyncIterable<Bytes>
+                if (isBytes(first.value)) {
+                    yield yield __await(toFileObject((function () {
+                        return __asyncGenerator(this, arguments, function* () {
+                            // eslint-disable-line require-await
+                            yield yield __await(first.value);
+                            yield __await(yield* __asyncDelegator(__asyncValues(iterator)));
+                        });
+                    })()));
+                    return yield __await(void 0);
+                }
+                // AsyncIterable<Bloby>
+                // AsyncIterable<String>
+                // AsyncIterable<{ path, content }>
+                if (isFileObject(first.value) || isBloby(first.value) || typeof first.value === 'string') {
+                    yield yield __await(toFileObject(first.value));
+                    try {
+                        for (var iterator_1 = __asyncValues(iterator), iterator_1_1; iterator_1_1 = yield __await(iterator_1.next()), !iterator_1_1.done;) {
+                            const obj = iterator_1_1.value;
+                            yield yield __await(toFileObject(obj));
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (iterator_1_1 && !iterator_1_1.done && (_a = iterator_1.return)) yield __await(_a.call(iterator_1));
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // { path, content: ? }
+    // Note: Detected _after_ AsyncIterable<?> because Node.js streams have a
+    // `path` property that passes this check.
+    if (isFileObject(input)) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    throw new Error('Unexpected input: ' + typeof input);
+}
+exports.normaliseInput = normaliseInput;
+function toFileObject(input) {
+    const obj = {
+        path: input.path || '',
+        mode: input.mode,
+        mtime: input.mtime,
+    };
+    if (input.content) {
+        obj.content = toAsyncIterable(input.content);
+    }
+    else if (!input.path) {
+        // Not already a file object with path or content prop
+        obj.content = toAsyncIterable(input);
+    }
+    return obj;
+}
+function toAsyncIterable(input) {
+    // Bytes | String
+    if (isBytes(input) || typeof input === 'string') {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toBuffer(input));
+            });
+        })();
+    }
+    // Bloby
+    if (isBloby(input)) {
+        return blobToAsyncGenerator(input);
+    }
+    // Browser stream
+    if (typeof input.getReader === 'function') {
+        return browserStreamToIt(input);
+    }
+    // Iterator<?>
+    if (input[Symbol.iterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                const iterator = input[Symbol.iterator]();
+                const first = iterator.next();
+                if (first.done)
+                    return yield __await(iterator
+                    // Iterable<Number>
+                    );
+                // Iterable<Number>
+                if (Number.isInteger(first.value)) {
+                    yield yield __await(toBuffer(Array.from((function* () {
+                        yield first.value;
+                        yield* iterator;
+                    })())));
+                    return yield __await(void 0);
+                }
+                // Iterable<Bytes>
+                if (isBytes(first.value)) {
+                    yield yield __await(toBuffer(first.value));
+                    for (const chunk of iterator) {
+                        yield yield __await(toBuffer(chunk));
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // AsyncIterable<Bytes>
+    if (input[Symbol.asyncIterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_3, _a;
+                try {
+                    for (var input_1 = __asyncValues(input), input_1_1; input_1_1 = yield __await(input_1.next()), !input_1_1.done;) {
+                        const chunk = input_1_1.value;
+                        yield yield __await(toBuffer(chunk));
+                    }
+                }
+                catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                finally {
+                    try {
+                        if (input_1_1 && !input_1_1.done && (_a = input_1.return)) yield __await(_a.call(input_1));
+                    }
+                    finally { if (e_3) throw e_3.error; }
+                }
+            });
+        })();
+    }
+    throw new Error(`Unexpected input: ${input}`);
+}
+function toBuffer(chunk) {
+    return isBytes(chunk) ? chunk : buffer_1.Buffer.from(chunk);
+}
+function isBytes(obj) {
+    return buffer_1.Buffer.isBuffer(obj) || ArrayBuffer.isView(obj) || obj instanceof ArrayBuffer;
+}
+function isBloby(obj) {
+    return typeof globalThis.Blob !== 'undefined' && obj instanceof globalThis.Blob;
+}
+// An object with a path or content property
+function isFileObject(obj) {
+    return typeof obj === 'object' && (obj.path || obj.content);
+}
+function blobToAsyncGenerator(blob) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+    // @ts-ignore
+    if (typeof blob.stream === 'function') {
+        // firefox < 69 does not support blob.stream()
+        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+        // @ts-ignore
+        return browserStreamToIt(blob.stream());
+    }
+    return readBlob(blob);
+}
+function browserStreamToIt(stream) {
+    return __asyncGenerator(this, arguments, function* browserStreamToIt_1() {
+        const reader = stream.getReader();
+        while (true) {
+            const result = yield __await(reader.read());
+            if (result.done) {
+                return yield __await(void 0);
+            }
+            yield yield __await(result.value);
+        }
+    });
+}
+function readBlob(blob, options) {
+    return __asyncGenerator(this, arguments, function* readBlob_1() {
+        options = options || {};
+        const reader = new globalThis.FileReader();
+        const chunkSize = options.chunkSize || 1024 * 1024;
+        let offset = options.offset || 0;
+        const getNextChunk = () => new Promise((resolve, reject) => {
+            reader.onloadend = (e) => {
+                var _a;
+                const data = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
+                resolve(data.byteLength === 0 ? null : data);
+            };
+            reader.onerror = reject;
+            const end = offset + chunkSize;
+            const slice = blob.slice(offset, end);
+            reader.readAsArrayBuffer(slice);
+            offset = end;
+        });
+        while (true) {
+            const data = yield __await(getNextChunk());
+            if (data == null) {
+                return yield __await(void 0);
+            }
+            yield yield __await(buffer_1.Buffer.from(data));
+        }
+    });
+}
+//# sourceMappingURL=normalize.js.map
+
+/***/ }),
+
 /***/ 681:
 /***/ (function(module) {
 
@@ -19284,31 +19306,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 815:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const Multicast_1 = __importDefault(__webpack_require__(322));
-exports.Multicast = Multicast_1.default;
-const Channel_1 = __importDefault(__webpack_require__(279));
-exports.Channel = Channel_1.default;
-const LastResult_1 = __importDefault(__webpack_require__(216));
-exports.LastResult = LastResult_1.default;
-const Deferred_1 = __importDefault(__webpack_require__(215));
-exports.Deferred = Deferred_1.default;
-var fromDom_1 = __webpack_require__(933);
-exports.fromDom = fromDom_1.default;
-var fromEmitter_1 = __webpack_require__(256);
-exports.fromEmitter = fromEmitter_1.default;
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
 /***/ 835:
 /***/ (function(module) {
 
@@ -19320,6 +19317,135 @@ module.exports = require("url");
 /***/ (function(__unusedmodule, exports) {
 
 !function(e,t){for(var n in t)e[n]=t[n]}(exports,function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:r})},n.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},n.t=function(e,t){if(1&t&&(e=n(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var o in e)n.d(r,o,function(t){return e[t]}.bind(null,o));return r},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=11)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(4);t.Metadata=r.BrowserHeaders},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.debug=function(){for(var e=[],t=0;t<arguments.length;t++)e[t]=arguments[t];console.debug?console.debug.apply(null,e):console.log.apply(null,e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=null;t.default=function(e){null===r?(r=[e],setTimeout(function(){!function e(){if(r){var t=r;r=null;for(var n=0;n<t.length;n++)try{t[n]()}catch(s){null===r&&(r=[],setTimeout(function(){e()},0));for(var o=t.length-1;o>n;o--)r.unshift(t[o]);throw s}}}()},0)):r.push(e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0),o=n(9),s=n(10),i=n(1),a=n(2),u=n(5),d=n(15);t.client=function(e,t){return new c(e,t)};var c=function(){function e(e,t){this.started=!1,this.sentFirstMessage=!1,this.completed=!1,this.closed=!1,this.finishedSending=!1,this.onHeadersCallbacks=[],this.onMessageCallbacks=[],this.onEndCallbacks=[],this.parser=new o.ChunkParser,this.methodDefinition=e,this.props=t,this.createTransport()}return e.prototype.createTransport=function(){var e=this.props.host+"/"+this.methodDefinition.service.serviceName+"/"+this.methodDefinition.methodName,t={methodDefinition:this.methodDefinition,debug:this.props.debug||!1,url:e,onHeaders:this.onTransportHeaders.bind(this),onChunk:this.onTransportChunk.bind(this),onEnd:this.onTransportEnd.bind(this)};this.props.transport?this.transport=this.props.transport(t):this.transport=u.makeDefaultTransport(t)},e.prototype.onTransportHeaders=function(e,t){if(this.props.debug&&i.debug("onHeaders",e,t),this.closed)this.props.debug&&i.debug("grpc.onHeaders received after request was closed - ignoring");else if(0===t);else{this.responseHeaders=e,this.props.debug&&i.debug("onHeaders.responseHeaders",JSON.stringify(this.responseHeaders,null,2));var n=p(e);this.props.debug&&i.debug("onHeaders.gRPCStatus",n);var r=n&&n>=0?n:s.httpStatusToCode(t);this.props.debug&&i.debug("onHeaders.code",r);var o=e.get("grpc-message")||[];if(this.props.debug&&i.debug("onHeaders.gRPCMessage",o),this.rawOnHeaders(e),r!==s.Code.OK){var a=this.decodeGRPCStatus(o[0]);this.rawOnError(r,a,e)}}},e.prototype.onTransportChunk=function(e){var t=this;if(this.closed)this.props.debug&&i.debug("grpc.onChunk received after request was closed - ignoring");else{var n=[];try{n=this.parser.parse(e)}catch(e){return this.props.debug&&i.debug("onChunk.parsing error",e,e.message),void this.rawOnError(s.Code.Internal,"parsing error: "+e.message)}n.forEach(function(e){if(e.chunkType===o.ChunkType.MESSAGE){var n=t.methodDefinition.responseType.deserializeBinary(e.data);t.rawOnMessage(n)}else e.chunkType===o.ChunkType.TRAILERS&&(t.responseHeaders?(t.responseTrailers=new r.Metadata(e.trailers),t.props.debug&&i.debug("onChunk.trailers",t.responseTrailers)):(t.responseHeaders=new r.Metadata(e.trailers),t.rawOnHeaders(t.responseHeaders)))})}},e.prototype.onTransportEnd=function(){if(this.props.debug&&i.debug("grpc.onEnd"),this.closed)this.props.debug&&i.debug("grpc.onEnd received after request was closed - ignoring");else if(void 0!==this.responseTrailers){var e=p(this.responseTrailers);if(null!==e){var t=this.responseTrailers.get("grpc-message"),n=this.decodeGRPCStatus(t[0]);this.rawOnEnd(e,n,this.responseTrailers)}else this.rawOnError(s.Code.Internal,"Response closed without grpc-status (Trailers provided)")}else{if(void 0===this.responseHeaders)return void this.rawOnError(s.Code.Unknown,"Response closed without headers");var r=p(this.responseHeaders),o=this.responseHeaders.get("grpc-message");if(this.props.debug&&i.debug("grpc.headers only response ",r,o),null===r)return void this.rawOnEnd(s.Code.Unknown,"Response closed without grpc-status (Headers only)",this.responseHeaders);var a=this.decodeGRPCStatus(o[0]);this.rawOnEnd(r,a,this.responseHeaders)}},e.prototype.decodeGRPCStatus=function(e){if(!e)return"";try{return decodeURIComponent(e)}catch(t){return e}},e.prototype.rawOnEnd=function(e,t,n){var r=this;this.props.debug&&i.debug("rawOnEnd",e,t,n),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(o){a.default(function(){r.closed||o(e,t,n)})}))},e.prototype.rawOnHeaders=function(e){this.props.debug&&i.debug("rawOnHeaders",e),this.completed||this.onHeadersCallbacks.forEach(function(t){a.default(function(){t(e)})})},e.prototype.rawOnError=function(e,t,n){var o=this;void 0===n&&(n=new r.Metadata),this.props.debug&&i.debug("rawOnError",e,t),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(r){a.default(function(){o.closed||r(e,t,n)})}))},e.prototype.rawOnMessage=function(e){var t=this;this.props.debug&&i.debug("rawOnMessage",e.toObject()),this.completed||this.closed||this.onMessageCallbacks.forEach(function(n){a.default(function(){t.closed||n(e)})})},e.prototype.onHeaders=function(e){this.onHeadersCallbacks.push(e)},e.prototype.onMessage=function(e){this.onMessageCallbacks.push(e)},e.prototype.onEnd=function(e){this.onEndCallbacks.push(e)},e.prototype.start=function(e){if(this.started)throw new Error("Client already started - cannot .start()");this.started=!0;var t=new r.Metadata(e||{});t.set("content-type","application/grpc-web+proto"),t.set("x-grpc-web","1"),this.transport.start(t)},e.prototype.send=function(e){if(!this.started)throw new Error("Client not started - .start() must be called before .send()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .send()");if(!this.methodDefinition.requestStream&&this.sentFirstMessage)throw new Error("Message already sent for non-client-streaming method - cannot .send()");this.sentFirstMessage=!0;var t=d.frameRequest(e);this.transport.sendMessage(t)},e.prototype.finishSend=function(){if(!this.started)throw new Error("Client not started - .finishSend() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .finishSend()");this.finishedSending=!0,this.transport.finishSend()},e.prototype.close=function(){if(!this.started)throw new Error("Client not started - .start() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .close()");this.closed=!0,this.props.debug&&i.debug("request.abort aborting request"),this.transport.cancel()},e}();function p(e){var t=e.get("grpc-status")||[];if(t.length>0)try{var n=t[0];return parseInt(n,10)}catch(e){return null}return null}},function(e,t,n){var r;r=function(){return function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.i=function(e){return e},n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{configurable:!1,enumerable:!0,get:r})},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=1)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(3);var o=function(){function e(e,t){void 0===e&&(e={}),void 0===t&&(t={splitValues:!1});var n,o=this;if(this.headersMap={},e)if("undefined"!=typeof Headers&&e instanceof Headers)r.getHeaderKeys(e).forEach(function(n){r.getHeaderValues(e,n).forEach(function(e){t.splitValues?o.append(n,r.splitHeaderValue(e)):o.append(n,e)})});else if("object"==typeof(n=e)&&"object"==typeof n.headersMap&&"function"==typeof n.forEach)e.forEach(function(e,t){o.append(e,t)});else if("undefined"!=typeof Map&&e instanceof Map){e.forEach(function(e,t){o.append(t,e)})}else"string"==typeof e?this.appendFromString(e):"object"==typeof e&&Object.getOwnPropertyNames(e).forEach(function(t){var n=e[t];Array.isArray(n)?n.forEach(function(e){o.append(t,e)}):o.append(t,n)})}return e.prototype.appendFromString=function(e){for(var t=e.split("\r\n"),n=0;n<t.length;n++){var r=t[n],o=r.indexOf(":");if(o>0){var s=r.substring(0,o).trim(),i=r.substring(o+1).trim();this.append(s,i)}}},e.prototype.delete=function(e,t){var n=r.normalizeName(e);if(void 0===t)delete this.headersMap[n];else{var o=this.headersMap[n];if(o){var s=o.indexOf(t);s>=0&&o.splice(s,1),0===o.length&&delete this.headersMap[n]}}},e.prototype.append=function(e,t){var n=this,o=r.normalizeName(e);Array.isArray(this.headersMap[o])||(this.headersMap[o]=[]),Array.isArray(t)?t.forEach(function(e){n.headersMap[o].push(r.normalizeValue(e))}):this.headersMap[o].push(r.normalizeValue(t))},e.prototype.set=function(e,t){var n=r.normalizeName(e);if(Array.isArray(t)){var o=[];t.forEach(function(e){o.push(r.normalizeValue(e))}),this.headersMap[n]=o}else this.headersMap[n]=[r.normalizeValue(t)]},e.prototype.has=function(e,t){var n=this.headersMap[r.normalizeName(e)];if(!Array.isArray(n))return!1;if(void 0!==t){var o=r.normalizeValue(t);return n.indexOf(o)>=0}return!0},e.prototype.get=function(e){var t=this.headersMap[r.normalizeName(e)];return void 0!==t?t.concat():[]},e.prototype.forEach=function(e){var t=this;Object.getOwnPropertyNames(this.headersMap).forEach(function(n){e(n,t.headersMap[n])},this)},e.prototype.toHeaders=function(){if("undefined"!=typeof Headers){var e=new Headers;return this.forEach(function(t,n){n.forEach(function(n){e.append(t,n)})}),e}throw new Error("Headers class is not defined")},e}();t.BrowserHeaders=o},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0);t.BrowserHeaders=r.BrowserHeaders},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.iterateHeaders=function(e,t){for(var n=e[Symbol.iterator](),r=n.next();!r.done;)t(r.value[0]),r=n.next()},t.iterateHeadersKeys=function(e,t){for(var n=e.keys(),r=n.next();!r.done;)t(r.value),r=n.next()}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(2);function o(e){return e}t.normalizeName=function(e){if("string"!=typeof e&&(e=String(e)),/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(e))throw new TypeError("Invalid character in header field name");return e.toLowerCase()},t.normalizeValue=function(e){return"string"!=typeof e&&(e=String(e)),e},t.getHeaderValues=function(e,t){var n=o(e);if(n instanceof Headers&&n.getAll)return n.getAll(t);var r=n.get(t);return r&&"string"==typeof r?[r]:r},t.getHeaderKeys=function(e){var t=o(e),n={},s=[];return t.keys?r.iterateHeadersKeys(t,function(e){n[e]||(n[e]=!0,s.push(e))}):t.forEach?t.forEach(function(e,t){n[t]||(n[t]=!0,s.push(t))}):r.iterateHeaders(t,function(e){var t=e[0];n[t]||(n[t]=!0,s.push(t))}),s},t.splitHeaderValue=function(e){var t=[];return e.split(", ").forEach(function(e){e.split(",").forEach(function(e){t.push(e)})}),t}}])},e.exports=r()},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(6),o=function(e){return r.CrossBrowserHttpTransport({withCredentials:!1})(e)};t.setDefaultTransportFactory=function(e){o=e},t.makeDefaultTransport=function(e){return o(e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(7),o=n(8);t.CrossBrowserHttpTransport=function(e){if(r.detectFetchSupport()){var t={credentials:e.withCredentials?"include":"same-origin"};return r.FetchReadableStreamTransport(t)}return o.XhrTransport({withCredentials:e.withCredentials})}},function(e,t,n){"use strict";var r=this&&this.__assign||function(){return(r=Object.assign||function(e){for(var t,n=1,r=arguments.length;n<r;n++)for(var o in t=arguments[n])Object.prototype.hasOwnProperty.call(t,o)&&(e[o]=t[o]);return e}).apply(this,arguments)};Object.defineProperty(t,"__esModule",{value:!0});var o=n(0),s=n(1),i=n(2);t.FetchReadableStreamTransport=function(e){return function(t){return function(e,t){return e.debug&&s.debug("fetchRequest",e),new a(e,t)}(t,e)}};var a=function(){function e(e,t){this.cancelled=!1,this.controller=self.AbortController&&new AbortController,this.options=e,this.init=t}return e.prototype.pump=function(e,t){var n=this;if(this.reader=e,this.cancelled)return this.options.debug&&s.debug("Fetch.pump.cancel at first pump"),void this.reader.cancel();this.reader.read().then(function(e){if(e.done)return i.default(function(){n.options.onEnd()}),t;i.default(function(){n.options.onChunk(e.value)}),n.pump(n.reader,t)}).catch(function(e){n.cancelled?n.options.debug&&s.debug("Fetch.catch - request cancelled"):(n.cancelled=!0,n.options.debug&&s.debug("Fetch.catch",e.message),i.default(function(){n.options.onEnd(e)}))})},e.prototype.send=function(e){var t=this;fetch(this.options.url,r({},this.init,{headers:this.metadata.toHeaders(),method:"POST",body:e,signal:this.controller&&this.controller.signal})).then(function(e){if(t.options.debug&&s.debug("Fetch.response",e),i.default(function(){t.options.onHeaders(new o.Metadata(e.headers),e.status)}),!e.body)return e;t.pump(e.body.getReader(),e)}).catch(function(e){t.cancelled?t.options.debug&&s.debug("Fetch.catch - request cancelled"):(t.cancelled=!0,t.options.debug&&s.debug("Fetch.catch",e.message),i.default(function(){t.options.onEnd(e)}))})},e.prototype.sendMessage=function(e){this.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){this.metadata=e},e.prototype.cancel=function(){this.cancelled?this.options.debug&&s.debug("Fetch.abort.cancel already cancelled"):(this.cancelled=!0,this.reader?(this.options.debug&&s.debug("Fetch.abort.cancel"),this.reader.cancel()):this.options.debug&&s.debug("Fetch.abort.cancel before reader"),this.controller&&this.controller.abort())},e}();t.detectFetchSupport=function(){return"undefined"!=typeof Response&&Response.prototype.hasOwnProperty("body")&&"function"==typeof Headers}},function(e,t,n){"use strict";var r,o=this&&this.__extends||(r=function(e,t){return(r=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(e,t){e.__proto__=t}||function(e,t){for(var n in t)t.hasOwnProperty(n)&&(e[n]=t[n])})(e,t)},function(e,t){function n(){this.constructor=e}r(e,t),e.prototype=null===t?Object.create(t):(n.prototype=t.prototype,new n)});Object.defineProperty(t,"__esModule",{value:!0});var s=n(0),i=n(1),a=n(2),u=n(12);t.XhrTransport=function(e){return function(t){if(u.detectMozXHRSupport())return new c(t,e);if(u.detectXHROverrideMimeTypeSupport())return new d(t,e);throw new Error("This environment's XHR implementation cannot support binary transfer.")}};var d=function(){function e(e,t){this.options=e,this.init=t}return e.prototype.onProgressEvent=function(){var e=this;this.options.debug&&i.debug("XHR.onProgressEvent.length: ",this.xhr.response.length);var t=this.xhr.response.substr(this.index);this.index=this.xhr.response.length;var n=f(t);a.default(function(){e.options.onChunk(n)})},e.prototype.onLoadEvent=function(){var e=this;this.options.debug&&i.debug("XHR.onLoadEvent"),a.default(function(){e.options.onEnd()})},e.prototype.onStateChange=function(){var e=this;this.options.debug&&i.debug("XHR.onStateChange",this.xhr.readyState),this.xhr.readyState===XMLHttpRequest.HEADERS_RECEIVED&&a.default(function(){e.options.onHeaders(new s.Metadata(e.xhr.getAllResponseHeaders()),e.xhr.status)})},e.prototype.sendMessage=function(e){this.xhr.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){var t=this;this.metadata=e;var n=new XMLHttpRequest;this.xhr=n,n.open("POST",this.options.url),this.configureXhr(),this.metadata.forEach(function(e,t){n.setRequestHeader(e,t.join(", "))}),n.withCredentials=Boolean(this.init.withCredentials),n.addEventListener("readystatechange",this.onStateChange.bind(this)),n.addEventListener("progress",this.onProgressEvent.bind(this)),n.addEventListener("loadend",this.onLoadEvent.bind(this)),n.addEventListener("error",function(e){t.options.debug&&i.debug("XHR.error",e),a.default(function(){t.options.onEnd(e.error)})})},e.prototype.configureXhr=function(){this.xhr.responseType="text",this.xhr.overrideMimeType("text/plain; charset=x-user-defined")},e.prototype.cancel=function(){this.options.debug&&i.debug("XHR.abort"),this.xhr.abort()},e}();t.XHR=d;var c=function(e){function t(){return null!==e&&e.apply(this,arguments)||this}return o(t,e),t.prototype.configureXhr=function(){this.options.debug&&i.debug("MozXHR.configureXhr: setting responseType to 'moz-chunked-arraybuffer'"),this.xhr.responseType="moz-chunked-arraybuffer"},t.prototype.onProgressEvent=function(){var e=this,t=this.xhr.response;this.options.debug&&i.debug("MozXHR.onProgressEvent: ",new Uint8Array(t)),a.default(function(){e.options.onChunk(new Uint8Array(t))})},t}(d);function p(e,t){var n=e.charCodeAt(t);if(n>=55296&&n<=56319){var r=e.charCodeAt(t+1);r>=56320&&r<=57343&&(n=65536+(n-55296<<10)+(r-56320))}return n}function f(e){for(var t=new Uint8Array(e.length),n=0,r=0;r<e.length;r++){var o=String.prototype.codePointAt?e.codePointAt(r):p(e,r);t[n++]=255&o}return t}t.MozChunkedArrayBufferXHR=c,t.stringToArrayBuffer=f},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r,o=n(0),s=function(e){return 9===e||10===e||13===e};function i(e){return s(e)||e>=32&&e<=126}function a(e){for(var t=0;t!==e.length;++t)if(!i(e[t]))throw new Error("Metadata is not valid (printable) ASCII");return String.fromCharCode.apply(String,Array.prototype.slice.call(e))}function u(e){return 128==(128&e.getUint8(0))}function d(e){return e.getUint32(1,!1)}function c(e,t,n){return e.byteLength-t>=n}function p(e,t,n){if(e.slice)return e.slice(t,n);var r=e.length;void 0!==n&&(r=n);for(var o=new Uint8Array(r-t),s=0,i=t;i<r;i++)o[s++]=e[i];return o}t.decodeASCII=a,t.encodeASCII=function(e){for(var t=new Uint8Array(e.length),n=0;n!==e.length;++n){var r=e.charCodeAt(n);if(!i(r))throw new Error("Metadata contains invalid ASCII");t[n]=r}return t},function(e){e[e.MESSAGE=1]="MESSAGE",e[e.TRAILERS=2]="TRAILERS"}(r=t.ChunkType||(t.ChunkType={}));var f=function(){function e(){this.buffer=null,this.position=0}return e.prototype.parse=function(e,t){if(0===e.length&&t)return[];var n,s=[];if(null==this.buffer)this.buffer=e,this.position=0;else if(this.position===this.buffer.byteLength)this.buffer=e,this.position=0;else{var i=this.buffer.byteLength-this.position,f=new Uint8Array(i+e.byteLength),h=p(this.buffer,this.position);f.set(h,0);var l=new Uint8Array(e);f.set(l,i),this.buffer=f,this.position=0}for(;;){if(!c(this.buffer,this.position,5))return s;var g=p(this.buffer,this.position,this.position+5),b=new DataView(g.buffer,g.byteOffset,g.byteLength),y=d(b);if(!c(this.buffer,this.position,5+y))return s;var v=p(this.buffer,this.position+5,this.position+5+y);if(this.position+=5+y,u(b))return s.push({chunkType:r.TRAILERS,trailers:(n=v,new o.Metadata(a(n)))}),s;s.push({chunkType:r.MESSAGE,data:v})}},e}();t.ChunkParser=f},function(e,t,n){"use strict";var r;Object.defineProperty(t,"__esModule",{value:!0}),function(e){e[e.OK=0]="OK",e[e.Canceled=1]="Canceled",e[e.Unknown=2]="Unknown",e[e.InvalidArgument=3]="InvalidArgument",e[e.DeadlineExceeded=4]="DeadlineExceeded",e[e.NotFound=5]="NotFound",e[e.AlreadyExists=6]="AlreadyExists",e[e.PermissionDenied=7]="PermissionDenied",e[e.ResourceExhausted=8]="ResourceExhausted",e[e.FailedPrecondition=9]="FailedPrecondition",e[e.Aborted=10]="Aborted",e[e.OutOfRange=11]="OutOfRange",e[e.Unimplemented=12]="Unimplemented",e[e.Internal=13]="Internal",e[e.Unavailable=14]="Unavailable",e[e.DataLoss=15]="DataLoss",e[e.Unauthenticated=16]="Unauthenticated"}(r=t.Code||(t.Code={})),t.httpStatusToCode=function(e){switch(e){case 0:return r.Internal;case 200:return r.OK;case 400:return r.InvalidArgument;case 401:return r.Unauthenticated;case 403:return r.PermissionDenied;case 404:return r.NotFound;case 409:return r.Aborted;case 412:return r.FailedPrecondition;case 429:return r.ResourceExhausted;case 499:return r.Canceled;case 500:return r.Unknown;case 501:return r.Unimplemented;case 503:return r.Unavailable;case 504:return r.DeadlineExceeded;default:return r.Unknown}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(4),o=n(5),s=n(7),i=n(13),a=n(8),u=n(6),d=n(10),c=n(14),p=n(16),f=n(3);!function(e){e.setDefaultTransport=o.setDefaultTransportFactory,e.CrossBrowserHttpTransport=u.CrossBrowserHttpTransport,e.FetchReadableStreamTransport=s.FetchReadableStreamTransport,e.XhrTransport=a.XhrTransport,e.WebsocketTransport=i.WebsocketTransport,e.Code=d.Code,e.Metadata=r.BrowserHeaders,e.client=function(e,t){return f.client(e,t)},e.invoke=c.invoke,e.unary=p.unary}(t.grpc||(t.grpc={}))},function(e,t,n){"use strict";var r;function o(){if(void 0!==r)return r;if(XMLHttpRequest){r=new XMLHttpRequest;try{r.open("GET","https://localhost")}catch(e){}}return r}function s(e){var t=o();if(!t)return!1;try{return t.responseType=e,t.responseType===e}catch(e){}return!1}Object.defineProperty(t,"__esModule",{value:!0}),t.xhrSupportsResponseType=s,t.detectMozXHRSupport=function(){return"undefined"!=typeof XMLHttpRequest&&s("moz-chunked-arraybuffer")},t.detectXHROverrideMimeTypeSupport=function(){return"undefined"!=typeof XMLHttpRequest&&XMLHttpRequest.prototype.hasOwnProperty("overrideMimeType")}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r,o=n(1),s=n(2),i=n(9);!function(e){e[e.FINISH_SEND=1]="FINISH_SEND"}(r||(r={}));var a=new Uint8Array([1]);t.WebsocketTransport=function(){return function(e){return function(e){e.debug&&o.debug("websocketRequest",e);var t,n=function(e){if("https://"===e.substr(0,8))return"wss://"+e.substr(8);if("http://"===e.substr(0,7))return"ws://"+e.substr(7);throw new Error("Websocket transport constructed with non-https:// or http:// host.")}(e.url),u=[];function d(e){if(e===r.FINISH_SEND)t.send(a);else{var n=e,o=new Int8Array(n.byteLength+1);o.set(new Uint8Array([0])),o.set(n,1),t.send(o)}}return{sendMessage:function(e){t&&t.readyState!==t.CONNECTING?d(e):u.push(e)},finishSend:function(){t&&t.readyState!==t.CONNECTING?d(r.FINISH_SEND):u.push(r.FINISH_SEND)},start:function(r){(t=new WebSocket(n,["grpc-websockets"])).binaryType="arraybuffer",t.onopen=function(){var n;e.debug&&o.debug("websocketRequest.onopen"),t.send((n="",r.forEach(function(e,t){n+=e+": "+t.join(", ")+"\r\n"}),i.encodeASCII(n))),u.forEach(function(e){d(e)})},t.onclose=function(t){e.debug&&o.debug("websocketRequest.onclose",t),s.default(function(){e.onEnd()})},t.onerror=function(t){e.debug&&o.debug("websocketRequest.onerror",t)},t.onmessage=function(t){s.default(function(){e.onChunk(new Uint8Array(t.data))})}},cancel:function(){e.debug&&o.debug("websocket.abort"),s.default(function(){t.close()})}}}(e)}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(3);t.invoke=function(e,t){if(e.requestStream)throw new Error(".invoke cannot be used with client-streaming methods. Use .client instead.");var n=r.client(e,{host:t.host,transport:t.transport,debug:t.debug});return t.onHeaders&&n.onHeaders(t.onHeaders),t.onMessage&&n.onMessage(t.onMessage),t.onEnd&&n.onEnd(t.onEnd),n.start(t.metadata),n.send(t.request),n.finishSend(),{close:function(){n.close()}}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.frameRequest=function(e){var t=e.serializeBinary(),n=new ArrayBuffer(t.byteLength+5);return new DataView(n,1,4).setUint32(0,t.length,!1),new Uint8Array(n,5).set(t),new Uint8Array(n)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0),o=n(3);t.unary=function(e,t){if(e.responseStream)throw new Error(".unary cannot be used with server-streaming methods. Use .invoke or .client instead.");if(e.requestStream)throw new Error(".unary cannot be used with client-streaming methods. Use .client instead.");var n=null,s=null,i=o.client(e,{host:t.host,transport:t.transport,debug:t.debug});return i.onHeaders(function(e){n=e}),i.onMessage(function(e){s=e}),i.onEnd(function(e,o,i){t.onEnd({status:e,statusMessage:o,headers:n||new r.Metadata,message:s,trailers:i})}),i.start(t.metadata),i.send(t.request),i.finishSend(),{close:function(){i.close()}}}}]));
+
+/***/ }),
+
+/***/ 853:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+class EventQueue {
+    constructor() {
+        this.pullQueue = [];
+        this.pushQueue = [];
+        this.eventHandlers = {};
+        this.isPaused = false;
+        this.isStopped = false;
+    }
+    push(value) {
+        if (this.isStopped)
+            return;
+        const resolution = { value, done: false };
+        if (this.pullQueue.length) {
+            const placeholder = this.pullQueue.shift();
+            if (placeholder)
+                placeholder.resolve(resolution);
+        }
+        else {
+            this.pushQueue.push(Promise.resolve(resolution));
+            if (this.highWaterMark !== undefined &&
+                this.pushQueue.length >= this.highWaterMark &&
+                !this.isPaused) {
+                this.isPaused = true;
+                if (this.eventHandlers.highWater) {
+                    this.eventHandlers.highWater();
+                }
+                else if (console) {
+                    console.warn(`EventIterator queue reached ${this.pushQueue.length} items`);
+                }
+            }
+        }
+    }
+    stop() {
+        if (this.isStopped)
+            return;
+        this.isStopped = true;
+        this.remove();
+        for (const placeholder of this.pullQueue) {
+            placeholder.resolve({ value: undefined, done: true });
+        }
+        this.pullQueue.length = 0;
+    }
+    fail(error) {
+        if (this.isStopped)
+            return;
+        this.isStopped = true;
+        this.remove();
+        if (this.pullQueue.length) {
+            for (const placeholder of this.pullQueue) {
+                placeholder.reject(error);
+            }
+            this.pullQueue.length = 0;
+        }
+        else {
+            const rejection = Promise.reject(error);
+            /* Attach error handler to avoid leaking an unhandled promise rejection. */
+            rejection.catch(() => { });
+            this.pushQueue.push(rejection);
+        }
+    }
+    remove() {
+        Promise.resolve().then(() => {
+            if (this.removeCallback)
+                this.removeCallback();
+        });
+    }
+    [Symbol.asyncIterator]() {
+        return {
+            next: (value) => {
+                const result = this.pushQueue.shift();
+                if (result) {
+                    if (this.lowWaterMark !== undefined &&
+                        this.pushQueue.length <= this.lowWaterMark &&
+                        this.isPaused) {
+                        this.isPaused = false;
+                        if (this.eventHandlers.lowWater) {
+                            this.eventHandlers.lowWater();
+                        }
+                    }
+                    return result;
+                }
+                else if (this.isStopped) {
+                    return Promise.resolve({ value: undefined, done: true });
+                }
+                else {
+                    return new Promise((resolve, reject) => {
+                        this.pullQueue.push({ resolve, reject });
+                    });
+                }
+            },
+            return: () => {
+                this.isStopped = true;
+                this.pushQueue.length = 0;
+                this.remove();
+                return Promise.resolve({ value: undefined, done: true });
+            },
+        };
+    }
+}
+class EventIterator {
+    constructor(listen, { highWaterMark = 100, lowWaterMark = 1 } = {}) {
+        const queue = new EventQueue();
+        queue.highWaterMark = highWaterMark;
+        queue.lowWaterMark = lowWaterMark;
+        queue.removeCallback =
+            listen({
+                push: value => queue.push(value),
+                stop: () => queue.stop(),
+                fail: error => queue.fail(error),
+                on: (event, fn) => {
+                    queue.eventHandlers[event] = fn;
+                },
+            }) || (() => { });
+        this[Symbol.asyncIterator] = () => queue[Symbol.asyncIterator]();
+        Object.freeze(this);
+    }
+}
+exports.EventIterator = EventIterator;
+exports.default = EventIterator;
+
 
 /***/ }),
 
@@ -19570,155 +19696,6 @@ function childrenIgnored (self, path) {
 
 /***/ }),
 
-/***/ 869:
-/***/ (function(module) {
-
-;(function() { // closure for web browsers
-
-function Item (data, prev, next) {
-  this.next = next
-  if (next) next.prev = this
-  this.prev = prev
-  if (prev) prev.next = this
-  this.data = data
-}
-
-function FastList () {
-  if (!(this instanceof FastList)) return new FastList
-  this._head = null
-  this._tail = null
-  this.length = 0
-}
-
-FastList.prototype =
-{ push: function (data) {
-    this._tail = new Item(data, this._tail, null)
-    if (!this._head) this._head = this._tail
-    this.length ++
-  }
-
-, pop: function () {
-    if (this.length === 0) return undefined
-    var t = this._tail
-    this._tail = t.prev
-    if (t.prev) {
-      t.prev = this._tail.next = null
-    }
-    this.length --
-    if (this.length === 1) this._head = this._tail
-    else if (this.length === 0) this._head = this._tail = null
-    return t.data
-  }
-
-, unshift: function (data) {
-    this._head = new Item(data, null, this._head)
-    if (!this._tail) this._tail = this._head
-    this.length ++
-  }
-
-, shift: function () {
-    if (this.length === 0) return undefined
-    var h = this._head
-    this._head = h.next
-    if (h.next) {
-      h.next = this._head.prev = null
-    }
-    this.length --
-    if (this.length === 1) this._tail = this._head
-    else if (this.length === 0) this._head = this._tail = null
-    return h.data
-  }
-
-, item: function (n) {
-    if (n < 0) n = this.length + n
-    var h = this._head
-    while (n-- > 0 && h) h = h.next
-    return h ? h.data : undefined
-  }
-
-, slice: function (n, m) {
-    if (!n) n = 0
-    if (!m) m = this.length
-    if (m < 0) m = this.length + m
-    if (n < 0) n = this.length + n
-
-    if (m === n) {
-      return []
-    }
-
-    if (m < n) {
-      throw new Error("invalid offset: "+n+","+m+" (length="+this.length+")")
-    }
-
-    var len = m - n
-      , ret = new Array(len)
-      , i = 0
-      , h = this._head
-    while (n-- > 0 && h) h = h.next
-    while (i < len && h) {
-      ret[i++] = h.data
-      h = h.next
-    }
-    return ret
-  }
-
-, drop: function () {
-    FastList.call(this)
-  }
-
-, forEach: function (fn, thisp) {
-    var p = this._head
-      , i = 0
-      , len = this.length
-    while (i < len && p) {
-      fn.call(thisp || this, p.data, i, this)
-      p = p.next
-      i ++
-    }
-  }
-
-, map: function (fn, thisp) {
-    var n = new FastList()
-    this.forEach(function (v, i, me) {
-      n.push(fn.call(thisp || me, v, i, me))
-    })
-    return n
-  }
-
-, filter: function (fn, thisp) {
-    var n = new FastList()
-    this.forEach(function (v, i, me) {
-      if (fn.call(thisp || me, v, i, me)) n.push(v)
-    })
-    return n
-  }
-
-, reduce: function (fn, val, thisp) {
-    var i = 0
-      , p = this._head
-      , len = this.length
-    if (!val) {
-      i = 1
-      val = p && p.data
-      p = p && p.next
-    }
-    while (i < len && p) {
-      val = fn.call(thisp || this, val, p.data, this)
-      i ++
-      p = p.next
-    }
-    return val
-  }
-}
-
-if (true) module.exports = FastList
-else {}
-
-})()
-
-
-/***/ }),
-
 /***/ 896:
 /***/ (function(module) {
 
@@ -19785,62 +19762,7 @@ function varintEncode (num) {
 /***/ 923:
 /***/ (function(module) {
 
-module.exports = {"identity":0,"ip4":4,"tcp":6,"sha1":17,"sha2-256":18,"sha2-512":19,"sha3-512":20,"sha3-384":21,"sha3-256":22,"sha3-224":23,"shake-128":24,"shake-256":25,"keccak-224":26,"keccak-256":27,"keccak-384":28,"keccak-512":29,"dccp":33,"murmur3-128":34,"murmur3-32":35,"ip6":41,"ip6zone":42,"path":47,"multicodec":48,"multihash":49,"multiaddr":50,"multibase":51,"dns":53,"dns4":54,"dns6":55,"dnsaddr":56,"protobuf":80,"cbor":81,"raw":85,"dbl-sha2-256":86,"rlp":96,"bencode":99,"dag-pb":112,"dag-cbor":113,"libp2p-key":114,"git-raw":120,"torrent-info":123,"torrent-file":124,"leofcoin-block":129,"leofcoin-tx":130,"leofcoin-pr":131,"sctp":132,"eth-block":144,"eth-block-list":145,"eth-tx-trie":146,"eth-tx":147,"eth-tx-receipt-trie":148,"eth-tx-receipt":149,"eth-state-trie":150,"eth-account-snapshot":151,"eth-storage-trie":152,"bitcoin-block":176,"bitcoin-tx":177,"zcash-block":192,"zcash-tx":193,"stellar-block":208,"stellar-tx":209,"md4":212,"md5":213,"bmt":214,"decred-block":224,"decred-tx":225,"ipld-ns":226,"ipfs-ns":227,"swarm-ns":228,"ipns-ns":229,"zeronet":230,"ed25519-pub":237,"dash-block":240,"dash-tx":241,"swarm-manifest":250,"swarm-feed":251,"udp":273,"p2p-webrtc-star":275,"p2p-webrtc-direct":276,"p2p-stardust":277,"p2p-circuit":290,"dag-json":297,"udt":301,"utp":302,"unix":400,"p2p":421,"ipfs":421,"https":443,"onion":444,"onion3":445,"garlic64":446,"garlic32":447,"tls":448,"quic":460,"ws":477,"wss":478,"p2p-websocket-star":479,"http":480,"json":512,"messagepack":513,"x11":4352,"blake2b-8":45569,"blake2b-16":45570,"blake2b-24":45571,"blake2b-32":45572,"blake2b-40":45573,"blake2b-48":45574,"blake2b-56":45575,"blake2b-64":45576,"blake2b-72":45577,"blake2b-80":45578,"blake2b-88":45579,"blake2b-96":45580,"blake2b-104":45581,"blake2b-112":45582,"blake2b-120":45583,"blake2b-128":45584,"blake2b-136":45585,"blake2b-144":45586,"blake2b-152":45587,"blake2b-160":45588,"blake2b-168":45589,"blake2b-176":45590,"blake2b-184":45591,"blake2b-192":45592,"blake2b-200":45593,"blake2b-208":45594,"blake2b-216":45595,"blake2b-224":45596,"blake2b-232":45597,"blake2b-240":45598,"blake2b-248":45599,"blake2b-256":45600,"blake2b-264":45601,"blake2b-272":45602,"blake2b-280":45603,"blake2b-288":45604,"blake2b-296":45605,"blake2b-304":45606,"blake2b-312":45607,"blake2b-320":45608,"blake2b-328":45609,"blake2b-336":45610,"blake2b-344":45611,"blake2b-352":45612,"blake2b-360":45613,"blake2b-368":45614,"blake2b-376":45615,"blake2b-384":45616,"blake2b-392":45617,"blake2b-400":45618,"blake2b-408":45619,"blake2b-416":45620,"blake2b-424":45621,"blake2b-432":45622,"blake2b-440":45623,"blake2b-448":45624,"blake2b-456":45625,"blake2b-464":45626,"blake2b-472":45627,"blake2b-480":45628,"blake2b-488":45629,"blake2b-496":45630,"blake2b-504":45631,"blake2b-512":45632,"blake2s-8":45633,"blake2s-16":45634,"blake2s-24":45635,"blake2s-32":45636,"blake2s-40":45637,"blake2s-48":45638,"blake2s-56":45639,"blake2s-64":45640,"blake2s-72":45641,"blake2s-80":45642,"blake2s-88":45643,"blake2s-96":45644,"blake2s-104":45645,"blake2s-112":45646,"blake2s-120":45647,"blake2s-128":45648,"blake2s-136":45649,"blake2s-144":45650,"blake2s-152":45651,"blake2s-160":45652,"blake2s-168":45653,"blake2s-176":45654,"blake2s-184":45655,"blake2s-192":45656,"blake2s-200":45657,"blake2s-208":45658,"blake2s-216":45659,"blake2s-224":45660,"blake2s-232":45661,"blake2s-240":45662,"blake2s-248":45663,"blake2s-256":45664,"skein256-8":45825,"skein256-16":45826,"skein256-24":45827,"skein256-32":45828,"skein256-40":45829,"skein256-48":45830,"skein256-56":45831,"skein256-64":45832,"skein256-72":45833,"skein256-80":45834,"skein256-88":45835,"skein256-96":45836,"skein256-104":45837,"skein256-112":45838,"skein256-120":45839,"skein256-128":45840,"skein256-136":45841,"skein256-144":45842,"skein256-152":45843,"skein256-160":45844,"skein256-168":45845,"skein256-176":45846,"skein256-184":45847,"skein256-192":45848,"skein256-200":45849,"skein256-208":45850,"skein256-216":45851,"skein256-224":45852,"skein256-232":45853,"skein256-240":45854,"skein256-248":45855,"skein256-256":45856,"skein512-8":45857,"skein512-16":45858,"skein512-24":45859,"skein512-32":45860,"skein512-40":45861,"skein512-48":45862,"skein512-56":45863,"skein512-64":45864,"skein512-72":45865,"skein512-80":45866,"skein512-88":45867,"skein512-96":45868,"skein512-104":45869,"skein512-112":45870,"skein512-120":45871,"skein512-128":45872,"skein512-136":45873,"skein512-144":45874,"skein512-152":45875,"skein512-160":45876,"skein512-168":45877,"skein512-176":45878,"skein512-184":45879,"skein512-192":45880,"skein512-200":45881,"skein512-208":45882,"skein512-216":45883,"skein512-224":45884,"skein512-232":45885,"skein512-240":45886,"skein512-248":45887,"skein512-256":45888,"skein512-264":45889,"skein512-272":45890,"skein512-280":45891,"skein512-288":45892,"skein512-296":45893,"skein512-304":45894,"skein512-312":45895,"skein512-320":45896,"skein512-328":45897,"skein512-336":45898,"skein512-344":45899,"skein512-352":45900,"skein512-360":45901,"skein512-368":45902,"skein512-376":45903,"skein512-384":45904,"skein512-392":45905,"skein512-400":45906,"skein512-408":45907,"skein512-416":45908,"skein512-424":45909,"skein512-432":45910,"skein512-440":45911,"skein512-448":45912,"skein512-456":45913,"skein512-464":45914,"skein512-472":45915,"skein512-480":45916,"skein512-488":45917,"skein512-496":45918,"skein512-504":45919,"skein512-512":45920,"skein1024-8":45921,"skein1024-16":45922,"skein1024-24":45923,"skein1024-32":45924,"skein1024-40":45925,"skein1024-48":45926,"skein1024-56":45927,"skein1024-64":45928,"skein1024-72":45929,"skein1024-80":45930,"skein1024-88":45931,"skein1024-96":45932,"skein1024-104":45933,"skein1024-112":45934,"skein1024-120":45935,"skein1024-128":45936,"skein1024-136":45937,"skein1024-144":45938,"skein1024-152":45939,"skein1024-160":45940,"skein1024-168":45941,"skein1024-176":45942,"skein1024-184":45943,"skein1024-192":45944,"skein1024-200":45945,"skein1024-208":45946,"skein1024-216":45947,"skein1024-224":45948,"skein1024-232":45949,"skein1024-240":45950,"skein1024-248":45951,"skein1024-256":45952,"skein1024-264":45953,"skein1024-272":45954,"skein1024-280":45955,"skein1024-288":45956,"skein1024-296":45957,"skein1024-304":45958,"skein1024-312":45959,"skein1024-320":45960,"skein1024-328":45961,"skein1024-336":45962,"skein1024-344":45963,"skein1024-352":45964,"skein1024-360":45965,"skein1024-368":45966,"skein1024-376":45967,"skein1024-384":45968,"skein1024-392":45969,"skein1024-400":45970,"skein1024-408":45971,"skein1024-416":45972,"skein1024-424":45973,"skein1024-432":45974,"skein1024-440":45975,"skein1024-448":45976,"skein1024-456":45977,"skein1024-464":45978,"skein1024-472":45979,"skein1024-480":45980,"skein1024-488":45981,"skein1024-496":45982,"skein1024-504":45983,"skein1024-512":45984,"skein1024-520":45985,"skein1024-528":45986,"skein1024-536":45987,"skein1024-544":45988,"skein1024-552":45989,"skein1024-560":45990,"skein1024-568":45991,"skein1024-576":45992,"skein1024-584":45993,"skein1024-592":45994,"skein1024-600":45995,"skein1024-608":45996,"skein1024-616":45997,"skein1024-624":45998,"skein1024-632":45999,"skein1024-640":46000,"skein1024-648":46001,"skein1024-656":46002,"skein1024-664":46003,"skein1024-672":46004,"skein1024-680":46005,"skein1024-688":46006,"skein1024-696":46007,"skein1024-704":46008,"skein1024-712":46009,"skein1024-720":46010,"skein1024-728":46011,"skein1024-736":46012,"skein1024-744":46013,"skein1024-752":46014,"skein1024-760":46015,"skein1024-768":46016,"skein1024-776":46017,"skein1024-784":46018,"skein1024-792":46019,"skein1024-800":46020,"skein1024-808":46021,"skein1024-816":46022,"skein1024-824":46023,"skein1024-832":46024,"skein1024-840":46025,"skein1024-848":46026,"skein1024-856":46027,"skein1024-864":46028,"skein1024-872":46029,"skein1024-880":46030,"skein1024-888":46031,"skein1024-896":46032,"skein1024-904":46033,"skein1024-912":46034,"skein1024-920":46035,"skein1024-928":46036,"skein1024-936":46037,"skein1024-944":46038,"skein1024-952":46039,"skein1024-960":46040,"skein1024-968":46041,"skein1024-976":46042,"skein1024-984":46043,"skein1024-992":46044,"skein1024-1000":46045,"skein1024-1008":46046,"skein1024-1016":46047,"skein1024-1024":46048,"holochain-adr-v0":8417572,"holochain-adr-v1":8483108,"holochain-key-v0":9728292,"holochain-key-v1":9793828,"holochain-sig-v0":10645796,"holochain-sig-v1":10711332};
-
-/***/ }),
-
-/***/ 924:
-/***/ (function(module) {
-
-"use strict";
-
-
-class Base {
-  constructor (name, code, implementation, alphabet) {
-    this.name = name
-    this.code = code
-    this.alphabet = alphabet
-    if (implementation && alphabet) {
-      this.engine = implementation(alphabet)
-    }
-  }
-
-  encode (stringOrBuffer) {
-    return this.engine.encode(stringOrBuffer)
-  }
-
-  decode (stringOrBuffer) {
-    return this.engine.decode(stringOrBuffer)
-  }
-
-  isImplemented () {
-    return this.engine
-  }
-}
-
-module.exports = Base
-
-
-/***/ }),
-
-/***/ 933:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-// TODO add overloads for special event targets (Window, Document)
-/**
- * Convert DOM events to an async iterable iterator.
- */
-const fromDom = (init) => (type, target, options) => {
-    const adapter = init();
-    const listener = (event) => void adapter.push(event);
-    target.addEventListener(type, listener, options);
-    return adapter.wrap(() => target.removeEventListener(type, listener, options));
-};
-exports.default = fromDom;
-//# sourceMappingURL=fromDom.js.map
+module.exports = {"identity":0,"ip4":4,"tcp":6,"sha1":17,"sha2-256":18,"sha2-512":19,"sha3-512":20,"sha3-384":21,"sha3-256":22,"sha3-224":23,"shake-128":24,"shake-256":25,"keccak-224":26,"keccak-256":27,"keccak-384":28,"keccak-512":29,"dccp":33,"murmur3-128":34,"murmur3-32":35,"ip6":41,"ip6zone":42,"path":47,"multicodec":48,"multihash":49,"multiaddr":50,"multibase":51,"dns":53,"dns4":54,"dns6":55,"dnsaddr":56,"protobuf":80,"cbor":81,"raw":85,"dbl-sha2-256":86,"rlp":96,"bencode":99,"dag-pb":112,"dag-cbor":113,"libp2p-key":114,"git-raw":120,"torrent-info":123,"torrent-file":124,"leofcoin-block":129,"leofcoin-tx":130,"leofcoin-pr":131,"sctp":132,"dag-jose":133,"dag-cose":134,"eth-block":144,"eth-block-list":145,"eth-tx-trie":146,"eth-tx":147,"eth-tx-receipt-trie":148,"eth-tx-receipt":149,"eth-state-trie":150,"eth-account-snapshot":151,"eth-storage-trie":152,"bitcoin-block":176,"bitcoin-tx":177,"zcash-block":192,"zcash-tx":193,"stellar-block":208,"stellar-tx":209,"md4":212,"md5":213,"bmt":214,"decred-block":224,"decred-tx":225,"ipld-ns":226,"ipfs-ns":227,"swarm-ns":228,"ipns-ns":229,"zeronet":230,"ed25519-pub":237,"dash-block":240,"dash-tx":241,"swarm-manifest":250,"swarm-feed":251,"udp":273,"p2p-webrtc-star":275,"p2p-webrtc-direct":276,"p2p-stardust":277,"p2p-circuit":290,"dag-json":297,"udt":301,"utp":302,"unix":400,"p2p":421,"ipfs":421,"https":443,"onion":444,"onion3":445,"garlic64":446,"garlic32":447,"tls":448,"quic":460,"ws":477,"wss":478,"p2p-websocket-star":479,"http":480,"json":512,"messagepack":513,"libp2p-peer-record":769,"x11":4352,"blake2b-8":45569,"blake2b-16":45570,"blake2b-24":45571,"blake2b-32":45572,"blake2b-40":45573,"blake2b-48":45574,"blake2b-56":45575,"blake2b-64":45576,"blake2b-72":45577,"blake2b-80":45578,"blake2b-88":45579,"blake2b-96":45580,"blake2b-104":45581,"blake2b-112":45582,"blake2b-120":45583,"blake2b-128":45584,"blake2b-136":45585,"blake2b-144":45586,"blake2b-152":45587,"blake2b-160":45588,"blake2b-168":45589,"blake2b-176":45590,"blake2b-184":45591,"blake2b-192":45592,"blake2b-200":45593,"blake2b-208":45594,"blake2b-216":45595,"blake2b-224":45596,"blake2b-232":45597,"blake2b-240":45598,"blake2b-248":45599,"blake2b-256":45600,"blake2b-264":45601,"blake2b-272":45602,"blake2b-280":45603,"blake2b-288":45604,"blake2b-296":45605,"blake2b-304":45606,"blake2b-312":45607,"blake2b-320":45608,"blake2b-328":45609,"blake2b-336":45610,"blake2b-344":45611,"blake2b-352":45612,"blake2b-360":45613,"blake2b-368":45614,"blake2b-376":45615,"blake2b-384":45616,"blake2b-392":45617,"blake2b-400":45618,"blake2b-408":45619,"blake2b-416":45620,"blake2b-424":45621,"blake2b-432":45622,"blake2b-440":45623,"blake2b-448":45624,"blake2b-456":45625,"blake2b-464":45626,"blake2b-472":45627,"blake2b-480":45628,"blake2b-488":45629,"blake2b-496":45630,"blake2b-504":45631,"blake2b-512":45632,"blake2s-8":45633,"blake2s-16":45634,"blake2s-24":45635,"blake2s-32":45636,"blake2s-40":45637,"blake2s-48":45638,"blake2s-56":45639,"blake2s-64":45640,"blake2s-72":45641,"blake2s-80":45642,"blake2s-88":45643,"blake2s-96":45644,"blake2s-104":45645,"blake2s-112":45646,"blake2s-120":45647,"blake2s-128":45648,"blake2s-136":45649,"blake2s-144":45650,"blake2s-152":45651,"blake2s-160":45652,"blake2s-168":45653,"blake2s-176":45654,"blake2s-184":45655,"blake2s-192":45656,"blake2s-200":45657,"blake2s-208":45658,"blake2s-216":45659,"blake2s-224":45660,"blake2s-232":45661,"blake2s-240":45662,"blake2s-248":45663,"blake2s-256":45664,"skein256-8":45825,"skein256-16":45826,"skein256-24":45827,"skein256-32":45828,"skein256-40":45829,"skein256-48":45830,"skein256-56":45831,"skein256-64":45832,"skein256-72":45833,"skein256-80":45834,"skein256-88":45835,"skein256-96":45836,"skein256-104":45837,"skein256-112":45838,"skein256-120":45839,"skein256-128":45840,"skein256-136":45841,"skein256-144":45842,"skein256-152":45843,"skein256-160":45844,"skein256-168":45845,"skein256-176":45846,"skein256-184":45847,"skein256-192":45848,"skein256-200":45849,"skein256-208":45850,"skein256-216":45851,"skein256-224":45852,"skein256-232":45853,"skein256-240":45854,"skein256-248":45855,"skein256-256":45856,"skein512-8":45857,"skein512-16":45858,"skein512-24":45859,"skein512-32":45860,"skein512-40":45861,"skein512-48":45862,"skein512-56":45863,"skein512-64":45864,"skein512-72":45865,"skein512-80":45866,"skein512-88":45867,"skein512-96":45868,"skein512-104":45869,"skein512-112":45870,"skein512-120":45871,"skein512-128":45872,"skein512-136":45873,"skein512-144":45874,"skein512-152":45875,"skein512-160":45876,"skein512-168":45877,"skein512-176":45878,"skein512-184":45879,"skein512-192":45880,"skein512-200":45881,"skein512-208":45882,"skein512-216":45883,"skein512-224":45884,"skein512-232":45885,"skein512-240":45886,"skein512-248":45887,"skein512-256":45888,"skein512-264":45889,"skein512-272":45890,"skein512-280":45891,"skein512-288":45892,"skein512-296":45893,"skein512-304":45894,"skein512-312":45895,"skein512-320":45896,"skein512-328":45897,"skein512-336":45898,"skein512-344":45899,"skein512-352":45900,"skein512-360":45901,"skein512-368":45902,"skein512-376":45903,"skein512-384":45904,"skein512-392":45905,"skein512-400":45906,"skein512-408":45907,"skein512-416":45908,"skein512-424":45909,"skein512-432":45910,"skein512-440":45911,"skein512-448":45912,"skein512-456":45913,"skein512-464":45914,"skein512-472":45915,"skein512-480":45916,"skein512-488":45917,"skein512-496":45918,"skein512-504":45919,"skein512-512":45920,"skein1024-8":45921,"skein1024-16":45922,"skein1024-24":45923,"skein1024-32":45924,"skein1024-40":45925,"skein1024-48":45926,"skein1024-56":45927,"skein1024-64":45928,"skein1024-72":45929,"skein1024-80":45930,"skein1024-88":45931,"skein1024-96":45932,"skein1024-104":45933,"skein1024-112":45934,"skein1024-120":45935,"skein1024-128":45936,"skein1024-136":45937,"skein1024-144":45938,"skein1024-152":45939,"skein1024-160":45940,"skein1024-168":45941,"skein1024-176":45942,"skein1024-184":45943,"skein1024-192":45944,"skein1024-200":45945,"skein1024-208":45946,"skein1024-216":45947,"skein1024-224":45948,"skein1024-232":45949,"skein1024-240":45950,"skein1024-248":45951,"skein1024-256":45952,"skein1024-264":45953,"skein1024-272":45954,"skein1024-280":45955,"skein1024-288":45956,"skein1024-296":45957,"skein1024-304":45958,"skein1024-312":45959,"skein1024-320":45960,"skein1024-328":45961,"skein1024-336":45962,"skein1024-344":45963,"skein1024-352":45964,"skein1024-360":45965,"skein1024-368":45966,"skein1024-376":45967,"skein1024-384":45968,"skein1024-392":45969,"skein1024-400":45970,"skein1024-408":45971,"skein1024-416":45972,"skein1024-424":45973,"skein1024-432":45974,"skein1024-440":45975,"skein1024-448":45976,"skein1024-456":45977,"skein1024-464":45978,"skein1024-472":45979,"skein1024-480":45980,"skein1024-488":45981,"skein1024-496":45982,"skein1024-504":45983,"skein1024-512":45984,"skein1024-520":45985,"skein1024-528":45986,"skein1024-536":45987,"skein1024-544":45988,"skein1024-552":45989,"skein1024-560":45990,"skein1024-568":45991,"skein1024-576":45992,"skein1024-584":45993,"skein1024-592":45994,"skein1024-600":45995,"skein1024-608":45996,"skein1024-616":45997,"skein1024-624":45998,"skein1024-632":45999,"skein1024-640":46000,"skein1024-648":46001,"skein1024-656":46002,"skein1024-664":46003,"skein1024-672":46004,"skein1024-680":46005,"skein1024-688":46006,"skein1024-696":46007,"skein1024-704":46008,"skein1024-712":46009,"skein1024-720":46010,"skein1024-728":46011,"skein1024-736":46012,"skein1024-744":46013,"skein1024-752":46014,"skein1024-760":46015,"skein1024-768":46016,"skein1024-776":46017,"skein1024-784":46018,"skein1024-792":46019,"skein1024-800":46020,"skein1024-808":46021,"skein1024-816":46022,"skein1024-824":46023,"skein1024-832":46024,"skein1024-840":46025,"skein1024-848":46026,"skein1024-856":46027,"skein1024-864":46028,"skein1024-872":46029,"skein1024-880":46030,"skein1024-888":46031,"skein1024-896":46032,"skein1024-904":46033,"skein1024-912":46034,"skein1024-920":46035,"skein1024-928":46036,"skein1024-936":46037,"skein1024-944":46038,"skein1024-952":46039,"skein1024-960":46040,"skein1024-968":46041,"skein1024-976":46042,"skein1024-984":46043,"skein1024-992":46044,"skein1024-1000":46045,"skein1024-1008":46046,"skein1024-1016":46047,"skein1024-1024":46048,"holochain-adr-v0":8417572,"holochain-adr-v1":8483108,"holochain-key-v0":9728292,"holochain-key-v1":9793828,"holochain-sig-v0":10645796,"holochain-sig-v1":10711332};
 
 /***/ }),
 
@@ -20174,8 +20096,9 @@ module.exports = createWebSocketStream;
 "use strict";
 
 
-const Base = __webpack_require__(627)
 const baseX = __webpack_require__(973)
+const { Buffer } = __webpack_require__(293)
+const Base = __webpack_require__(627)
 const rfc4648 = __webpack_require__(283)
 
 const identity = () => {
@@ -20225,1137 +20148,6 @@ const codes = constants.reduce((prev, tupple) => {
 module.exports = {
   names,
   codes
-}
-
-
-/***/ }),
-
-/***/ 957:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-/* eslint quote-props: off */
-/* eslint key-spacing: off */
-
-
-exports.names = Object.freeze({
-  'identity':   0x0,
-  'sha1':       0x11,
-  'sha2-256':   0x12,
-  'sha2-512':   0x13,
-  'dbl-sha2-256': 0x56,
-  'sha3-224':   0x17,
-  'sha3-256':   0x16,
-  'sha3-384':   0x15,
-  'sha3-512':   0x14,
-  'shake-128':  0x18,
-  'shake-256':  0x19,
-  'keccak-224': 0x1A,
-  'keccak-256': 0x1B,
-  'keccak-384': 0x1C,
-  'keccak-512': 0x1D,
-  'murmur3-128': 0x22,
-  'murmur3-32':  0x23,
-  'md4':         0xd4,
-  'md5':         0xd5,
-  'blake2b-8':   0xb201,
-  'blake2b-16':  0xb202,
-  'blake2b-24':  0xb203,
-  'blake2b-32':  0xb204,
-  'blake2b-40':  0xb205,
-  'blake2b-48':  0xb206,
-  'blake2b-56':  0xb207,
-  'blake2b-64':  0xb208,
-  'blake2b-72':  0xb209,
-  'blake2b-80':  0xb20a,
-  'blake2b-88':  0xb20b,
-  'blake2b-96':  0xb20c,
-  'blake2b-104': 0xb20d,
-  'blake2b-112': 0xb20e,
-  'blake2b-120': 0xb20f,
-  'blake2b-128': 0xb210,
-  'blake2b-136': 0xb211,
-  'blake2b-144': 0xb212,
-  'blake2b-152': 0xb213,
-  'blake2b-160': 0xb214,
-  'blake2b-168': 0xb215,
-  'blake2b-176': 0xb216,
-  'blake2b-184': 0xb217,
-  'blake2b-192': 0xb218,
-  'blake2b-200': 0xb219,
-  'blake2b-208': 0xb21a,
-  'blake2b-216': 0xb21b,
-  'blake2b-224': 0xb21c,
-  'blake2b-232': 0xb21d,
-  'blake2b-240': 0xb21e,
-  'blake2b-248': 0xb21f,
-  'blake2b-256': 0xb220,
-  'blake2b-264': 0xb221,
-  'blake2b-272': 0xb222,
-  'blake2b-280': 0xb223,
-  'blake2b-288': 0xb224,
-  'blake2b-296': 0xb225,
-  'blake2b-304': 0xb226,
-  'blake2b-312': 0xb227,
-  'blake2b-320': 0xb228,
-  'blake2b-328': 0xb229,
-  'blake2b-336': 0xb22a,
-  'blake2b-344': 0xb22b,
-  'blake2b-352': 0xb22c,
-  'blake2b-360': 0xb22d,
-  'blake2b-368': 0xb22e,
-  'blake2b-376': 0xb22f,
-  'blake2b-384': 0xb230,
-  'blake2b-392': 0xb231,
-  'blake2b-400': 0xb232,
-  'blake2b-408': 0xb233,
-  'blake2b-416': 0xb234,
-  'blake2b-424': 0xb235,
-  'blake2b-432': 0xb236,
-  'blake2b-440': 0xb237,
-  'blake2b-448': 0xb238,
-  'blake2b-456': 0xb239,
-  'blake2b-464': 0xb23a,
-  'blake2b-472': 0xb23b,
-  'blake2b-480': 0xb23c,
-  'blake2b-488': 0xb23d,
-  'blake2b-496': 0xb23e,
-  'blake2b-504': 0xb23f,
-  'blake2b-512': 0xb240,
-  'blake2s-8':   0xb241,
-  'blake2s-16':  0xb242,
-  'blake2s-24':  0xb243,
-  'blake2s-32':  0xb244,
-  'blake2s-40':  0xb245,
-  'blake2s-48':  0xb246,
-  'blake2s-56':  0xb247,
-  'blake2s-64':  0xb248,
-  'blake2s-72':  0xb249,
-  'blake2s-80':  0xb24a,
-  'blake2s-88':  0xb24b,
-  'blake2s-96':  0xb24c,
-  'blake2s-104': 0xb24d,
-  'blake2s-112': 0xb24e,
-  'blake2s-120': 0xb24f,
-  'blake2s-128': 0xb250,
-  'blake2s-136': 0xb251,
-  'blake2s-144': 0xb252,
-  'blake2s-152': 0xb253,
-  'blake2s-160': 0xb254,
-  'blake2s-168': 0xb255,
-  'blake2s-176': 0xb256,
-  'blake2s-184': 0xb257,
-  'blake2s-192': 0xb258,
-  'blake2s-200': 0xb259,
-  'blake2s-208': 0xb25a,
-  'blake2s-216': 0xb25b,
-  'blake2s-224': 0xb25c,
-  'blake2s-232': 0xb25d,
-  'blake2s-240': 0xb25e,
-  'blake2s-248': 0xb25f,
-  'blake2s-256': 0xb260,
-  'Skein256-8': 0xb301,
-  'Skein256-16': 0xb302,
-  'Skein256-24': 0xb303,
-  'Skein256-32': 0xb304,
-  'Skein256-40': 0xb305,
-  'Skein256-48': 0xb306,
-  'Skein256-56': 0xb307,
-  'Skein256-64': 0xb308,
-  'Skein256-72': 0xb309,
-  'Skein256-80': 0xb30a,
-  'Skein256-88': 0xb30b,
-  'Skein256-96': 0xb30c,
-  'Skein256-104': 0xb30d,
-  'Skein256-112': 0xb30e,
-  'Skein256-120': 0xb30f,
-  'Skein256-128': 0xb310,
-  'Skein256-136': 0xb311,
-  'Skein256-144': 0xb312,
-  'Skein256-152': 0xb313,
-  'Skein256-160': 0xb314,
-  'Skein256-168': 0xb315,
-  'Skein256-176': 0xb316,
-  'Skein256-184': 0xb317,
-  'Skein256-192': 0xb318,
-  'Skein256-200': 0xb319,
-  'Skein256-208': 0xb31a,
-  'Skein256-216': 0xb31b,
-  'Skein256-224': 0xb31c,
-  'Skein256-232': 0xb31d,
-  'Skein256-240': 0xb31e,
-  'Skein256-248': 0xb31f,
-  'Skein256-256': 0xb320,
-  'Skein512-8': 0xb321,
-  'Skein512-16': 0xb322,
-  'Skein512-24': 0xb323,
-  'Skein512-32': 0xb324,
-  'Skein512-40': 0xb325,
-  'Skein512-48': 0xb326,
-  'Skein512-56': 0xb327,
-  'Skein512-64': 0xb328,
-  'Skein512-72': 0xb329,
-  'Skein512-80': 0xb32a,
-  'Skein512-88': 0xb32b,
-  'Skein512-96': 0xb32c,
-  'Skein512-104': 0xb32d,
-  'Skein512-112': 0xb32e,
-  'Skein512-120': 0xb32f,
-  'Skein512-128': 0xb330,
-  'Skein512-136': 0xb331,
-  'Skein512-144': 0xb332,
-  'Skein512-152': 0xb333,
-  'Skein512-160': 0xb334,
-  'Skein512-168': 0xb335,
-  'Skein512-176': 0xb336,
-  'Skein512-184': 0xb337,
-  'Skein512-192': 0xb338,
-  'Skein512-200': 0xb339,
-  'Skein512-208': 0xb33a,
-  'Skein512-216': 0xb33b,
-  'Skein512-224': 0xb33c,
-  'Skein512-232': 0xb33d,
-  'Skein512-240': 0xb33e,
-  'Skein512-248': 0xb33f,
-  'Skein512-256': 0xb340,
-  'Skein512-264': 0xb341,
-  'Skein512-272': 0xb342,
-  'Skein512-280': 0xb343,
-  'Skein512-288': 0xb344,
-  'Skein512-296': 0xb345,
-  'Skein512-304': 0xb346,
-  'Skein512-312': 0xb347,
-  'Skein512-320': 0xb348,
-  'Skein512-328': 0xb349,
-  'Skein512-336': 0xb34a,
-  'Skein512-344': 0xb34b,
-  'Skein512-352': 0xb34c,
-  'Skein512-360': 0xb34d,
-  'Skein512-368': 0xb34e,
-  'Skein512-376': 0xb34f,
-  'Skein512-384': 0xb350,
-  'Skein512-392': 0xb351,
-  'Skein512-400': 0xb352,
-  'Skein512-408': 0xb353,
-  'Skein512-416': 0xb354,
-  'Skein512-424': 0xb355,
-  'Skein512-432': 0xb356,
-  'Skein512-440': 0xb357,
-  'Skein512-448': 0xb358,
-  'Skein512-456': 0xb359,
-  'Skein512-464': 0xb35a,
-  'Skein512-472': 0xb35b,
-  'Skein512-480': 0xb35c,
-  'Skein512-488': 0xb35d,
-  'Skein512-496': 0xb35e,
-  'Skein512-504': 0xb35f,
-  'Skein512-512': 0xb360,
-  'Skein1024-8': 0xb361,
-  'Skein1024-16': 0xb362,
-  'Skein1024-24': 0xb363,
-  'Skein1024-32': 0xb364,
-  'Skein1024-40': 0xb365,
-  'Skein1024-48': 0xb366,
-  'Skein1024-56': 0xb367,
-  'Skein1024-64': 0xb368,
-  'Skein1024-72': 0xb369,
-  'Skein1024-80': 0xb36a,
-  'Skein1024-88': 0xb36b,
-  'Skein1024-96': 0xb36c,
-  'Skein1024-104': 0xb36d,
-  'Skein1024-112': 0xb36e,
-  'Skein1024-120': 0xb36f,
-  'Skein1024-128': 0xb370,
-  'Skein1024-136': 0xb371,
-  'Skein1024-144': 0xb372,
-  'Skein1024-152': 0xb373,
-  'Skein1024-160': 0xb374,
-  'Skein1024-168': 0xb375,
-  'Skein1024-176': 0xb376,
-  'Skein1024-184': 0xb377,
-  'Skein1024-192': 0xb378,
-  'Skein1024-200': 0xb379,
-  'Skein1024-208': 0xb37a,
-  'Skein1024-216': 0xb37b,
-  'Skein1024-224': 0xb37c,
-  'Skein1024-232': 0xb37d,
-  'Skein1024-240': 0xb37e,
-  'Skein1024-248': 0xb37f,
-  'Skein1024-256': 0xb380,
-  'Skein1024-264': 0xb381,
-  'Skein1024-272': 0xb382,
-  'Skein1024-280': 0xb383,
-  'Skein1024-288': 0xb384,
-  'Skein1024-296': 0xb385,
-  'Skein1024-304': 0xb386,
-  'Skein1024-312': 0xb387,
-  'Skein1024-320': 0xb388,
-  'Skein1024-328': 0xb389,
-  'Skein1024-336': 0xb38a,
-  'Skein1024-344': 0xb38b,
-  'Skein1024-352': 0xb38c,
-  'Skein1024-360': 0xb38d,
-  'Skein1024-368': 0xb38e,
-  'Skein1024-376': 0xb38f,
-  'Skein1024-384': 0xb390,
-  'Skein1024-392': 0xb391,
-  'Skein1024-400': 0xb392,
-  'Skein1024-408': 0xb393,
-  'Skein1024-416': 0xb394,
-  'Skein1024-424': 0xb395,
-  'Skein1024-432': 0xb396,
-  'Skein1024-440': 0xb397,
-  'Skein1024-448': 0xb398,
-  'Skein1024-456': 0xb399,
-  'Skein1024-464': 0xb39a,
-  'Skein1024-472': 0xb39b,
-  'Skein1024-480': 0xb39c,
-  'Skein1024-488': 0xb39d,
-  'Skein1024-496': 0xb39e,
-  'Skein1024-504': 0xb39f,
-  'Skein1024-512': 0xb3a0,
-  'Skein1024-520': 0xb3a1,
-  'Skein1024-528': 0xb3a2,
-  'Skein1024-536': 0xb3a3,
-  'Skein1024-544': 0xb3a4,
-  'Skein1024-552': 0xb3a5,
-  'Skein1024-560': 0xb3a6,
-  'Skein1024-568': 0xb3a7,
-  'Skein1024-576': 0xb3a8,
-  'Skein1024-584': 0xb3a9,
-  'Skein1024-592': 0xb3aa,
-  'Skein1024-600': 0xb3ab,
-  'Skein1024-608': 0xb3ac,
-  'Skein1024-616': 0xb3ad,
-  'Skein1024-624': 0xb3ae,
-  'Skein1024-632': 0xb3af,
-  'Skein1024-640': 0xb3b0,
-  'Skein1024-648': 0xb3b1,
-  'Skein1024-656': 0xb3b2,
-  'Skein1024-664': 0xb3b3,
-  'Skein1024-672': 0xb3b4,
-  'Skein1024-680': 0xb3b5,
-  'Skein1024-688': 0xb3b6,
-  'Skein1024-696': 0xb3b7,
-  'Skein1024-704': 0xb3b8,
-  'Skein1024-712': 0xb3b9,
-  'Skein1024-720': 0xb3ba,
-  'Skein1024-728': 0xb3bb,
-  'Skein1024-736': 0xb3bc,
-  'Skein1024-744': 0xb3bd,
-  'Skein1024-752': 0xb3be,
-  'Skein1024-760': 0xb3bf,
-  'Skein1024-768': 0xb3c0,
-  'Skein1024-776': 0xb3c1,
-  'Skein1024-784': 0xb3c2,
-  'Skein1024-792': 0xb3c3,
-  'Skein1024-800': 0xb3c4,
-  'Skein1024-808': 0xb3c5,
-  'Skein1024-816': 0xb3c6,
-  'Skein1024-824': 0xb3c7,
-  'Skein1024-832': 0xb3c8,
-  'Skein1024-840': 0xb3c9,
-  'Skein1024-848': 0xb3ca,
-  'Skein1024-856': 0xb3cb,
-  'Skein1024-864': 0xb3cc,
-  'Skein1024-872': 0xb3cd,
-  'Skein1024-880': 0xb3ce,
-  'Skein1024-888': 0xb3cf,
-  'Skein1024-896': 0xb3d0,
-  'Skein1024-904': 0xb3d1,
-  'Skein1024-912': 0xb3d2,
-  'Skein1024-920': 0xb3d3,
-  'Skein1024-928': 0xb3d4,
-  'Skein1024-936': 0xb3d5,
-  'Skein1024-944': 0xb3d6,
-  'Skein1024-952': 0xb3d7,
-  'Skein1024-960': 0xb3d8,
-  'Skein1024-968': 0xb3d9,
-  'Skein1024-976': 0xb3da,
-  'Skein1024-984': 0xb3db,
-  'Skein1024-992': 0xb3dc,
-  'Skein1024-1000': 0xb3dd,
-  'Skein1024-1008': 0xb3de,
-  'Skein1024-1016': 0xb3df,
-  'Skein1024-1024': 0xb3e0
-})
-
-exports.codes = Object.freeze({
-  0x0: 'identity',
-
-  // sha family
-  0x11: 'sha1',
-  0x12: 'sha2-256',
-  0x13: 'sha2-512',
-  0x56: 'dbl-sha2-256',
-  0x17: 'sha3-224',
-  0x16: 'sha3-256',
-  0x15: 'sha3-384',
-  0x14: 'sha3-512',
-  0x18: 'shake-128',
-  0x19: 'shake-256',
-  0x1A: 'keccak-224',
-  0x1B: 'keccak-256',
-  0x1C: 'keccak-384',
-  0x1D: 'keccak-512',
-
-  0x22: 'murmur3-128',
-  0x23: 'murmur3-32',
-
-  0xd4: 'md4',
-  0xd5: 'md5',
-
-  // blake2
-  0xb201: 'blake2b-8',
-  0xb202: 'blake2b-16',
-  0xb203: 'blake2b-24',
-  0xb204: 'blake2b-32',
-  0xb205: 'blake2b-40',
-  0xb206: 'blake2b-48',
-  0xb207: 'blake2b-56',
-  0xb208: 'blake2b-64',
-  0xb209: 'blake2b-72',
-  0xb20a: 'blake2b-80',
-  0xb20b: 'blake2b-88',
-  0xb20c: 'blake2b-96',
-  0xb20d: 'blake2b-104',
-  0xb20e: 'blake2b-112',
-  0xb20f: 'blake2b-120',
-  0xb210: 'blake2b-128',
-  0xb211: 'blake2b-136',
-  0xb212: 'blake2b-144',
-  0xb213: 'blake2b-152',
-  0xb214: 'blake2b-160',
-  0xb215: 'blake2b-168',
-  0xb216: 'blake2b-176',
-  0xb217: 'blake2b-184',
-  0xb218: 'blake2b-192',
-  0xb219: 'blake2b-200',
-  0xb21a: 'blake2b-208',
-  0xb21b: 'blake2b-216',
-  0xb21c: 'blake2b-224',
-  0xb21d: 'blake2b-232',
-  0xb21e: 'blake2b-240',
-  0xb21f: 'blake2b-248',
-  0xb220: 'blake2b-256',
-  0xb221: 'blake2b-264',
-  0xb222: 'blake2b-272',
-  0xb223: 'blake2b-280',
-  0xb224: 'blake2b-288',
-  0xb225: 'blake2b-296',
-  0xb226: 'blake2b-304',
-  0xb227: 'blake2b-312',
-  0xb228: 'blake2b-320',
-  0xb229: 'blake2b-328',
-  0xb22a: 'blake2b-336',
-  0xb22b: 'blake2b-344',
-  0xb22c: 'blake2b-352',
-  0xb22d: 'blake2b-360',
-  0xb22e: 'blake2b-368',
-  0xb22f: 'blake2b-376',
-  0xb230: 'blake2b-384',
-  0xb231: 'blake2b-392',
-  0xb232: 'blake2b-400',
-  0xb233: 'blake2b-408',
-  0xb234: 'blake2b-416',
-  0xb235: 'blake2b-424',
-  0xb236: 'blake2b-432',
-  0xb237: 'blake2b-440',
-  0xb238: 'blake2b-448',
-  0xb239: 'blake2b-456',
-  0xb23a: 'blake2b-464',
-  0xb23b: 'blake2b-472',
-  0xb23c: 'blake2b-480',
-  0xb23d: 'blake2b-488',
-  0xb23e: 'blake2b-496',
-  0xb23f: 'blake2b-504',
-  0xb240: 'blake2b-512',
-  0xb241: 'blake2s-8',
-  0xb242: 'blake2s-16',
-  0xb243: 'blake2s-24',
-  0xb244: 'blake2s-32',
-  0xb245: 'blake2s-40',
-  0xb246: 'blake2s-48',
-  0xb247: 'blake2s-56',
-  0xb248: 'blake2s-64',
-  0xb249: 'blake2s-72',
-  0xb24a: 'blake2s-80',
-  0xb24b: 'blake2s-88',
-  0xb24c: 'blake2s-96',
-  0xb24d: 'blake2s-104',
-  0xb24e: 'blake2s-112',
-  0xb24f: 'blake2s-120',
-  0xb250: 'blake2s-128',
-  0xb251: 'blake2s-136',
-  0xb252: 'blake2s-144',
-  0xb253: 'blake2s-152',
-  0xb254: 'blake2s-160',
-  0xb255: 'blake2s-168',
-  0xb256: 'blake2s-176',
-  0xb257: 'blake2s-184',
-  0xb258: 'blake2s-192',
-  0xb259: 'blake2s-200',
-  0xb25a: 'blake2s-208',
-  0xb25b: 'blake2s-216',
-  0xb25c: 'blake2s-224',
-  0xb25d: 'blake2s-232',
-  0xb25e: 'blake2s-240',
-  0xb25f: 'blake2s-248',
-  0xb260: 'blake2s-256',
-
-  // skein
-  0xb301: 'Skein256-8',
-  0xb302: 'Skein256-16',
-  0xb303: 'Skein256-24',
-  0xb304: 'Skein256-32',
-  0xb305: 'Skein256-40',
-  0xb306: 'Skein256-48',
-  0xb307: 'Skein256-56',
-  0xb308: 'Skein256-64',
-  0xb309: 'Skein256-72',
-  0xb30a: 'Skein256-80',
-  0xb30b: 'Skein256-88',
-  0xb30c: 'Skein256-96',
-  0xb30d: 'Skein256-104',
-  0xb30e: 'Skein256-112',
-  0xb30f: 'Skein256-120',
-  0xb310: 'Skein256-128',
-  0xb311: 'Skein256-136',
-  0xb312: 'Skein256-144',
-  0xb313: 'Skein256-152',
-  0xb314: 'Skein256-160',
-  0xb315: 'Skein256-168',
-  0xb316: 'Skein256-176',
-  0xb317: 'Skein256-184',
-  0xb318: 'Skein256-192',
-  0xb319: 'Skein256-200',
-  0xb31a: 'Skein256-208',
-  0xb31b: 'Skein256-216',
-  0xb31c: 'Skein256-224',
-  0xb31d: 'Skein256-232',
-  0xb31e: 'Skein256-240',
-  0xb31f: 'Skein256-248',
-  0xb320: 'Skein256-256',
-  0xb321: 'Skein512-8',
-  0xb322: 'Skein512-16',
-  0xb323: 'Skein512-24',
-  0xb324: 'Skein512-32',
-  0xb325: 'Skein512-40',
-  0xb326: 'Skein512-48',
-  0xb327: 'Skein512-56',
-  0xb328: 'Skein512-64',
-  0xb329: 'Skein512-72',
-  0xb32a: 'Skein512-80',
-  0xb32b: 'Skein512-88',
-  0xb32c: 'Skein512-96',
-  0xb32d: 'Skein512-104',
-  0xb32e: 'Skein512-112',
-  0xb32f: 'Skein512-120',
-  0xb330: 'Skein512-128',
-  0xb331: 'Skein512-136',
-  0xb332: 'Skein512-144',
-  0xb333: 'Skein512-152',
-  0xb334: 'Skein512-160',
-  0xb335: 'Skein512-168',
-  0xb336: 'Skein512-176',
-  0xb337: 'Skein512-184',
-  0xb338: 'Skein512-192',
-  0xb339: 'Skein512-200',
-  0xb33a: 'Skein512-208',
-  0xb33b: 'Skein512-216',
-  0xb33c: 'Skein512-224',
-  0xb33d: 'Skein512-232',
-  0xb33e: 'Skein512-240',
-  0xb33f: 'Skein512-248',
-  0xb340: 'Skein512-256',
-  0xb341: 'Skein512-264',
-  0xb342: 'Skein512-272',
-  0xb343: 'Skein512-280',
-  0xb344: 'Skein512-288',
-  0xb345: 'Skein512-296',
-  0xb346: 'Skein512-304',
-  0xb347: 'Skein512-312',
-  0xb348: 'Skein512-320',
-  0xb349: 'Skein512-328',
-  0xb34a: 'Skein512-336',
-  0xb34b: 'Skein512-344',
-  0xb34c: 'Skein512-352',
-  0xb34d: 'Skein512-360',
-  0xb34e: 'Skein512-368',
-  0xb34f: 'Skein512-376',
-  0xb350: 'Skein512-384',
-  0xb351: 'Skein512-392',
-  0xb352: 'Skein512-400',
-  0xb353: 'Skein512-408',
-  0xb354: 'Skein512-416',
-  0xb355: 'Skein512-424',
-  0xb356: 'Skein512-432',
-  0xb357: 'Skein512-440',
-  0xb358: 'Skein512-448',
-  0xb359: 'Skein512-456',
-  0xb35a: 'Skein512-464',
-  0xb35b: 'Skein512-472',
-  0xb35c: 'Skein512-480',
-  0xb35d: 'Skein512-488',
-  0xb35e: 'Skein512-496',
-  0xb35f: 'Skein512-504',
-  0xb360: 'Skein512-512',
-  0xb361: 'Skein1024-8',
-  0xb362: 'Skein1024-16',
-  0xb363: 'Skein1024-24',
-  0xb364: 'Skein1024-32',
-  0xb365: 'Skein1024-40',
-  0xb366: 'Skein1024-48',
-  0xb367: 'Skein1024-56',
-  0xb368: 'Skein1024-64',
-  0xb369: 'Skein1024-72',
-  0xb36a: 'Skein1024-80',
-  0xb36b: 'Skein1024-88',
-  0xb36c: 'Skein1024-96',
-  0xb36d: 'Skein1024-104',
-  0xb36e: 'Skein1024-112',
-  0xb36f: 'Skein1024-120',
-  0xb370: 'Skein1024-128',
-  0xb371: 'Skein1024-136',
-  0xb372: 'Skein1024-144',
-  0xb373: 'Skein1024-152',
-  0xb374: 'Skein1024-160',
-  0xb375: 'Skein1024-168',
-  0xb376: 'Skein1024-176',
-  0xb377: 'Skein1024-184',
-  0xb378: 'Skein1024-192',
-  0xb379: 'Skein1024-200',
-  0xb37a: 'Skein1024-208',
-  0xb37b: 'Skein1024-216',
-  0xb37c: 'Skein1024-224',
-  0xb37d: 'Skein1024-232',
-  0xb37e: 'Skein1024-240',
-  0xb37f: 'Skein1024-248',
-  0xb380: 'Skein1024-256',
-  0xb381: 'Skein1024-264',
-  0xb382: 'Skein1024-272',
-  0xb383: 'Skein1024-280',
-  0xb384: 'Skein1024-288',
-  0xb385: 'Skein1024-296',
-  0xb386: 'Skein1024-304',
-  0xb387: 'Skein1024-312',
-  0xb388: 'Skein1024-320',
-  0xb389: 'Skein1024-328',
-  0xb38a: 'Skein1024-336',
-  0xb38b: 'Skein1024-344',
-  0xb38c: 'Skein1024-352',
-  0xb38d: 'Skein1024-360',
-  0xb38e: 'Skein1024-368',
-  0xb38f: 'Skein1024-376',
-  0xb390: 'Skein1024-384',
-  0xb391: 'Skein1024-392',
-  0xb392: 'Skein1024-400',
-  0xb393: 'Skein1024-408',
-  0xb394: 'Skein1024-416',
-  0xb395: 'Skein1024-424',
-  0xb396: 'Skein1024-432',
-  0xb397: 'Skein1024-440',
-  0xb398: 'Skein1024-448',
-  0xb399: 'Skein1024-456',
-  0xb39a: 'Skein1024-464',
-  0xb39b: 'Skein1024-472',
-  0xb39c: 'Skein1024-480',
-  0xb39d: 'Skein1024-488',
-  0xb39e: 'Skein1024-496',
-  0xb39f: 'Skein1024-504',
-  0xb3a0: 'Skein1024-512',
-  0xb3a1: 'Skein1024-520',
-  0xb3a2: 'Skein1024-528',
-  0xb3a3: 'Skein1024-536',
-  0xb3a4: 'Skein1024-544',
-  0xb3a5: 'Skein1024-552',
-  0xb3a6: 'Skein1024-560',
-  0xb3a7: 'Skein1024-568',
-  0xb3a8: 'Skein1024-576',
-  0xb3a9: 'Skein1024-584',
-  0xb3aa: 'Skein1024-592',
-  0xb3ab: 'Skein1024-600',
-  0xb3ac: 'Skein1024-608',
-  0xb3ad: 'Skein1024-616',
-  0xb3ae: 'Skein1024-624',
-  0xb3af: 'Skein1024-632',
-  0xb3b0: 'Skein1024-640',
-  0xb3b1: 'Skein1024-648',
-  0xb3b2: 'Skein1024-656',
-  0xb3b3: 'Skein1024-664',
-  0xb3b4: 'Skein1024-672',
-  0xb3b5: 'Skein1024-680',
-  0xb3b6: 'Skein1024-688',
-  0xb3b7: 'Skein1024-696',
-  0xb3b8: 'Skein1024-704',
-  0xb3b9: 'Skein1024-712',
-  0xb3ba: 'Skein1024-720',
-  0xb3bb: 'Skein1024-728',
-  0xb3bc: 'Skein1024-736',
-  0xb3bd: 'Skein1024-744',
-  0xb3be: 'Skein1024-752',
-  0xb3bf: 'Skein1024-760',
-  0xb3c0: 'Skein1024-768',
-  0xb3c1: 'Skein1024-776',
-  0xb3c2: 'Skein1024-784',
-  0xb3c3: 'Skein1024-792',
-  0xb3c4: 'Skein1024-800',
-  0xb3c5: 'Skein1024-808',
-  0xb3c6: 'Skein1024-816',
-  0xb3c7: 'Skein1024-824',
-  0xb3c8: 'Skein1024-832',
-  0xb3c9: 'Skein1024-840',
-  0xb3ca: 'Skein1024-848',
-  0xb3cb: 'Skein1024-856',
-  0xb3cc: 'Skein1024-864',
-  0xb3cd: 'Skein1024-872',
-  0xb3ce: 'Skein1024-880',
-  0xb3cf: 'Skein1024-888',
-  0xb3d0: 'Skein1024-896',
-  0xb3d1: 'Skein1024-904',
-  0xb3d2: 'Skein1024-912',
-  0xb3d3: 'Skein1024-920',
-  0xb3d4: 'Skein1024-928',
-  0xb3d5: 'Skein1024-936',
-  0xb3d6: 'Skein1024-944',
-  0xb3d7: 'Skein1024-952',
-  0xb3d8: 'Skein1024-960',
-  0xb3d9: 'Skein1024-968',
-  0xb3da: 'Skein1024-976',
-  0xb3db: 'Skein1024-984',
-  0xb3dc: 'Skein1024-992',
-  0xb3dd: 'Skein1024-1000',
-  0xb3de: 'Skein1024-1008',
-  0xb3df: 'Skein1024-1016',
-  0xb3e0: 'Skein1024-1024'
-})
-
-exports.defaultLengths = Object.freeze({
-  0x11: 20,
-  0x12: 32,
-  0x13: 64,
-  0x56: 32,
-  0x17: 28,
-  0x16: 32,
-  0x15: 48,
-  0x14: 64,
-  0x18: 32,
-  0x19: 64,
-  0x1A: 28,
-  0x1B: 32,
-  0x1C: 48,
-  0x1D: 64,
-  0x22: 32,
-
-  0xb201: 0x01,
-  0xb202: 0x02,
-  0xb203: 0x03,
-  0xb204: 0x04,
-  0xb205: 0x05,
-  0xb206: 0x06,
-  0xb207: 0x07,
-  0xb208: 0x08,
-  0xb209: 0x09,
-  0xb20a: 0x0a,
-  0xb20b: 0x0b,
-  0xb20c: 0x0c,
-  0xb20d: 0x0d,
-  0xb20e: 0x0e,
-  0xb20f: 0x0f,
-  0xb210: 0x10,
-  0xb211: 0x11,
-  0xb212: 0x12,
-  0xb213: 0x13,
-  0xb214: 0x14,
-  0xb215: 0x15,
-  0xb216: 0x16,
-  0xb217: 0x17,
-  0xb218: 0x18,
-  0xb219: 0x19,
-  0xb21a: 0x1a,
-  0xb21b: 0x1b,
-  0xb21c: 0x1c,
-  0xb21d: 0x1d,
-  0xb21e: 0x1e,
-  0xb21f: 0x1f,
-  0xb220: 0x20,
-  0xb221: 0x21,
-  0xb222: 0x22,
-  0xb223: 0x23,
-  0xb224: 0x24,
-  0xb225: 0x25,
-  0xb226: 0x26,
-  0xb227: 0x27,
-  0xb228: 0x28,
-  0xb229: 0x29,
-  0xb22a: 0x2a,
-  0xb22b: 0x2b,
-  0xb22c: 0x2c,
-  0xb22d: 0x2d,
-  0xb22e: 0x2e,
-  0xb22f: 0x2f,
-  0xb230: 0x30,
-  0xb231: 0x31,
-  0xb232: 0x32,
-  0xb233: 0x33,
-  0xb234: 0x34,
-  0xb235: 0x35,
-  0xb236: 0x36,
-  0xb237: 0x37,
-  0xb238: 0x38,
-  0xb239: 0x39,
-  0xb23a: 0x3a,
-  0xb23b: 0x3b,
-  0xb23c: 0x3c,
-  0xb23d: 0x3d,
-  0xb23e: 0x3e,
-  0xb23f: 0x3f,
-  0xb240: 0x40,
-  0xb241: 0x01,
-  0xb242: 0x02,
-  0xb243: 0x03,
-  0xb244: 0x04,
-  0xb245: 0x05,
-  0xb246: 0x06,
-  0xb247: 0x07,
-  0xb248: 0x08,
-  0xb249: 0x09,
-  0xb24a: 0x0a,
-  0xb24b: 0x0b,
-  0xb24c: 0x0c,
-  0xb24d: 0x0d,
-  0xb24e: 0x0e,
-  0xb24f: 0x0f,
-  0xb250: 0x10,
-  0xb251: 0x11,
-  0xb252: 0x12,
-  0xb253: 0x13,
-  0xb254: 0x14,
-  0xb255: 0x15,
-  0xb256: 0x16,
-  0xb257: 0x17,
-  0xb258: 0x18,
-  0xb259: 0x19,
-  0xb25a: 0x1a,
-  0xb25b: 0x1b,
-  0xb25c: 0x1c,
-  0xb25d: 0x1d,
-  0xb25e: 0x1e,
-  0xb25f: 0x1f,
-  0xb260: 0x20,
-  0xb301: 0x01,
-  0xb302: 0x02,
-  0xb303: 0x03,
-  0xb304: 0x04,
-  0xb305: 0x05,
-  0xb306: 0x06,
-  0xb307: 0x07,
-  0xb308: 0x08,
-  0xb309: 0x09,
-  0xb30a: 0x0a,
-  0xb30b: 0x0b,
-  0xb30c: 0x0c,
-  0xb30d: 0x0d,
-  0xb30e: 0x0e,
-  0xb30f: 0x0f,
-  0xb310: 0x10,
-  0xb311: 0x11,
-  0xb312: 0x12,
-  0xb313: 0x13,
-  0xb314: 0x14,
-  0xb315: 0x15,
-  0xb316: 0x16,
-  0xb317: 0x17,
-  0xb318: 0x18,
-  0xb319: 0x19,
-  0xb31a: 0x1a,
-  0xb31b: 0x1b,
-  0xb31c: 0x1c,
-  0xb31d: 0x1d,
-  0xb31e: 0x1e,
-  0xb31f: 0x1f,
-  0xb320: 0x20,
-  0xb321: 0x01,
-  0xb322: 0x02,
-  0xb323: 0x03,
-  0xb324: 0x04,
-  0xb325: 0x05,
-  0xb326: 0x06,
-  0xb327: 0x07,
-  0xb328: 0x08,
-  0xb329: 0x09,
-  0xb32a: 0x0a,
-  0xb32b: 0x0b,
-  0xb32c: 0x0c,
-  0xb32d: 0x0d,
-  0xb32e: 0x0e,
-  0xb32f: 0x0f,
-  0xb330: 0x10,
-  0xb331: 0x11,
-  0xb332: 0x12,
-  0xb333: 0x13,
-  0xb334: 0x14,
-  0xb335: 0x15,
-  0xb336: 0x16,
-  0xb337: 0x17,
-  0xb338: 0x18,
-  0xb339: 0x19,
-  0xb33a: 0x1a,
-  0xb33b: 0x1b,
-  0xb33c: 0x1c,
-  0xb33d: 0x1d,
-  0xb33e: 0x1e,
-  0xb33f: 0x1f,
-  0xb340: 0x20,
-  0xb341: 0x21,
-  0xb342: 0x22,
-  0xb343: 0x23,
-  0xb344: 0x24,
-  0xb345: 0x25,
-  0xb346: 0x26,
-  0xb347: 0x27,
-  0xb348: 0x28,
-  0xb349: 0x29,
-  0xb34a: 0x2a,
-  0xb34b: 0x2b,
-  0xb34c: 0x2c,
-  0xb34d: 0x2d,
-  0xb34e: 0x2e,
-  0xb34f: 0x2f,
-  0xb350: 0x30,
-  0xb351: 0x31,
-  0xb352: 0x32,
-  0xb353: 0x33,
-  0xb354: 0x34,
-  0xb355: 0x35,
-  0xb356: 0x36,
-  0xb357: 0x37,
-  0xb358: 0x38,
-  0xb359: 0x39,
-  0xb35a: 0x3a,
-  0xb35b: 0x3b,
-  0xb35c: 0x3c,
-  0xb35d: 0x3d,
-  0xb35e: 0x3e,
-  0xb35f: 0x3f,
-  0xb360: 0x40,
-  0xb361: 0x01,
-  0xb362: 0x02,
-  0xb363: 0x03,
-  0xb364: 0x04,
-  0xb365: 0x05,
-  0xb366: 0x06,
-  0xb367: 0x07,
-  0xb368: 0x08,
-  0xb369: 0x09,
-  0xb36a: 0x0a,
-  0xb36b: 0x0b,
-  0xb36c: 0x0c,
-  0xb36d: 0x0d,
-  0xb36e: 0x0e,
-  0xb36f: 0x0f,
-  0xb370: 0x10,
-  0xb371: 0x11,
-  0xb372: 0x12,
-  0xb373: 0x13,
-  0xb374: 0x14,
-  0xb375: 0x15,
-  0xb376: 0x16,
-  0xb377: 0x17,
-  0xb378: 0x18,
-  0xb379: 0x19,
-  0xb37a: 0x1a,
-  0xb37b: 0x1b,
-  0xb37c: 0x1c,
-  0xb37d: 0x1d,
-  0xb37e: 0x1e,
-  0xb37f: 0x1f,
-  0xb380: 0x20,
-  0xb381: 0x21,
-  0xb382: 0x22,
-  0xb383: 0x23,
-  0xb384: 0x24,
-  0xb385: 0x25,
-  0xb386: 0x26,
-  0xb387: 0x27,
-  0xb388: 0x28,
-  0xb389: 0x29,
-  0xb38a: 0x2a,
-  0xb38b: 0x2b,
-  0xb38c: 0x2c,
-  0xb38d: 0x2d,
-  0xb38e: 0x2e,
-  0xb38f: 0x2f,
-  0xb390: 0x30,
-  0xb391: 0x31,
-  0xb392: 0x32,
-  0xb393: 0x33,
-  0xb394: 0x34,
-  0xb395: 0x35,
-  0xb396: 0x36,
-  0xb397: 0x37,
-  0xb398: 0x38,
-  0xb399: 0x39,
-  0xb39a: 0x3a,
-  0xb39b: 0x3b,
-  0xb39c: 0x3c,
-  0xb39d: 0x3d,
-  0xb39e: 0x3e,
-  0xb39f: 0x3f,
-  0xb3a0: 0x40,
-  0xb3a1: 0x41,
-  0xb3a2: 0x42,
-  0xb3a3: 0x43,
-  0xb3a4: 0x44,
-  0xb3a5: 0x45,
-  0xb3a6: 0x46,
-  0xb3a7: 0x47,
-  0xb3a8: 0x48,
-  0xb3a9: 0x49,
-  0xb3aa: 0x4a,
-  0xb3ab: 0x4b,
-  0xb3ac: 0x4c,
-  0xb3ad: 0x4d,
-  0xb3ae: 0x4e,
-  0xb3af: 0x4f,
-  0xb3b0: 0x50,
-  0xb3b1: 0x51,
-  0xb3b2: 0x52,
-  0xb3b3: 0x53,
-  0xb3b4: 0x54,
-  0xb3b5: 0x55,
-  0xb3b6: 0x56,
-  0xb3b7: 0x57,
-  0xb3b8: 0x58,
-  0xb3b9: 0x59,
-  0xb3ba: 0x5a,
-  0xb3bb: 0x5b,
-  0xb3bc: 0x5c,
-  0xb3bd: 0x5d,
-  0xb3be: 0x5e,
-  0xb3bf: 0x5f,
-  0xb3c0: 0x60,
-  0xb3c1: 0x61,
-  0xb3c2: 0x62,
-  0xb3c3: 0x63,
-  0xb3c4: 0x64,
-  0xb3c5: 0x65,
-  0xb3c6: 0x66,
-  0xb3c7: 0x67,
-  0xb3c8: 0x68,
-  0xb3c9: 0x69,
-  0xb3ca: 0x6a,
-  0xb3cb: 0x6b,
-  0xb3cc: 0x6c,
-  0xb3cd: 0x6d,
-  0xb3ce: 0x6e,
-  0xb3cf: 0x6f,
-  0xb3d0: 0x70,
-  0xb3d1: 0x71,
-  0xb3d2: 0x72,
-  0xb3d3: 0x73,
-  0xb3d4: 0x74,
-  0xb3d5: 0x75,
-  0xb3d6: 0x76,
-  0xb3d7: 0x77,
-  0xb3d8: 0x78,
-  0xb3d9: 0x79,
-  0xb3da: 0x7a,
-  0xb3db: 0x7b,
-  0xb3dc: 0x7c,
-  0xb3dd: 0x7d,
-  0xb3de: 0x7e,
-  0xb3df: 0x7f,
-  0xb3e0: 0x80
-})
-
-
-/***/ }),
-
-/***/ 960:
-/***/ (function(module) {
-
-"use strict";
-
-
-function decode (input, alphabet) {
-  input = input.replace(new RegExp('=', 'g'), '')
-  const length = input.length
-
-  let bits = 0
-  let value = 0
-
-  let index = 0
-  const output = new Uint8Array((length * 5 / 8) | 0)
-
-  for (let i = 0; i < length; i++) {
-    value = (value << 5) | alphabet.indexOf(input[i])
-    bits += 5
-
-    if (bits >= 8) {
-      output[index++] = (value >>> (bits - 8)) & 255
-      bits -= 8
-    }
-  }
-
-  return output.buffer
-}
-
-function encode (buffer, alphabet) {
-  const length = buffer.byteLength
-  const view = new Uint8Array(buffer)
-  const padding = alphabet.indexOf('=') === alphabet.length - 1
-
-  if (padding) {
-    alphabet = alphabet.substring(0, alphabet.length - 1)
-  }
-
-  let bits = 0
-  let value = 0
-  let output = ''
-
-  for (let i = 0; i < length; i++) {
-    value = (value << 8) | view[i]
-    bits += 8
-
-    while (bits >= 5) {
-      output += alphabet[(value >>> (bits - 5)) & 31]
-      bits -= 5
-    }
-  }
-
-  if (bits > 0) {
-    output += alphabet[(value << (5 - bits)) & 31]
-  }
-
-  if (padding) {
-    while ((output.length % 8) !== 0) {
-      output += '='
-    }
-  }
-
-  return output
-}
-
-module.exports = function base32 (alphabet) {
-  return {
-    encode (input) {
-      if (typeof input === 'string') {
-        return encode(Uint8Array.from(input), alphabet)
-      }
-
-      return encode(input, alphabet)
-    },
-    decode (input) {
-      for (const char of input) {
-        if (alphabet.indexOf(char) < 0) {
-          throw new Error('invalid base32 character')
-        }
-      }
-
-      return decode(input, alphabet)
-    }
-  }
 }
 
 
