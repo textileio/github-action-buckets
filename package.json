@@ -9,7 +9,8 @@
     "format": "prettier --write **/*.ts",
     "format-check": "prettier --check **/*.ts",
     "lint": "eslint src/**/*.ts",
-    "pack": "ncc build -e @textile/threads-crypto",
+    "packx": "ncc build -e @textile/threads-crypto",
+    "pack": "ncc build --no-source-map-register",
     "test": "jest",
     "basic": "npm run build && npm run pack && npm test",
     "all": "npm run build && npm run format && npm run lint && npm run pack && npm test",
@@ -29,7 +30,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/buckets": "^0.4.3",
+    "@textile/buckets": "^0.4.4",
+    "@textile/context": "^0.6.1",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
     "ws": "^7.3.0"

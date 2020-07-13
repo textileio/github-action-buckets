@@ -6,7 +6,15 @@ import path from 'path'
 import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
-import {Buckets} from '@textile/buckets'
+import {
+  BucketsGrpcClient,
+  bucketsList,
+  bucketsLinks,
+  bucketsRemove,
+  bucketsInit,
+  bucketsPushPath
+} from '@textile/buckets/dist/api'
+import {Context} from '@textile/context'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -23,24 +31,23 @@ async function run(): Promise<void> {
       return
     }
 
-    const buckets = await Buckets.withKeyInfo(
-      {
-        key,
-        secret
-      },
-      target
-    )
+    const ctx = await new Context(target)
+    await ctx.withKeyInfo({
+      key,
+      secret
+    })
     const thread: string = core.getInput('thread')
     const name: string = core.getInput('bucket')
-    buckets.context.withThread(thread)
+    ctx.withThread(thread)
 
-    const roots = await buckets.list()
-    const existing = roots.find(bucket => bucket.name === name)
+    const grpc = new BucketsGrpcClient(ctx)
+    const roots = await bucketsList(grpc)
+    const existing = roots.find((bucket: any) => bucket.name === name)
 
     const remove: string = core.getInput('remove') || ''
     if (remove === 'true') {
       if (existing) {
-        await buckets.remove(existing.key)
+        await bucketsRemove(grpc, existing.key)
         core.setOutput('success', 'true')
       } else {
         core.setFailed('Bucket not found')
@@ -53,7 +60,7 @@ async function run(): Promise<void> {
     if (existing) {
       bucketKey = existing.key
     } else {
-      const created = await buckets.init(name)
+      const created = await bucketsInit(grpc, name)
       if (!created.root) {
         core.setFailed('Failed to create bucket')
         return
@@ -83,9 +90,9 @@ async function run(): Promise<void> {
         path: `/${file}`,
         content: buffer
       }
-      raw = await buckets.pushPath(bucketKey, `/${file}`, upload)
+      raw = await bucketsPushPath(grpc, bucketKey, `/${file}`, upload)
     }
-    const links = await buckets.links(bucketKey)
+    const links = await bucketsLinks(grpc, bucketKey)
 
     const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
     core.setOutput('ipfs', ipfs)
