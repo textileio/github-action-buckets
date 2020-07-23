@@ -31,23 +31,28 @@ async function run(): Promise<void> {
       return
     }
 
-    const ctx = await new Context(target)
-    await ctx.withKeyInfo({
+    const keyInfo = {
       key,
       secret
-    })
+    }
     const thread: string = core.getInput('thread')
     const name: string = core.getInput('bucket')
-    ctx.withThread(thread)
 
-    const grpc = new BucketsGrpcClient(ctx)
-    const roots = await bucketsList(grpc)
+    const apiGetter = async () => {
+      const ctx = await new Context(target)
+      await ctx.withKeyInfo(keyInfo)
+      ctx.withThread(thread)
+      const api = new BucketsGrpcClient(ctx)
+      return api
+    }
+
+    const roots = await bucketsList(await apiGetter())
     const existing = roots.find((bucket: any) => bucket.name === name)
 
     const remove: string = core.getInput('remove') || ''
     if (remove === 'true') {
       if (existing) {
-        await bucketsRemove(grpc, existing.key)
+        await bucketsRemove(await apiGetter(), existing.key)
         core.setOutput('success', 'true')
       } else {
         core.setFailed('Bucket not found')
@@ -60,7 +65,7 @@ async function run(): Promise<void> {
     if (existing) {
       bucketKey = existing.key
     } else {
-      const created = await bucketsInit(grpc, name)
+      const created = await bucketsInit(await apiGetter(), name)
       if (!created.root) {
         core.setFailed('Failed to create bucket')
         return
@@ -90,9 +95,14 @@ async function run(): Promise<void> {
         path: `/${file}`,
         content: buffer
       }
-      raw = await bucketsPushPath(grpc, bucketKey, `/${file}`, upload)
+      raw = await bucketsPushPath(
+        await apiGetter(),
+        bucketKey,
+        `/${file}`,
+        upload
+      )
     }
-    const links = await bucketsLinks(grpc, bucketKey)
+    const links = await bucketsLinks(await apiGetter(), bucketKey)
 
     const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
     core.setOutput('ipfs', ipfs)
