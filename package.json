@@ -29,7 +29,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@textile/buckets": "^0.5.1",
+    "@textile/buckets": "^0.6.1",
     "@textile/context": "^0.6.4",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
