@@ -59,7 +59,8 @@ const minimumRequiredDeletes = (tree: Array<string>): Array<string> => {
 async function run(): Promise<void> {
   try {
     const api = core.getInput('api')
-    const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
+    const target =
+      api.trim() != '' ? api.trim() : 'https://webapi.hub.textile.io'
 
     const key: string = core.getInput('key').trim()
     const secret: string = core.getInput('secret').trim()
@@ -141,7 +142,6 @@ async function run(): Promise<void> {
 
     pathTree = minimumRequiredDeletes(pathTree)
     for (const orphan of pathTree) {
-      console.log(orphan)
       await bucketsRemovePath(grpc, bucketKey, orphan)
     }
 
