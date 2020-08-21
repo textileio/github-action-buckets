@@ -490,7 +490,275 @@ function wrappy (fn, cb) {
 /***/ 16:
 /***/ (function(module) {
 
-module.exports = require("tls");
+/*
+* loglevel - https://github.com/pimterry/loglevel
+*
+* Copyright (c) 2013 Tim Perry
+* Licensed under the MIT license.
+*/
+(function (root, definition) {
+    "use strict";
+    if (typeof define === 'function' && define.amd) {
+        define(definition);
+    } else if ( true && module.exports) {
+        module.exports = definition();
+    } else {
+        root.log = definition();
+    }
+}(this, function () {
+    "use strict";
+
+    // Slightly dubious tricks to cut down minimized file size
+    var noop = function() {};
+    var undefinedType = "undefined";
+    var isIE = (typeof window !== undefinedType) && (typeof window.navigator !== undefinedType) && (
+        /Trident\/|MSIE /.test(window.navigator.userAgent)
+    );
+
+    var logMethods = [
+        "trace",
+        "debug",
+        "info",
+        "warn",
+        "error"
+    ];
+
+    // Cross-browser bind equivalent that works at least back to IE6
+    function bindMethod(obj, methodName) {
+        var method = obj[methodName];
+        if (typeof method.bind === 'function') {
+            return method.bind(obj);
+        } else {
+            try {
+                return Function.prototype.bind.call(method, obj);
+            } catch (e) {
+                // Missing bind shim or IE8 + Modernizr, fallback to wrapping
+                return function() {
+                    return Function.prototype.apply.apply(method, [obj, arguments]);
+                };
+            }
+        }
+    }
+
+    // Trace() doesn't print the message in IE, so for that case we need to wrap it
+    function traceForIE() {
+        if (console.log) {
+            if (console.log.apply) {
+                console.log.apply(console, arguments);
+            } else {
+                // In old IE, native console methods themselves don't have apply().
+                Function.prototype.apply.apply(console.log, [console, arguments]);
+            }
+        }
+        if (console.trace) console.trace();
+    }
+
+    // Build the best logging method possible for this env
+    // Wherever possible we want to bind, not wrap, to preserve stack traces
+    function realMethod(methodName) {
+        if (methodName === 'debug') {
+            methodName = 'log';
+        }
+
+        if (typeof console === undefinedType) {
+            return false; // No method possible, for now - fixed later by enableLoggingWhenConsoleArrives
+        } else if (methodName === 'trace' && isIE) {
+            return traceForIE;
+        } else if (console[methodName] !== undefined) {
+            return bindMethod(console, methodName);
+        } else if (console.log !== undefined) {
+            return bindMethod(console, 'log');
+        } else {
+            return noop;
+        }
+    }
+
+    // These private functions always need `this` to be set properly
+
+    function replaceLoggingMethods(level, loggerName) {
+        /*jshint validthis:true */
+        for (var i = 0; i < logMethods.length; i++) {
+            var methodName = logMethods[i];
+            this[methodName] = (i < level) ?
+                noop :
+                this.methodFactory(methodName, level, loggerName);
+        }
+
+        // Define log.log as an alias for log.debug
+        this.log = this.debug;
+    }
+
+    // In old IE versions, the console isn't present until you first open it.
+    // We build realMethod() replacements here that regenerate logging methods
+    function enableLoggingWhenConsoleArrives(methodName, level, loggerName) {
+        return function () {
+            if (typeof console !== undefinedType) {
+                replaceLoggingMethods.call(this, level, loggerName);
+                this[methodName].apply(this, arguments);
+            }
+        };
+    }
+
+    // By default, we use closely bound real methods wherever possible, and
+    // otherwise we wait for a console to appear, and then try again.
+    function defaultMethodFactory(methodName, level, loggerName) {
+        /*jshint validthis:true */
+        return realMethod(methodName) ||
+               enableLoggingWhenConsoleArrives.apply(this, arguments);
+    }
+
+    function Logger(name, defaultLevel, factory) {
+      var self = this;
+      var currentLevel;
+      var storageKey = "loglevel";
+      if (name) {
+        storageKey += ":" + name;
+      }
+
+      function persistLevelIfPossible(levelNum) {
+          var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
+
+          if (typeof window === undefinedType) return;
+
+          // Use localStorage if available
+          try {
+              window.localStorage[storageKey] = levelName;
+              return;
+          } catch (ignore) {}
+
+          // Use session cookie as fallback
+          try {
+              window.document.cookie =
+                encodeURIComponent(storageKey) + "=" + levelName + ";";
+          } catch (ignore) {}
+      }
+
+      function getPersistedLevel() {
+          var storedLevel;
+
+          if (typeof window === undefinedType) return;
+
+          try {
+              storedLevel = window.localStorage[storageKey];
+          } catch (ignore) {}
+
+          // Fallback to cookies if local storage gives us nothing
+          if (typeof storedLevel === undefinedType) {
+              try {
+                  var cookie = window.document.cookie;
+                  var location = cookie.indexOf(
+                      encodeURIComponent(storageKey) + "=");
+                  if (location !== -1) {
+                      storedLevel = /^([^;]+)/.exec(cookie.slice(location))[1];
+                  }
+              } catch (ignore) {}
+          }
+
+          // If the stored level is not valid, treat it as if nothing was stored.
+          if (self.levels[storedLevel] === undefined) {
+              storedLevel = undefined;
+          }
+
+          return storedLevel;
+      }
+
+      /*
+       *
+       * Public logger API - see https://github.com/pimterry/loglevel for details
+       *
+       */
+
+      self.name = name;
+
+      self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
+          "ERROR": 4, "SILENT": 5};
+
+      self.methodFactory = factory || defaultMethodFactory;
+
+      self.getLevel = function () {
+          return currentLevel;
+      };
+
+      self.setLevel = function (level, persist) {
+          if (typeof level === "string" && self.levels[level.toUpperCase()] !== undefined) {
+              level = self.levels[level.toUpperCase()];
+          }
+          if (typeof level === "number" && level >= 0 && level <= self.levels.SILENT) {
+              currentLevel = level;
+              if (persist !== false) {  // defaults to true
+                  persistLevelIfPossible(level);
+              }
+              replaceLoggingMethods.call(self, level, name);
+              if (typeof console === undefinedType && level < self.levels.SILENT) {
+                  return "No console available for logging";
+              }
+          } else {
+              throw "log.setLevel() called with invalid level: " + level;
+          }
+      };
+
+      self.setDefaultLevel = function (level) {
+          if (!getPersistedLevel()) {
+              self.setLevel(level, false);
+          }
+      };
+
+      self.enableAll = function(persist) {
+          self.setLevel(self.levels.TRACE, persist);
+      };
+
+      self.disableAll = function(persist) {
+          self.setLevel(self.levels.SILENT, persist);
+      };
+
+      // Initialize with the right level
+      var initialLevel = getPersistedLevel();
+      if (initialLevel == null) {
+          initialLevel = defaultLevel == null ? "WARN" : defaultLevel;
+      }
+      self.setLevel(initialLevel, false);
+    }
+
+    /*
+     *
+     * Top-level API
+     *
+     */
+
+    var defaultLogger = new Logger();
+
+    var _loggersByName = {};
+    defaultLogger.getLogger = function getLogger(name) {
+        if (typeof name !== "string" || name === "") {
+          throw new TypeError("You must supply a name when creating a logger.");
+        }
+
+        var logger = _loggersByName[name];
+        if (!logger) {
+          logger = _loggersByName[name] = new Logger(
+            name, defaultLogger.getLevel(), defaultLogger.methodFactory);
+        }
+        return logger;
+    };
+
+    // Grab the current global log variable in case of overwrite
+    var _log = (typeof window !== undefinedType) ? window.log : undefined;
+    defaultLogger.noConflict = function() {
+        if (typeof window !== undefinedType &&
+               window.log === defaultLogger) {
+            window.log = _log;
+        }
+
+        return defaultLogger;
+    };
+
+    defaultLogger.getLoggers = function getLoggers() {
+        return _loggersByName;
+    };
+
+    return defaultLogger;
+}));
+
 
 /***/ }),
 
@@ -741,7 +1009,7 @@ const EventEmitter = __webpack_require__(614);
 const https = __webpack_require__(211);
 const http = __webpack_require__(605);
 const net = __webpack_require__(631);
-const tls = __webpack_require__(16);
+const tls = __webpack_require__(818);
 const { randomBytes, createHash } = __webpack_require__(417);
 const { URL } = __webpack_require__(835);
 
@@ -757,7 +1025,7 @@ const {
   NOOP
 } = __webpack_require__(799);
 const { addEventListener, removeEventListener } = __webpack_require__(646);
-const { format, parse } = __webpack_require__(330);
+const { format, parse } = __webpack_require__(288);
 const { toBuffer } = __webpack_require__(349);
 
 const readyStates = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
@@ -10031,281 +10299,6 @@ module.exports = CIDUtil
 
 /***/ }),
 
-/***/ 104:
-/***/ (function(module) {
-
-/*
-* loglevel - https://github.com/pimterry/loglevel
-*
-* Copyright (c) 2013 Tim Perry
-* Licensed under the MIT license.
-*/
-(function (root, definition) {
-    "use strict";
-    if (typeof define === 'function' && define.amd) {
-        define(definition);
-    } else if ( true && module.exports) {
-        module.exports = definition();
-    } else {
-        root.log = definition();
-    }
-}(this, function () {
-    "use strict";
-
-    // Slightly dubious tricks to cut down minimized file size
-    var noop = function() {};
-    var undefinedType = "undefined";
-    var isIE = (typeof window !== undefinedType) && (typeof window.navigator !== undefinedType) && (
-        /Trident\/|MSIE /.test(window.navigator.userAgent)
-    );
-
-    var logMethods = [
-        "trace",
-        "debug",
-        "info",
-        "warn",
-        "error"
-    ];
-
-    // Cross-browser bind equivalent that works at least back to IE6
-    function bindMethod(obj, methodName) {
-        var method = obj[methodName];
-        if (typeof method.bind === 'function') {
-            return method.bind(obj);
-        } else {
-            try {
-                return Function.prototype.bind.call(method, obj);
-            } catch (e) {
-                // Missing bind shim or IE8 + Modernizr, fallback to wrapping
-                return function() {
-                    return Function.prototype.apply.apply(method, [obj, arguments]);
-                };
-            }
-        }
-    }
-
-    // Trace() doesn't print the message in IE, so for that case we need to wrap it
-    function traceForIE() {
-        if (console.log) {
-            if (console.log.apply) {
-                console.log.apply(console, arguments);
-            } else {
-                // In old IE, native console methods themselves don't have apply().
-                Function.prototype.apply.apply(console.log, [console, arguments]);
-            }
-        }
-        if (console.trace) console.trace();
-    }
-
-    // Build the best logging method possible for this env
-    // Wherever possible we want to bind, not wrap, to preserve stack traces
-    function realMethod(methodName) {
-        if (methodName === 'debug') {
-            methodName = 'log';
-        }
-
-        if (typeof console === undefinedType) {
-            return false; // No method possible, for now - fixed later by enableLoggingWhenConsoleArrives
-        } else if (methodName === 'trace' && isIE) {
-            return traceForIE;
-        } else if (console[methodName] !== undefined) {
-            return bindMethod(console, methodName);
-        } else if (console.log !== undefined) {
-            return bindMethod(console, 'log');
-        } else {
-            return noop;
-        }
-    }
-
-    // These private functions always need `this` to be set properly
-
-    function replaceLoggingMethods(level, loggerName) {
-        /*jshint validthis:true */
-        for (var i = 0; i < logMethods.length; i++) {
-            var methodName = logMethods[i];
-            this[methodName] = (i < level) ?
-                noop :
-                this.methodFactory(methodName, level, loggerName);
-        }
-
-        // Define log.log as an alias for log.debug
-        this.log = this.debug;
-    }
-
-    // In old IE versions, the console isn't present until you first open it.
-    // We build realMethod() replacements here that regenerate logging methods
-    function enableLoggingWhenConsoleArrives(methodName, level, loggerName) {
-        return function () {
-            if (typeof console !== undefinedType) {
-                replaceLoggingMethods.call(this, level, loggerName);
-                this[methodName].apply(this, arguments);
-            }
-        };
-    }
-
-    // By default, we use closely bound real methods wherever possible, and
-    // otherwise we wait for a console to appear, and then try again.
-    function defaultMethodFactory(methodName, level, loggerName) {
-        /*jshint validthis:true */
-        return realMethod(methodName) ||
-               enableLoggingWhenConsoleArrives.apply(this, arguments);
-    }
-
-    function Logger(name, defaultLevel, factory) {
-      var self = this;
-      var currentLevel;
-      var storageKey = "loglevel";
-      if (name) {
-        storageKey += ":" + name;
-      }
-
-      function persistLevelIfPossible(levelNum) {
-          var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
-
-          if (typeof window === undefinedType) return;
-
-          // Use localStorage if available
-          try {
-              window.localStorage[storageKey] = levelName;
-              return;
-          } catch (ignore) {}
-
-          // Use session cookie as fallback
-          try {
-              window.document.cookie =
-                encodeURIComponent(storageKey) + "=" + levelName + ";";
-          } catch (ignore) {}
-      }
-
-      function getPersistedLevel() {
-          var storedLevel;
-
-          if (typeof window === undefinedType) return;
-
-          try {
-              storedLevel = window.localStorage[storageKey];
-          } catch (ignore) {}
-
-          // Fallback to cookies if local storage gives us nothing
-          if (typeof storedLevel === undefinedType) {
-              try {
-                  var cookie = window.document.cookie;
-                  var location = cookie.indexOf(
-                      encodeURIComponent(storageKey) + "=");
-                  if (location !== -1) {
-                      storedLevel = /^([^;]+)/.exec(cookie.slice(location))[1];
-                  }
-              } catch (ignore) {}
-          }
-
-          // If the stored level is not valid, treat it as if nothing was stored.
-          if (self.levels[storedLevel] === undefined) {
-              storedLevel = undefined;
-          }
-
-          return storedLevel;
-      }
-
-      /*
-       *
-       * Public logger API - see https://github.com/pimterry/loglevel for details
-       *
-       */
-
-      self.name = name;
-
-      self.levels = { "TRACE": 0, "DEBUG": 1, "INFO": 2, "WARN": 3,
-          "ERROR": 4, "SILENT": 5};
-
-      self.methodFactory = factory || defaultMethodFactory;
-
-      self.getLevel = function () {
-          return currentLevel;
-      };
-
-      self.setLevel = function (level, persist) {
-          if (typeof level === "string" && self.levels[level.toUpperCase()] !== undefined) {
-              level = self.levels[level.toUpperCase()];
-          }
-          if (typeof level === "number" && level >= 0 && level <= self.levels.SILENT) {
-              currentLevel = level;
-              if (persist !== false) {  // defaults to true
-                  persistLevelIfPossible(level);
-              }
-              replaceLoggingMethods.call(self, level, name);
-              if (typeof console === undefinedType && level < self.levels.SILENT) {
-                  return "No console available for logging";
-              }
-          } else {
-              throw "log.setLevel() called with invalid level: " + level;
-          }
-      };
-
-      self.setDefaultLevel = function (level) {
-          if (!getPersistedLevel()) {
-              self.setLevel(level, false);
-          }
-      };
-
-      self.enableAll = function(persist) {
-          self.setLevel(self.levels.TRACE, persist);
-      };
-
-      self.disableAll = function(persist) {
-          self.setLevel(self.levels.SILENT, persist);
-      };
-
-      // Initialize with the right level
-      var initialLevel = getPersistedLevel();
-      if (initialLevel == null) {
-          initialLevel = defaultLevel == null ? "WARN" : defaultLevel;
-      }
-      self.setLevel(initialLevel, false);
-    }
-
-    /*
-     *
-     * Top-level API
-     *
-     */
-
-    var defaultLogger = new Logger();
-
-    var _loggersByName = {};
-    defaultLogger.getLogger = function getLogger(name) {
-        if (typeof name !== "string" || name === "") {
-          throw new TypeError("You must supply a name when creating a logger.");
-        }
-
-        var logger = _loggersByName[name];
-        if (!logger) {
-          logger = _loggersByName[name] = new Logger(
-            name, defaultLogger.getLevel(), defaultLogger.methodFactory);
-        }
-        return logger;
-    };
-
-    // Grab the current global log variable in case of overwrite
-    var _log = (typeof window !== undefinedType) ? window.log : undefined;
-    defaultLogger.noConflict = function() {
-        if (typeof window !== undefinedType &&
-               window.log === defaultLogger) {
-            window.log = _log;
-        }
-
-        return defaultLogger;
-    };
-
-    defaultLogger.getLoggers = function getLoggers() {
-        return _loggersByName;
-    };
-
-    return defaultLogger;
-}));
-
-
-/***/ }),
-
 /***/ 117:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -11501,59 +11494,47 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsInit = exports.BucketsGrpcClient = void 0;
-const loglevel_1 = __importDefault(__webpack_require__(104));
+exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsInit = void 0;
+const loglevel_1 = __importDefault(__webpack_require__(16));
 const buckets_pb_1 = __webpack_require__(97);
 const buckets_pb_service_1 = __webpack_require__(148);
 const cids_1 = __importDefault(__webpack_require__(437));
 const event_iterator_1 = __webpack_require__(266);
 const next_tick_1 = __importDefault(__webpack_require__(126));
 const grpc_web_1 = __webpack_require__(837);
-const context_1 = __webpack_require__(421);
-const grpc_transport_1 = __webpack_require__(647);
 const normalize_1 = __webpack_require__(678);
 const logger = loglevel_1.default.getLogger('buckets-api');
-class BucketsGrpcClient {
-    /**
-     * Creates a new gRPC client instance for accessing the Textile Buckets API.
-     * @param context The context to use for interacting with the APIs. Can be modified later.
-     */
-    constructor(context = new context_1.Context(), debug = false) {
-        this.context = context;
-        this.serviceHost = context.host;
-        this.rpcOptions = {
-            transport: grpc_transport_1.WebsocketTransport(),
-            debug,
-        };
-    }
-    unary(methodDescriptor, req, ctx) {
-        return new Promise((resolve, reject) => {
-            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            grpc_web_1.grpc.unary(methodDescriptor, {
-                request: req,
-                host: this.serviceHost,
-                transport: this.rpcOptions.transport,
-                debug: this.rpcOptions.debug,
-                metadata,
-                onEnd: (res) => {
-                    const { status, statusMessage, message } = res;
-                    if (status === grpc_web_1.grpc.Code.OK) {
-                        if (message) {
-                            resolve(message);
-                        }
-                        else {
-                            resolve();
-                        }
-                    }
-                    else {
-                        reject(new Error(statusMessage));
-                    }
-                },
-            });
-        });
-    }
-}
-exports.BucketsGrpcClient = BucketsGrpcClient;
+const convertRootObject = (root) => {
+    return {
+        key: root.getKey(),
+        name: root.getName(),
+        path: root.getPath(),
+        createdAt: root.getCreatedat(),
+        updatedAt: root.getUpdatedat(),
+        thread: root.getThread(),
+    };
+};
+const convertRootObjectNullable = (root) => {
+    if (!root)
+        return;
+    return convertRootObject(root);
+};
+const convertPathItem = (item) => {
+    const list = item.getItemsList();
+    return {
+        cid: item.getCid(),
+        name: item.getName(),
+        path: item.getPath(),
+        size: item.getSize(),
+        isdir: item.getIsdir(),
+        itemsList: list ? list.map(convertPathItem) : [],
+    };
+};
+const convertPathItemNullable = (item) => {
+    if (!item)
+        return;
+    return convertPathItem(item);
+};
 /**
  * Initializes a new bucket.
  * @public
@@ -11568,6 +11549,8 @@ exports.BucketsGrpcClient = BucketsGrpcClient;
  *     return buckets.init("app-name-files")
  * }
  * ```
+ *
+ * @internal
  */
 function bucketsInit(api, name, isPrivate = false, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11576,13 +11559,21 @@ function bucketsInit(api, name, isPrivate = false, ctx) {
         req.setName(name);
         req.setPrivate(isPrivate);
         const res = yield api.unary(buckets_pb_service_1.API.Init, req, ctx);
-        return res.toObject();
+        const links = res.getLinks();
+        return {
+            seed: res.getSeed_asU8(),
+            seedCid: res.getSeedcid(),
+            root: convertRootObjectNullable(res.getRoot()),
+            links: links ? links.toObject() : undefined,
+        };
     });
 }
 exports.bucketsInit = bucketsInit;
 /**
  * Returns the bucket root CID
  * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
  */
 function bucketsRoot(api, key, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11590,7 +11581,7 @@ function bucketsRoot(api, key, ctx) {
         const req = new buckets_pb_1.RootRequest();
         req.setKey(key);
         const res = yield api.unary(buckets_pb_service_1.API.Root, req, ctx);
-        return res.toObject().root;
+        return convertRootObjectNullable(res.getRoot());
     });
 }
 exports.bucketsRoot = bucketsRoot;
@@ -11612,6 +11603,8 @@ exports.bucketsRoot = bucketsRoot;
  *    return links.ipfs
  * }
  * ```
+ *
+ * @internal
  */
 function bucketsLinks(api, key, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11634,14 +11627,18 @@ exports.bucketsLinks = bucketsLinks;
  *     const roots = await buckets.list();
  *     return roots.find((bucket) => bucket.name ===  "app-name-files")
  * }
- * ````
+ * ```
+ *
+ * @internal
  */
 function bucketsList(api, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('list request');
         const req = new buckets_pb_1.ListRequest();
         const res = yield api.unary(buckets_pb_service_1.API.List, req, ctx);
-        return res.toObject().rootsList;
+        const roots = res.getRootsList();
+        const map = roots ? roots.map((m) => m).map((m) => convertRootObject(m)) : [];
+        return map;
     });
 }
 exports.bucketsList = bucketsList;
@@ -11649,6 +11646,8 @@ exports.bucketsList = bucketsList;
  * Returns information about a bucket path.
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
+ *
+ * @internal
  */
 function bucketsListPath(api, key, path, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11657,13 +11656,18 @@ function bucketsListPath(api, key, path, ctx) {
         req.setKey(key);
         req.setPath(path);
         const res = yield api.unary(buckets_pb_service_1.API.ListPath, req, ctx);
-        return res.toObject();
+        return {
+            item: convertPathItemNullable(res.getItem()),
+            root: convertRootObjectNullable(res.getRoot()),
+        };
     });
 }
 exports.bucketsListPath = bucketsListPath;
 /**
  * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
  * @param path UnixFS path
+ *
+ * @internal
  */
 function bucketsListIpfsPath(api, path, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11671,7 +11675,7 @@ function bucketsListIpfsPath(api, path, ctx) {
         const req = new buckets_pb_1.ListIpfsPathRequest();
         req.setPath(path);
         const res = yield api.unary(buckets_pb_service_1.API.ListIpfsPath, req, ctx);
-        return res.toObject().item;
+        return convertPathItemNullable(res.getItem());
     });
 }
 exports.bucketsListIpfsPath = bucketsListIpfsPath;
@@ -11683,6 +11687,7 @@ exports.bucketsListIpfsPath = bucketsListIpfsPath;
  * @param opts Options to control response stream. Currently only supports a progress function.
  * @remarks
  * This will return the resolved path and the bucket's new root path.
+ * Data must be broken into <4mb chunks. See bufToArray() for help.
  * @example
  * Push a file to the root of a bucket
  * ```tyepscript
@@ -11693,6 +11698,8 @@ exports.bucketsListIpfsPath = bucketsListIpfsPath;
  *    return await buckets.pushPath(bucketKey!, 'index.html', file)
  * }
  * ```
+ *
+ * @internal
  */
 function bucketsPushPath(api, key, path, input, opts, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11781,6 +11788,8 @@ exports.bucketsPushPath = bucketsPushPath;
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
  * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
  */
 function bucketsPullPath(api, key, path, opts, ctx) {
     const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
@@ -11822,6 +11831,8 @@ exports.bucketsPullPath = bucketsPullPath;
  * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
  * @param path A file/object (sub)-path within a bucket.
  * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
  */
 function bucketsPullIpfsPath(api, path, opts, ctx) {
     const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
@@ -11861,6 +11872,8 @@ exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
 /**
  * Removes an entire bucket. Files and directories will be unpinned.
  * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
  */
 function bucketsRemove(api, key, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11877,6 +11890,8 @@ exports.bucketsRemove = bucketsRemove;
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
  * @param root optional to specify a root
+ *
+ * @internal
  */
 function bucketsRemovePath(api, key, path, root, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11893,7 +11908,7 @@ function bucketsRemovePath(api, key, path, root, ctx) {
 exports.bucketsRemovePath = bucketsRemovePath;
 /**
  * archive creates a Filecoin bucket archive via Powergate.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchive(api, key, ctx) {
@@ -11901,14 +11916,14 @@ function bucketsArchive(api, key, ctx) {
         logger.debug('archive request');
         const req = new buckets_pb_1.ArchiveRequest();
         req.setKey(key);
-        const res = yield api.unary(buckets_pb_service_1.API.Archive, req, ctx);
-        return res.toObject();
+        yield api.unary(buckets_pb_service_1.API.Archive, req, ctx);
+        return;
     });
 }
 exports.bucketsArchive = bucketsArchive;
 /**
  * archiveStatus returns the status of a Filecoin bucket archive.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchiveStatus(api, key, ctx) {
@@ -11923,7 +11938,7 @@ function bucketsArchiveStatus(api, key, ctx) {
 exports.bucketsArchiveStatus = bucketsArchiveStatus;
 /**
  * archiveInfo returns info about a Filecoin bucket archive.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchiveInfo(api, key, ctx) {
@@ -11938,7 +11953,7 @@ function bucketsArchiveInfo(api, key, ctx) {
 exports.bucketsArchiveInfo = bucketsArchiveInfo;
 /**
  * archiveWatch watches status events from a Filecoin bucket archive.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchiveWatch(api, key, callback, ctx) {
@@ -12390,7 +12405,7 @@ jspb.Map.deserializeBinary=function(a,b,c,d,e,f,g){for(;b.nextField()&&!b.isEndG
 jspb.Map.Entry_=function(a,b){this.key=a;this.value=b;this.valueWrapper=void 0};jspb.ExtensionFieldInfo=function(a,b,c,d,e){this.fieldIndex=a;this.fieldName=b;this.ctor=c;this.toObjectFn=d;this.isRepeated=e};jspb.ExtensionFieldBinaryInfo=function(a,b,c,d,e,f){this.fieldInfo=a;this.binaryReaderFn=b;this.binaryWriterFn=c;this.binaryMessageSerializeFn=d;this.binaryMessageDeserializeFn=e;this.isPacked=f};jspb.ExtensionFieldInfo.prototype.isMessageType=function(){return!!this.ctor};jspb.Message=function(){};jspb.Message.GENERATE_TO_OBJECT=!0;jspb.Message.GENERATE_FROM_OBJECT=!goog.DISALLOW_TEST_ONLY_CODE;
 jspb.Message.GENERATE_TO_STRING=!0;jspb.Message.ASSUME_LOCAL_ARRAYS=!1;jspb.Message.SERIALIZE_EMPTY_TRAILING_FIELDS=!0;jspb.Message.SUPPORTS_UINT8ARRAY_="function"==typeof Uint8Array;jspb.Message.prototype.getJsPbMessageId=function(){return this.messageId_};jspb.Message.getIndex_=function(a,b){return b+a.arrayIndexOffset_};jspb.Message.hiddenES6Property_=function(){};jspb.Message.getFieldNumber_=function(a,b){return b-a.arrayIndexOffset_};
 jspb.Message.initialize=function(a,b,c,d,e,f){a.wrappers_=null;b||(b=c?[c]:[]);a.messageId_=c?String(c):void 0;a.arrayIndexOffset_=0===c?-1:0;a.array=b;jspb.Message.initPivotAndExtensionObject_(a,d);a.convertedPrimitiveFields_={};jspb.Message.SERIALIZE_EMPTY_TRAILING_FIELDS||(a.repeatedFields=e);if(e)for(b=0;b<e.length;b++)c=e[b],c<a.pivot_?(c=jspb.Message.getIndex_(a,c),a.array[c]=a.array[c]||jspb.Message.EMPTY_LIST_SENTINEL_):(jspb.Message.maybeInitEmptyExtensionObject_(a),a.extensionObject_[c]=
-a.extensionObject_[c]||jspb.Message.EMPTY_LIST_SENTINEL_);if(f&&f.length)for(b=0;b<f.length;b++)jspb.Message.computeOneofCase(a,f[b])};jspb.Message.EMPTY_LIST_SENTINEL_=goog.DEBUG&&Object.freeze?Object.freeze([]):[];jspb.Message.isArray_=function(a){return jspb.Message.ASSUME_LOCAL_ARRAYS?a instanceof Array:goog.isArray(a)};jspb.Message.isExtensionObject_=function(a){return null!==a&&"object"==typeof a&&!jspb.Message.isArray_(a)&&!(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)};
+a.extensionObject_[c]||jspb.Message.EMPTY_LIST_SENTINEL_);if(f&&f.length)for(b=0;b<f.length;b++)jspb.Message.computeOneofCase(a,f[b])};jspb.Message.EMPTY_LIST_SENTINEL_=goog.DEBUG&&Object.freeze?Object.freeze([]):[];jspb.Message.isArray_=function(a){return jspb.Message.ASSUME_LOCAL_ARRAYS?a instanceof Array:Array.isArray(a)};jspb.Message.isExtensionObject_=function(a){return null!==a&&"object"==typeof a&&!jspb.Message.isArray_(a)&&!(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)};
 jspb.Message.initPivotAndExtensionObject_=function(a,b){var c=a.array.length,d=-1;if(c&&(d=c-1,c=a.array[d],jspb.Message.isExtensionObject_(c))){a.pivot_=jspb.Message.getFieldNumber_(a,d);a.extensionObject_=c;return}-1<b?(a.pivot_=Math.max(b,jspb.Message.getFieldNumber_(a,d+1)),a.extensionObject_=null):a.pivot_=Number.MAX_VALUE};jspb.Message.maybeInitEmptyExtensionObject_=function(a){var b=jspb.Message.getIndex_(a,a.pivot_);a.array[b]||(a.extensionObject_=a.array[b]={})};
 jspb.Message.toObjectList=function(a,b,c){for(var d=[],e=0;e<a.length;e++)d[e]=b.call(a[e],c,a[e]);return d};jspb.Message.toObjectExtension=function(a,b,c,d,e){for(var f in c){var g=c[f],h=d.call(a,g);if(null!=h){for(var k in g.fieldName)if(g.fieldName.hasOwnProperty(k))break;b[k]=g.toObjectFn?g.isRepeated?jspb.Message.toObjectList(h,g.toObjectFn,e):g.toObjectFn(e,h):h}}};
 jspb.Message.serializeBinaryExtensions=function(a,b,c,d){for(var e in c){var f=c[e],g=f.fieldInfo;if(!f.binaryWriterFn)throw Error("Message extension present that was generated without binary serialization support");var h=d.call(a,g);if(null!=h)if(g.isMessageType())if(f.binaryMessageSerializeFn)f.binaryWriterFn.call(b,g.fieldIndex,h,f.binaryMessageSerializeFn);else throw Error("Message extension present holding submessage without binary support enabled, and message is being serialized to binary format");
@@ -12411,7 +12426,7 @@ jspb.Message.getRepeatedWrapperField=function(a,b,c){jspb.Message.wrapRepeatedFi
 jspb.Message.setWrapperField=function(a,b,c){goog.asserts.assertInstanceof(a,jspb.Message);a.wrappers_||(a.wrappers_={});var d=c?c.toArray():c;a.wrappers_[b]=c;return jspb.Message.setField(a,b,d)};jspb.Message.setOneofWrapperField=function(a,b,c,d){goog.asserts.assertInstanceof(a,jspb.Message);a.wrappers_||(a.wrappers_={});var e=d?d.toArray():d;a.wrappers_[b]=d;return jspb.Message.setOneofField(a,b,c,e)};
 jspb.Message.setRepeatedWrapperField=function(a,b,c){goog.asserts.assertInstanceof(a,jspb.Message);a.wrappers_||(a.wrappers_={});c=c||[];for(var d=[],e=0;e<c.length;e++)d[e]=c[e].toArray();a.wrappers_[b]=c;return jspb.Message.setField(a,b,d)};
 jspb.Message.addToRepeatedWrapperField=function(a,b,c,d,e){jspb.Message.wrapRepeatedField_(a,d,b);var f=a.wrappers_[b];f||(f=a.wrappers_[b]=[]);c=c?c:new d;a=jspb.Message.getRepeatedField(a,b);void 0!=e?(f.splice(e,0,c),a.splice(e,0,c.toArray())):(f.push(c),a.push(c.toArray()));return c};jspb.Message.toMap=function(a,b,c,d){for(var e={},f=0;f<a.length;f++)e[b.call(a[f])]=c?c.call(a[f],d,a[f]):a[f];return e};
-jspb.Message.prototype.syncMapFields_=function(){if(this.wrappers_)for(var a in this.wrappers_){var b=this.wrappers_[a];if(goog.isArray(b))for(var c=0;c<b.length;c++)b[c]&&b[c].toArray();else b&&b.toArray()}};jspb.Message.prototype.toArray=function(){this.syncMapFields_();return this.array};jspb.Message.GENERATE_TO_STRING&&(jspb.Message.prototype.toString=function(){this.syncMapFields_();return this.array.toString()});
+jspb.Message.prototype.syncMapFields_=function(){if(this.wrappers_)for(var a in this.wrappers_){var b=this.wrappers_[a];if(Array.isArray(b))for(var c=0;c<b.length;c++)b[c]&&b[c].toArray();else b&&b.toArray()}};jspb.Message.prototype.toArray=function(){this.syncMapFields_();return this.array};jspb.Message.GENERATE_TO_STRING&&(jspb.Message.prototype.toString=function(){this.syncMapFields_();return this.array.toString()});
 jspb.Message.prototype.getExtension=function(a){if(this.extensionObject_){this.wrappers_||(this.wrappers_={});var b=a.fieldIndex;if(a.isRepeated){if(a.isMessageType())return this.wrappers_[b]||(this.wrappers_[b]=goog.array.map(this.extensionObject_[b]||[],function(b){return new a.ctor(b)})),this.wrappers_[b]}else if(a.isMessageType())return!this.wrappers_[b]&&this.extensionObject_[b]&&(this.wrappers_[b]=new a.ctor(this.extensionObject_[b])),this.wrappers_[b];return this.extensionObject_[b]}};
 jspb.Message.prototype.setExtension=function(a,b){this.wrappers_||(this.wrappers_={});jspb.Message.maybeInitEmptyExtensionObject_(this);var c=a.fieldIndex;a.isRepeated?(b=b||[],a.isMessageType()?(this.wrappers_[c]=b,this.extensionObject_[c]=goog.array.map(b,function(a){return a.toArray()})):this.extensionObject_[c]=b):a.isMessageType()?(this.wrappers_[c]=b,this.extensionObject_[c]=b?b.toArray():b):this.extensionObject_[c]=b;return this};
 jspb.Message.difference=function(a,b){if(!(a instanceof b.constructor))throw Error("Messages have different types.");var c=a.toArray();b=b.toArray();var d=[],e=0,f=c.length>b.length?c.length:b.length;a.getJsPbMessageId()&&(d[0]=a.getJsPbMessageId(),e=1);for(;e<f;e++)jspb.Message.compareFields(c[e],b[e])||(d[e]=b[e]);return new a.constructor(d)};jspb.Message.equals=function(a,b){return a==b||!(!a||!b)&&a instanceof b.constructor&&jspb.Message.compareFields(a.toArray(),b.toArray())};
@@ -12420,7 +12435,7 @@ jspb.Message.compareFields=function(a,b){if(a==b)return!0;if(!goog.isObject(a)||
 g.constructor==Object&&(goog.asserts.assert(void 0===d),goog.asserts.assert(c===a.length-1),d=g,g=void 0);h&&h.constructor==Object&&(goog.asserts.assert(void 0===e),goog.asserts.assert(c===b.length-1),e=h,h=void 0);if(!jspb.Message.compareFields(g,h))return!1}return d||e?(d=d||{},e=e||{},jspb.Message.compareExtensions(d,e)):!0}if(a.constructor===Object)return jspb.Message.compareExtensions(a,b);throw Error("Invalid type in JSPB array");};jspb.Message.prototype.cloneMessage=function(){return jspb.Message.cloneMessage(this)};
 jspb.Message.prototype.clone=function(){return jspb.Message.cloneMessage(this)};jspb.Message.clone=function(a){return jspb.Message.cloneMessage(a)};jspb.Message.cloneMessage=function(a){return new a.constructor(jspb.Message.clone_(a.toArray()))};
 jspb.Message.copyInto=function(a,b){goog.asserts.assertInstanceof(a,jspb.Message);goog.asserts.assertInstanceof(b,jspb.Message);goog.asserts.assert(a.constructor==b.constructor,"Copy source and target message should have the same type.");a=jspb.Message.clone(a);for(var c=b.toArray(),d=a.toArray(),e=c.length=0;e<d.length;e++)c[e]=d[e];b.wrappers_=a.wrappers_;b.extensionObject_=a.extensionObject_};
-jspb.Message.clone_=function(a){if(goog.isArray(a)){for(var b=Array(a.length),c=0;c<a.length;c++){var d=a[c];null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d)}return b}if(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)return new Uint8Array(a);b={};for(c in a)d=a[c],null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d);return b};jspb.Message.registerMessageType=function(a,b){b.messageId=a};jspb.Message.messageSetExtensions={};
+jspb.Message.clone_=function(a){if(Array.isArray(a)){for(var b=Array(a.length),c=0;c<a.length;c++){var d=a[c];null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d)}return b}if(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)return new Uint8Array(a);b={};for(c in a)d=a[c],null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d);return b};jspb.Message.registerMessageType=function(a,b){b.messageId=a};jspb.Message.messageSetExtensions={};
 jspb.Message.messageSetExtensionsBinary={};jspb.arith={};jspb.arith.UInt64=function(a,b){this.lo=a;this.hi=b};jspb.arith.UInt64.prototype.cmp=function(a){return this.hi<a.hi||this.hi==a.hi&&this.lo<a.lo?-1:this.hi==a.hi&&this.lo==a.lo?0:1};jspb.arith.UInt64.prototype.rightShift=function(){return new jspb.arith.UInt64((this.lo>>>1|(this.hi&1)<<31)>>>0,this.hi>>>1>>>0)};jspb.arith.UInt64.prototype.leftShift=function(){return new jspb.arith.UInt64(this.lo<<1>>>0,(this.hi<<1|this.lo>>>31)>>>0)};
 jspb.arith.UInt64.prototype.msb=function(){return!!(this.hi&2147483648)};jspb.arith.UInt64.prototype.lsb=function(){return!!(this.lo&1)};jspb.arith.UInt64.prototype.zero=function(){return 0==this.lo&&0==this.hi};jspb.arith.UInt64.prototype.add=function(a){return new jspb.arith.UInt64((this.lo+a.lo&4294967295)>>>0>>>0,((this.hi+a.hi&4294967295)>>>0)+(4294967296<=this.lo+a.lo?1:0)>>>0)};
 jspb.arith.UInt64.prototype.sub=function(a){return new jspb.arith.UInt64((this.lo-a.lo&4294967295)>>>0>>>0,((this.hi-a.hi&4294967295)>>>0)-(0>this.lo-a.lo?1:0)>>>0)};jspb.arith.UInt64.mul32x32=function(a,b){var c=a&65535;a>>>=16;var d=b&65535,e=b>>>16;b=c*d+65536*(c*e&65535)+65536*(a*d&65535);for(c=a*e+(c*e>>>16)+(a*d>>>16);4294967296<=b;)b-=4294967296,c+=1;return new jspb.arith.UInt64(b>>>0,c>>>0)};
@@ -12539,131 +12554,49 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// @ts-ignore
-;
-global.WebSocket = __webpack_require__(237);
 const fs_1 = __importDefault(__webpack_require__(747));
 const path_1 = __importDefault(__webpack_require__(622));
 const util_1 = __importDefault(__webpack_require__(669));
 const glob_1 = __importDefault(__webpack_require__(402));
 const core = __importStar(__webpack_require__(470));
 const api_1 = __webpack_require__(177);
+const grpc_connection_1 = __webpack_require__(578);
+const utils_1 = __webpack_require__(981);
 const context_1 = __webpack_require__(421);
-const readFile = util_1.default.promisify(fs_1.default.readFile);
 const globDir = util_1.default.promisify(glob_1.default);
-function chunkBuffer(content) {
-    const size = 1024 * 1024 * 3;
-    const result = [];
-    const len = content.length;
-    let i = 0;
-    while (i < len) {
-        result.push(content.slice(i, (i += size)));
-    }
-    return result;
-}
-class BucketTree {
-    constructor(folders = [], leafs = []) {
-        this.folders = folders;
-        this.leafs = leafs;
-    }
-    removeFolder(folder) {
-        const knownIndex = this.folders.indexOf(folder);
-        if (knownIndex > -1) {
-            this.folders.splice(knownIndex, 1);
-        }
-        return knownIndex;
-    }
-    removeLeaf(path) {
-        const knownIndex = this.leafs.indexOf(path);
-        if (knownIndex > -1) {
-            this.leafs.splice(knownIndex, 1);
-        }
-        return knownIndex;
-    }
-    remove(path) {
-        if (path[0] !== '/')
-            throw new Error('Unsupported path');
-        const knownLeaf = this.removeLeaf(path);
-        if (knownLeaf > -1) {
-            let folder = `${path}`.replace(/\/[^\/]+$/, '');
-            while (folder.length > 0) {
-                // remove last folder
-                this.removeFolder(folder);
-                folder = folder.replace(/\/[^\/]+$/, '');
+const prunePath = (buckName, tree, path) => {
+    tree = tree.filter(row => row != path);
+    const folder = `${path}`.replace(/\/[^\/]+$/, '');
+    if (folder === path)
+        return tree;
+    tree = prunePath(buckName, tree, folder);
+    return tree;
+};
+const minimumRequiredDeletes = (tree) => {
+    let entries = tree.length;
+    let sorted = tree.sort((a, b) => a.length - b.length);
+    for (let i = 0; i < entries; i++) {
+        const entry = sorted[i];
+        if (!entry)
+            continue;
+        let reindex = false;
+        const deletions = [];
+        for (const other of tree) {
+            if (other.startsWith(`${entry}/`) || other === '.textileseed') {
+                deletions.push(other);
+                reindex = true;
             }
         }
+        for (const removal of deletions) {
+            tree = tree.filter(row => row != removal);
+        }
+        if (reindex) {
+            sorted = tree.sort((a, b) => a.length - b.length);
+            entries = tree.length;
+        }
     }
-    getDeletes() {
-        let dirCount = this.folders.length;
-        let sorted = this.folders.sort((a, b) => a.length - b.length);
-        for (let i = 0; i < dirCount; i++) {
-            const folder = sorted[i];
-            if (!folder)
-                continue;
-            const reindex = false;
-            const folderDeletions = [];
-            for (const look of this.folders) {
-                if (look.startsWith(`${folder}/`)) {
-                    folderDeletions.push(look);
-                }
-            }
-            folderDeletions.forEach(drop => this.removeFolder(drop));
-            const fileDeleteions = [];
-            for (const look of this.leafs) {
-                if (look.startsWith(`${folder}/`)) {
-                    fileDeleteions.push(look);
-                }
-            }
-            fileDeleteions.forEach(drop => this.removeLeaf(drop));
-            if (reindex) {
-                sorted = this.folders.sort((a, b) => a.length - b.length);
-                dirCount = this.folders.length;
-            }
-        }
-        return [...this.leafs, ...this.folders];
-    }
-}
-function getNextNode(grpc, bucketKey, path) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const tree = yield api_1.bucketsListPath(grpc, bucketKey, path);
-        const files = [];
-        const dirs = [];
-        if (tree.item) {
-            for (const obj of tree.item.itemsList) {
-                if (obj.name === '.textileseed')
-                    continue;
-                if (obj.isdir) {
-                    dirs.push(`${path}/${obj.name}`);
-                }
-                else {
-                    files.push(`${path}/${obj.name}`);
-                }
-            }
-        }
-        return { files, dirs };
-    });
-}
-function getTree(grpc, bucketKey, path = '/') {
-    return __awaiter(this, void 0, void 0, function* () {
-        const leafs = [];
-        const folders = [];
-        const nodes = [];
-        const { files, dirs } = yield getNextNode(grpc, bucketKey, path);
-        leafs.push(...files);
-        folders.push(...dirs);
-        nodes.push(...dirs);
-        while (nodes.length > 0) {
-            const dir = nodes.pop();
-            if (!dir)
-                continue;
-            const { files, dirs } = yield getNextNode(grpc, bucketKey, dir);
-            leafs.push(...files);
-            folders.push(...dirs);
-            nodes.push(...dirs);
-        }
-        return new BucketTree(folders, leafs);
-    });
-}
+    return tree;
+};
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -12685,7 +12618,7 @@ function run() {
             const ctx = yield new context_1.Context(target);
             yield ctx.withKeyInfo(keyInfo, expire);
             ctx.withThread(thread);
-            const grpc = new api_1.BucketsGrpcClient(ctx);
+            const grpc = new grpc_connection_1.GrpcConnection(ctx);
             const roots = yield api_1.bucketsList(grpc);
             const existing = roots.find((bucket) => bucket.name === name);
             const remove = core.getInput('remove') || '';
@@ -12715,7 +12648,7 @@ function run() {
             const pattern = core.getInput('pattern') || '**/*';
             const dir = core.getInput('path');
             const home = core.getInput('home') || './';
-            const pathTree = yield getTree(grpc, bucketKey, '');
+            let pathTree = yield utils_1.listPathFlat(grpc, bucketKey, '', true, -1);
             const cwd = path_1.default.join(home, dir);
             const options = {
                 cwd,
@@ -12728,17 +12661,19 @@ function run() {
             }
             let raw;
             for (const file of files) {
-                pathTree.remove(`/${file}`);
                 const filePath = `${cwd}/${file}`;
-                const buffer = yield readFile(filePath);
-                const content = chunkBuffer(buffer);
+                pathTree = prunePath(name, pathTree, file);
+                const content = fs_1.default.createReadStream(filePath, {
+                    highWaterMark: 1024 * 1024 * 2
+                });
                 const upload = {
                     path: `/${file}`,
                     content
                 };
                 raw = yield api_1.bucketsPushPath(grpc, bucketKey, `/${file}`, upload);
             }
-            for (const orphan of pathTree.getDeletes()) {
+            pathTree = minimumRequiredDeletes(pathTree);
+            for (const orphan of pathTree) {
                 console.log(orphan);
                 yield api_1.bucketsRemovePath(grpc, bucketKey, orphan);
             }
@@ -13476,6 +13411,237 @@ module.exports = (bitsPerChar) => (alphabet) => {
     }
   }
 }
+
+
+/***/ }),
+
+/***/ 288:
+/***/ (function(module) {
+
+"use strict";
+
+
+//
+// Allowed token characters:
+//
+// '!', '#', '$', '%', '&', ''', '*', '+', '-',
+// '.', 0-9, A-Z, '^', '_', '`', a-z, '|', '~'
+//
+// tokenChars[32] === 0 // ' '
+// tokenChars[33] === 1 // '!'
+// tokenChars[34] === 0 // '"'
+// ...
+//
+// prettier-ignore
+const tokenChars = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0 - 15
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16 - 31
+  0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, // 32 - 47
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, // 48 - 63
+  0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 64 - 79
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, // 80 - 95
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 96 - 111
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0 // 112 - 127
+];
+
+/**
+ * Adds an offer to the map of extension offers or a parameter to the map of
+ * parameters.
+ *
+ * @param {Object} dest The map of extension offers or parameters
+ * @param {String} name The extension or parameter name
+ * @param {(Object|Boolean|String)} elem The extension parameters or the
+ *     parameter value
+ * @private
+ */
+function push(dest, name, elem) {
+  if (dest[name] === undefined) dest[name] = [elem];
+  else dest[name].push(elem);
+}
+
+/**
+ * Parses the `Sec-WebSocket-Extensions` header into an object.
+ *
+ * @param {String} header The field value of the header
+ * @return {Object} The parsed object
+ * @public
+ */
+function parse(header) {
+  const offers = Object.create(null);
+
+  if (header === undefined || header === '') return offers;
+
+  let params = Object.create(null);
+  let mustUnescape = false;
+  let isEscaping = false;
+  let inQuotes = false;
+  let extensionName;
+  let paramName;
+  let start = -1;
+  let end = -1;
+  let i = 0;
+
+  for (; i < header.length; i++) {
+    const code = header.charCodeAt(i);
+
+    if (extensionName === undefined) {
+      if (end === -1 && tokenChars[code] === 1) {
+        if (start === -1) start = i;
+      } else if (code === 0x20 /* ' ' */ || code === 0x09 /* '\t' */) {
+        if (end === -1 && start !== -1) end = i;
+      } else if (code === 0x3b /* ';' */ || code === 0x2c /* ',' */) {
+        if (start === -1) {
+          throw new SyntaxError(`Unexpected character at index ${i}`);
+        }
+
+        if (end === -1) end = i;
+        const name = header.slice(start, end);
+        if (code === 0x2c) {
+          push(offers, name, params);
+          params = Object.create(null);
+        } else {
+          extensionName = name;
+        }
+
+        start = end = -1;
+      } else {
+        throw new SyntaxError(`Unexpected character at index ${i}`);
+      }
+    } else if (paramName === undefined) {
+      if (end === -1 && tokenChars[code] === 1) {
+        if (start === -1) start = i;
+      } else if (code === 0x20 || code === 0x09) {
+        if (end === -1 && start !== -1) end = i;
+      } else if (code === 0x3b || code === 0x2c) {
+        if (start === -1) {
+          throw new SyntaxError(`Unexpected character at index ${i}`);
+        }
+
+        if (end === -1) end = i;
+        push(params, header.slice(start, end), true);
+        if (code === 0x2c) {
+          push(offers, extensionName, params);
+          params = Object.create(null);
+          extensionName = undefined;
+        }
+
+        start = end = -1;
+      } else if (code === 0x3d /* '=' */ && start !== -1 && end === -1) {
+        paramName = header.slice(start, i);
+        start = end = -1;
+      } else {
+        throw new SyntaxError(`Unexpected character at index ${i}`);
+      }
+    } else {
+      //
+      // The value of a quoted-string after unescaping must conform to the
+      // token ABNF, so only token characters are valid.
+      // Ref: https://tools.ietf.org/html/rfc6455#section-9.1
+      //
+      if (isEscaping) {
+        if (tokenChars[code] !== 1) {
+          throw new SyntaxError(`Unexpected character at index ${i}`);
+        }
+        if (start === -1) start = i;
+        else if (!mustUnescape) mustUnescape = true;
+        isEscaping = false;
+      } else if (inQuotes) {
+        if (tokenChars[code] === 1) {
+          if (start === -1) start = i;
+        } else if (code === 0x22 /* '"' */ && start !== -1) {
+          inQuotes = false;
+          end = i;
+        } else if (code === 0x5c /* '\' */) {
+          isEscaping = true;
+        } else {
+          throw new SyntaxError(`Unexpected character at index ${i}`);
+        }
+      } else if (code === 0x22 && header.charCodeAt(i - 1) === 0x3d) {
+        inQuotes = true;
+      } else if (end === -1 && tokenChars[code] === 1) {
+        if (start === -1) start = i;
+      } else if (start !== -1 && (code === 0x20 || code === 0x09)) {
+        if (end === -1) end = i;
+      } else if (code === 0x3b || code === 0x2c) {
+        if (start === -1) {
+          throw new SyntaxError(`Unexpected character at index ${i}`);
+        }
+
+        if (end === -1) end = i;
+        let value = header.slice(start, end);
+        if (mustUnescape) {
+          value = value.replace(/\\/g, '');
+          mustUnescape = false;
+        }
+        push(params, paramName, value);
+        if (code === 0x2c) {
+          push(offers, extensionName, params);
+          params = Object.create(null);
+          extensionName = undefined;
+        }
+
+        paramName = undefined;
+        start = end = -1;
+      } else {
+        throw new SyntaxError(`Unexpected character at index ${i}`);
+      }
+    }
+  }
+
+  if (start === -1 || inQuotes) {
+    throw new SyntaxError('Unexpected end of input');
+  }
+
+  if (end === -1) end = i;
+  const token = header.slice(start, end);
+  if (extensionName === undefined) {
+    push(offers, token, params);
+  } else {
+    if (paramName === undefined) {
+      push(params, token, true);
+    } else if (mustUnescape) {
+      push(params, paramName, token.replace(/\\/g, ''));
+    } else {
+      push(params, paramName, token);
+    }
+    push(offers, extensionName, params);
+  }
+
+  return offers;
+}
+
+/**
+ * Builds the `Sec-WebSocket-Extensions` header field value.
+ *
+ * @param {Object} extensions The map of extensions and parameters to format
+ * @return {String} A string representing the given object
+ * @public
+ */
+function format(extensions) {
+  return Object.keys(extensions)
+    .map((extension) => {
+      let configurations = extensions[extension];
+      if (!Array.isArray(configurations)) configurations = [configurations];
+      return configurations
+        .map((params) => {
+          return [extension]
+            .concat(
+              Object.keys(params).map((k) => {
+                let values = params[k];
+                if (!Array.isArray(values)) values = [values];
+                return values
+                  .map((v) => (v === true ? k : `${k}=${v}`))
+                  .join('; ');
+              })
+            )
+            .join('; ');
+        })
+        .join(', ');
+    })
+    .join(', ');
+}
+
+module.exports = { format, parse };
 
 
 /***/ }),
@@ -14839,230 +15005,35 @@ if (typeof Object.create === 'function') {
 /***/ 330:
 /***/ (function(module) {
 
-"use strict";
+module.exports = read
 
+var MSB = 0x80
+  , REST = 0x7F
 
-//
-// Allowed token characters:
-//
-// '!', '#', '$', '%', '&', ''', '*', '+', '-',
-// '.', 0-9, A-Z, '^', '_', '`', a-z, '|', '~'
-//
-// tokenChars[32] === 0 // ' '
-// tokenChars[33] === 1 // '!'
-// tokenChars[34] === 0 // '"'
-// ...
-//
-// prettier-ignore
-const tokenChars = [
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0 - 15
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16 - 31
-  0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, // 32 - 47
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, // 48 - 63
-  0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 64 - 79
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, // 80 - 95
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 96 - 111
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0 // 112 - 127
-];
+function read(buf, offset) {
+  var res    = 0
+    , offset = offset || 0
+    , shift  = 0
+    , counter = offset
+    , b
+    , l = buf.length
 
-/**
- * Adds an offer to the map of extension offers or a parameter to the map of
- * parameters.
- *
- * @param {Object} dest The map of extension offers or parameters
- * @param {String} name The extension or parameter name
- * @param {(Object|Boolean|String)} elem The extension parameters or the
- *     parameter value
- * @private
- */
-function push(dest, name, elem) {
-  if (dest[name] === undefined) dest[name] = [elem];
-  else dest[name].push(elem);
-}
-
-/**
- * Parses the `Sec-WebSocket-Extensions` header into an object.
- *
- * @param {String} header The field value of the header
- * @return {Object} The parsed object
- * @public
- */
-function parse(header) {
-  const offers = Object.create(null);
-
-  if (header === undefined || header === '') return offers;
-
-  let params = Object.create(null);
-  let mustUnescape = false;
-  let isEscaping = false;
-  let inQuotes = false;
-  let extensionName;
-  let paramName;
-  let start = -1;
-  let end = -1;
-  let i = 0;
-
-  for (; i < header.length; i++) {
-    const code = header.charCodeAt(i);
-
-    if (extensionName === undefined) {
-      if (end === -1 && tokenChars[code] === 1) {
-        if (start === -1) start = i;
-      } else if (code === 0x20 /* ' ' */ || code === 0x09 /* '\t' */) {
-        if (end === -1 && start !== -1) end = i;
-      } else if (code === 0x3b /* ';' */ || code === 0x2c /* ',' */) {
-        if (start === -1) {
-          throw new SyntaxError(`Unexpected character at index ${i}`);
-        }
-
-        if (end === -1) end = i;
-        const name = header.slice(start, end);
-        if (code === 0x2c) {
-          push(offers, name, params);
-          params = Object.create(null);
-        } else {
-          extensionName = name;
-        }
-
-        start = end = -1;
-      } else {
-        throw new SyntaxError(`Unexpected character at index ${i}`);
-      }
-    } else if (paramName === undefined) {
-      if (end === -1 && tokenChars[code] === 1) {
-        if (start === -1) start = i;
-      } else if (code === 0x20 || code === 0x09) {
-        if (end === -1 && start !== -1) end = i;
-      } else if (code === 0x3b || code === 0x2c) {
-        if (start === -1) {
-          throw new SyntaxError(`Unexpected character at index ${i}`);
-        }
-
-        if (end === -1) end = i;
-        push(params, header.slice(start, end), true);
-        if (code === 0x2c) {
-          push(offers, extensionName, params);
-          params = Object.create(null);
-          extensionName = undefined;
-        }
-
-        start = end = -1;
-      } else if (code === 0x3d /* '=' */ && start !== -1 && end === -1) {
-        paramName = header.slice(start, i);
-        start = end = -1;
-      } else {
-        throw new SyntaxError(`Unexpected character at index ${i}`);
-      }
-    } else {
-      //
-      // The value of a quoted-string after unescaping must conform to the
-      // token ABNF, so only token characters are valid.
-      // Ref: https://tools.ietf.org/html/rfc6455#section-9.1
-      //
-      if (isEscaping) {
-        if (tokenChars[code] !== 1) {
-          throw new SyntaxError(`Unexpected character at index ${i}`);
-        }
-        if (start === -1) start = i;
-        else if (!mustUnescape) mustUnescape = true;
-        isEscaping = false;
-      } else if (inQuotes) {
-        if (tokenChars[code] === 1) {
-          if (start === -1) start = i;
-        } else if (code === 0x22 /* '"' */ && start !== -1) {
-          inQuotes = false;
-          end = i;
-        } else if (code === 0x5c /* '\' */) {
-          isEscaping = true;
-        } else {
-          throw new SyntaxError(`Unexpected character at index ${i}`);
-        }
-      } else if (code === 0x22 && header.charCodeAt(i - 1) === 0x3d) {
-        inQuotes = true;
-      } else if (end === -1 && tokenChars[code] === 1) {
-        if (start === -1) start = i;
-      } else if (start !== -1 && (code === 0x20 || code === 0x09)) {
-        if (end === -1) end = i;
-      } else if (code === 0x3b || code === 0x2c) {
-        if (start === -1) {
-          throw new SyntaxError(`Unexpected character at index ${i}`);
-        }
-
-        if (end === -1) end = i;
-        let value = header.slice(start, end);
-        if (mustUnescape) {
-          value = value.replace(/\\/g, '');
-          mustUnescape = false;
-        }
-        push(params, paramName, value);
-        if (code === 0x2c) {
-          push(offers, extensionName, params);
-          params = Object.create(null);
-          extensionName = undefined;
-        }
-
-        paramName = undefined;
-        start = end = -1;
-      } else {
-        throw new SyntaxError(`Unexpected character at index ${i}`);
-      }
+  do {
+    if (counter >= l) {
+      read.bytes = 0
+      throw new RangeError('Could not decode varint')
     }
-  }
+    b = buf[counter++]
+    res += shift < 28
+      ? (b & REST) << shift
+      : (b & REST) * Math.pow(2, shift)
+    shift += 7
+  } while (b >= MSB)
 
-  if (start === -1 || inQuotes) {
-    throw new SyntaxError('Unexpected end of input');
-  }
+  read.bytes = counter - offset
 
-  if (end === -1) end = i;
-  const token = header.slice(start, end);
-  if (extensionName === undefined) {
-    push(offers, token, params);
-  } else {
-    if (paramName === undefined) {
-      push(params, token, true);
-    } else if (mustUnescape) {
-      push(params, paramName, token.replace(/\\/g, ''));
-    } else {
-      push(params, paramName, token);
-    }
-    push(offers, extensionName, params);
-  }
-
-  return offers;
+  return res
 }
-
-/**
- * Builds the `Sec-WebSocket-Extensions` header field value.
- *
- * @param {Object} extensions The map of extensions and parameters to format
- * @return {String} A string representing the given object
- * @public
- */
-function format(extensions) {
-  return Object.keys(extensions)
-    .map((extension) => {
-      let configurations = extensions[extension];
-      if (!Array.isArray(configurations)) configurations = [configurations];
-      return configurations
-        .map((params) => {
-          return [extension]
-            .concat(
-              Object.keys(params).map((k) => {
-                let values = params[k];
-                if (!Array.isArray(values)) values = [values];
-                return values
-                  .map((v) => (v === true ? k : `${k}=${v}`))
-                  .join('; ');
-              })
-            )
-            .join('; ');
-        })
-        .join(', ');
-    })
-    .join(', ');
-}
-
-module.exports = { format, parse };
 
 
 /***/ }),
@@ -16586,7 +16557,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Context = exports.defaultHost = void 0;
 const grpc_web_1 = __webpack_require__(837);
 const security_1 = __webpack_require__(411);
-exports.defaultHost = "https://api.textile.io:3447";
+exports.defaultHost = "https://webapi.hub.textile.io";
 /**
  * Context provides context management for gRPC credentials and config settings.
  * It is the default implementation for the ContextInterface interface.
@@ -17508,7 +17479,7 @@ module.exports.proto = withIsProto;
 
 module.exports = {
     encode: __webpack_require__(549)
-  , decode: __webpack_require__(561)
+  , decode: __webpack_require__(330)
   , encodingLength: __webpack_require__(199)
 }
 
@@ -17703,42 +17674,6 @@ function encode(num, out, offset) {
 
 /***/ }),
 
-/***/ 561:
-/***/ (function(module) {
-
-module.exports = read
-
-var MSB = 0x80
-  , REST = 0x7F
-
-function read(buf, offset) {
-  var res    = 0
-    , offset = offset || 0
-    , shift  = 0
-    , counter = offset
-    , b
-    , l = buf.length
-
-  do {
-    if (counter >= l) {
-      read.bytes = 0
-      throw new RangeError('Could not decode varint')
-    }
-    b = buf[counter++]
-    res += shift < 28
-      ? (b & REST) << shift
-      : (b & REST) * Math.pow(2, shift)
-    shift += 7
-  } while (b >= MSB)
-
-  read.bytes = counter - offset
-
-  return res
-}
-
-
-/***/ }),
-
 /***/ 562:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -17774,6 +17709,66 @@ exports.isValidStatusCode = (code) => {
   );
 };
 
+
+/***/ }),
+
+/***/ 578:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GrpcConnection = void 0;
+const grpc_web_1 = __webpack_require__(837);
+const context_1 = __webpack_require__(421);
+const grpc_transport_1 = __webpack_require__(647);
+class GrpcConnection {
+    /**
+     * Creates a new gRPC client instance for accessing the Textile Buckets API.
+     * @param context The context to use for interacting with the APIs. Can be modified later.
+     */
+    constructor(context = new context_1.Context(), debug = false) {
+        this.context = context;
+        this.serviceHost = context.host;
+        this.rpcOptions = {
+            transport: grpc_transport_1.WebsocketTransport(),
+            debug,
+        };
+    }
+    unary(methodDescriptor, req, ctx) {
+        return new Promise((resolve, reject) => {
+            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            grpc_web_1.grpc.unary(methodDescriptor, {
+                request: req,
+                host: this.serviceHost,
+                transport: this.rpcOptions.transport,
+                debug: this.rpcOptions.debug,
+                metadata,
+                onEnd: (res) => {
+                    const { status, statusMessage, message } = res;
+                    if (status === grpc_web_1.grpc.Code.OK) {
+                        if (message) {
+                            resolve(message);
+                        }
+                        else {
+                            resolve();
+                        }
+                    }
+                    else {
+                        const err = {
+                            message: statusMessage,
+                            code: status,
+                            metadata,
+                        };
+                        reject(err);
+                    }
+                },
+            });
+        });
+    }
+}
+exports.GrpcConnection = GrpcConnection;
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -18161,7 +18156,7 @@ const { createServer, STATUS_CODES } = __webpack_require__(605);
 
 const PerMessageDeflate = __webpack_require__(301);
 const WebSocket = __webpack_require__(21);
-const { format, parse } = __webpack_require__(330);
+const { format, parse } = __webpack_require__(288);
 const { GUID, kWebSocket } = __webpack_require__(799);
 
 const keyRegex = /^[+/0-9A-Za-z]{22}==$/;
@@ -18882,7 +18877,7 @@ exports.WebsocketTransport = void 0;
 // Copyright improbable-eng Apache License 2.0
 // https://github.com/improbable-eng/grpc-web/blob/master/client/grpc-web/src/transports/websocket/websocket.ts
 const isomorphic_ws_1 = __importDefault(__webpack_require__(723));
-const loglevel_1 = __importDefault(__webpack_require__(104));
+const loglevel_1 = __importDefault(__webpack_require__(16));
 const { debug } = loglevel_1.default.getLogger('grpc-transport');
 const isAllowedControlChars = (char) => char === 0x9 || char === 0xa || char === 0xd;
 function isValidHeaderAscii(val) {
@@ -19579,6 +19574,13 @@ module.exports = {
   NOOP: () => {}
 };
 
+
+/***/ }),
+
+/***/ 818:
+/***/ (function(module) {
+
+module.exports = require("tls");
 
 /***/ }),
 
@@ -20557,6 +20559,91 @@ function base (ALPHABET) {
 }
 module.exports = base
 
+
+/***/ }),
+
+/***/ 981:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.listPathFlat = exports.listPathRecursive = exports.bytesToArray = void 0;
+const api_1 = __webpack_require__(177);
+/**
+ * bytesToArray converts a buffer into <4mb chunks for use with grpc API
+ * @param chunk an input Buffer or Uint8Array
+ */
+function bytesToArray(chunk, size = 1024 * 1024 * 3) {
+    const result = [];
+    const len = chunk.length;
+    let i = 0;
+    while (i < len) {
+        result.push(chunk.slice(i, (i += size)));
+    }
+    return result;
+}
+exports.bytesToArray = bytesToArray;
+/**
+ * listPathRecursive returns a nested object of all paths (and info) in a bucket
+ */
+function listPathRecursive(grpc, bucketKey, path, depth, currentDepth = 0) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const rootPath = path === '' || path === '.' || path === '/' ? '' : `${path}/`;
+        const tree = yield api_1.bucketsListPath(grpc, bucketKey, path);
+        if (tree.item && (currentDepth + 1 <= depth || depth === -1)) {
+            for (let i = 0; i < tree.item.itemsList.length; i++) {
+                const obj = tree.item.itemsList[i];
+                if (!obj.isdir)
+                    continue;
+                const dirPath = `${rootPath}${obj.name}`;
+                const { item } = yield listPathRecursive(grpc, bucketKey, dirPath, depth, currentDepth + 1);
+                if (item) {
+                    tree.item.itemsList[i] = item;
+                }
+            }
+        }
+        return tree;
+    });
+}
+exports.listPathRecursive = listPathRecursive;
+function treeToPaths(tree, path, dirs = true, depth = 5, currentDepth = 0) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const result = [];
+        for (const item of tree) {
+            const newPath = path === '' ? `${item.name}` : `${path}/${item.name}`;
+            if (dirs || !item.isdir)
+                result.push(newPath);
+            if (item.isdir && (currentDepth < depth || depth === -1)) {
+                const downtree = yield treeToPaths(item.itemsList, newPath, dirs, depth, currentDepth + 1);
+                result.push(...downtree);
+            }
+        }
+        return result;
+    });
+}
+/**
+ * listPathFlat returns a string array of all paths in a bucket
+ */
+function listPathFlat(grpc, bucketKey, path, dirs, depth) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const tree = yield listPathRecursive(grpc, bucketKey, path, depth);
+        if (!tree.item)
+            return [];
+        return treeToPaths(tree.item.itemsList, path, dirs);
+    });
+}
+exports.listPathFlat = listPathFlat;
+//# sourceMappingURL=utils.js.map
 
 /***/ })
 
