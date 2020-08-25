@@ -7,7 +7,7 @@ import {
   bucketsList,
   bucketsLinks,
   bucketsRemove,
-  bucketsInit,
+  bucketsCreate,
   bucketsPushPath,
   bucketsRemovePath
 } from '@textile/buckets/dist/api'
@@ -61,7 +61,6 @@ async function run(): Promise<void> {
     const api = core.getInput('api')
     const target =
       api.trim() != '' ? api.trim() : 'https://webapi.hub.textile.io'
-
     const key: string = core.getInput('key').trim()
     const secret: string = core.getInput('secret').trim()
     if (!key || key === '' || !secret || secret === '') {
@@ -101,7 +100,7 @@ async function run(): Promise<void> {
     if (existing) {
       bucketKey = existing.key
     } else {
-      const created = await bucketsInit(grpc, name)
+      const created = await bucketsCreate(grpc, name)
       if (!created.root) {
         core.setFailed('Failed to create bucket')
         return
@@ -149,7 +148,7 @@ async function run(): Promise<void> {
 
     const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
     core.setOutput('ipfs', ipfs)
-    core.setOutput('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`)
+    core.setOutput('ipfsUrl', `https://${ipfs}.ipfs.hub.textile.io/`)
 
     const ipnsData = links.ipns.split('/')
     const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : ''
