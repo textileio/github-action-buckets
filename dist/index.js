@@ -229,7 +229,7 @@ class Sender {
   /**
    * Frames and sends a ping message.
    *
-   * @param {*} data The message to send
+   * @param {Buffer} data The message to send
    * @param {Boolean} mask Specifies whether or not to mask `data`
    * @param {Boolean} readOnly Specifies whether `data` can be modified
    * @param {Function} cb Callback
@@ -273,7 +273,7 @@ class Sender {
   /**
    * Frames and sends a pong message.
    *
-   * @param {*} data The message to send
+   * @param {Buffer} data The message to send
    * @param {Boolean} mask Specifies whether or not to mask `data`
    * @param {Boolean} readOnly Specifies whether `data` can be modified
    * @param {Function} cb Callback
@@ -373,6 +373,7 @@ class Sender {
 
     const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
 
+    this._bufferedBytes += data.length;
     this._deflating = true;
     perMessageDeflate.compress(data, options.fin, (_, buf) => {
       if (this._socket.destroyed) {
@@ -391,6 +392,7 @@ class Sender {
         return;
       }
 
+      this._bufferedBytes -= data.length;
       this._deflating = false;
       options.readOnly = false;
       this.sendFrame(Sender.frame(buf, options), cb);
@@ -853,10 +855,7 @@ class WebSocket extends EventEmitter {
   get bufferedAmount() {
     if (!this._socket) return this._bufferedAmount;
 
-    //
-    // `socket.bufferSize` is `undefined` if the socket is closed.
-    //
-    return (this._socket.bufferSize || 0) + this._sender._bufferedBytes;
+    return this._socket._writableState.length + this._sender._bufferedBytes;
   }
 
   /**
@@ -2678,47 +2677,53 @@ var jspb = __webpack_require__(188);
 var goog = jspb;
 var global = Function('return this')();
 
-goog.exportSymbol('proto.buckets.pb.ArchiveInfoReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveInfoReply.Archive', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveInfoReply.Archive.Deal', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveInfoRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveStatusReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveStatusReply.Status', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveStatusRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveWatchReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ArchiveWatchRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.InitReply', null, global);
-goog.exportSymbol('proto.buckets.pb.InitRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.LinksReply', null, global);
-goog.exportSymbol('proto.buckets.pb.LinksRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.ListIpfsPathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ListIpfsPathRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.ListPathItem', null, global);
-goog.exportSymbol('proto.buckets.pb.ListPathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ListPathRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.ListReply', null, global);
-goog.exportSymbol('proto.buckets.pb.ListRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.PullIpfsPathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.PullIpfsPathRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.PullPathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.PullPathRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.PushPathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.PushPathReply.Event', null, global);
-goog.exportSymbol('proto.buckets.pb.PushPathReply.PayloadCase', null, global);
-goog.exportSymbol('proto.buckets.pb.PushPathRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.PushPathRequest.Header', null, global);
-goog.exportSymbol('proto.buckets.pb.PushPathRequest.PayloadCase', null, global);
-goog.exportSymbol('proto.buckets.pb.RemovePathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.RemovePathRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.RemoveReply', null, global);
-goog.exportSymbol('proto.buckets.pb.RemoveRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.Root', null, global);
-goog.exportSymbol('proto.buckets.pb.RootReply', null, global);
-goog.exportSymbol('proto.buckets.pb.RootRequest', null, global);
-goog.exportSymbol('proto.buckets.pb.SetPathReply', null, global);
-goog.exportSymbol('proto.buckets.pb.SetPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoResponse.Archive', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveStatusRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveStatusResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveStatusResponse.Status', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveWatchRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveWatchResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.CreateRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.CreateResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.LinksRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.LinksResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ListIpfsPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ListIpfsPathResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ListPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ListPathResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ListRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ListResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.Metadata', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PathAccessRole', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PathItem', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PullIpfsPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PullIpfsPathResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PullPathAccessRolesRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PullPathAccessRolesResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PullPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PullPathResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathAccessRolesRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathAccessRolesResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathRequest.Header', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathRequest.PayloadCase', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathResponse.Event', null, global);
+goog.exportSymbol('proto.api.buckets.pb.PushPathResponse.PayloadCase', null, global);
+goog.exportSymbol('proto.api.buckets.pb.RemovePathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.RemovePathResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.RemoveRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.RemoveResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.Root', null, global);
+goog.exportSymbol('proto.api.buckets.pb.RootRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.RootResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.SetPathRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.SetPathResponse', null, global);
 /**
  * Generated by JsPbCodeGenerator.
  * @param {Array=} opt_data Optional initial data array, typically from a
@@ -2729,16 +2734,16 @@ goog.exportSymbol('proto.buckets.pb.SetPathRequest', null, global);
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.Root = function(opt_data) {
+proto.api.buckets.pb.Metadata = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.Root, jspb.Message);
+goog.inherits(proto.api.buckets.pb.Metadata, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.Root.displayName = 'proto.buckets.pb.Root';
+  proto.api.buckets.pb.Metadata.displayName = 'proto.api.buckets.pb.Metadata';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2750,16 +2755,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ListRequest = function(opt_data) {
+proto.api.buckets.pb.Root = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ListRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.Root, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ListRequest.displayName = 'proto.buckets.pb.ListRequest';
+  proto.api.buckets.pb.Root.displayName = 'proto.api.buckets.pb.Root';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2771,37 +2776,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ListReply = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.buckets.pb.ListReply.repeatedFields_, null);
-};
-goog.inherits(proto.buckets.pb.ListReply, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.buckets.pb.ListReply.displayName = 'proto.buckets.pb.ListReply';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.buckets.pb.InitRequest = function(opt_data) {
+proto.api.buckets.pb.ListRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.InitRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ListRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.InitRequest.displayName = 'proto.buckets.pb.InitRequest';
+  proto.api.buckets.pb.ListRequest.displayName = 'proto.api.buckets.pb.ListRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2813,16 +2797,37 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.InitReply = function(opt_data) {
+proto.api.buckets.pb.ListResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.api.buckets.pb.ListResponse.repeatedFields_, null);
+};
+goog.inherits(proto.api.buckets.pb.ListResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ListResponse.displayName = 'proto.api.buckets.pb.ListResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.CreateRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.InitReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.CreateRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.InitReply.displayName = 'proto.buckets.pb.InitReply';
+  proto.api.buckets.pb.CreateRequest.displayName = 'proto.api.buckets.pb.CreateRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2834,16 +2839,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.RootRequest = function(opt_data) {
+proto.api.buckets.pb.CreateResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.RootRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.CreateResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.RootRequest.displayName = 'proto.buckets.pb.RootRequest';
+  proto.api.buckets.pb.CreateResponse.displayName = 'proto.api.buckets.pb.CreateResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2855,16 +2860,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.RootReply = function(opt_data) {
+proto.api.buckets.pb.RootRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.RootReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.RootRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.RootReply.displayName = 'proto.buckets.pb.RootReply';
+  proto.api.buckets.pb.RootRequest.displayName = 'proto.api.buckets.pb.RootRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2876,16 +2881,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.LinksRequest = function(opt_data) {
+proto.api.buckets.pb.RootResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.LinksRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.RootResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.LinksRequest.displayName = 'proto.buckets.pb.LinksRequest';
+  proto.api.buckets.pb.RootResponse.displayName = 'proto.api.buckets.pb.RootResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2897,16 +2902,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.LinksReply = function(opt_data) {
+proto.api.buckets.pb.LinksRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.LinksReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.LinksRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.LinksReply.displayName = 'proto.buckets.pb.LinksReply';
+  proto.api.buckets.pb.LinksRequest.displayName = 'proto.api.buckets.pb.LinksRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2918,16 +2923,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ListPathRequest = function(opt_data) {
+proto.api.buckets.pb.LinksResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ListPathRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.LinksResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ListPathRequest.displayName = 'proto.buckets.pb.ListPathRequest';
+  proto.api.buckets.pb.LinksResponse.displayName = 'proto.api.buckets.pb.LinksResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2939,16 +2944,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ListPathReply = function(opt_data) {
+proto.api.buckets.pb.ListPathRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ListPathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ListPathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ListPathReply.displayName = 'proto.buckets.pb.ListPathReply';
+  proto.api.buckets.pb.ListPathRequest.displayName = 'proto.api.buckets.pb.ListPathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -2960,37 +2965,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ListPathItem = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.buckets.pb.ListPathItem.repeatedFields_, null);
-};
-goog.inherits(proto.buckets.pb.ListPathItem, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.buckets.pb.ListPathItem.displayName = 'proto.buckets.pb.ListPathItem';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.buckets.pb.ListIpfsPathRequest = function(opt_data) {
+proto.api.buckets.pb.ListPathResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ListIpfsPathRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ListPathResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ListIpfsPathRequest.displayName = 'proto.buckets.pb.ListIpfsPathRequest';
+  proto.api.buckets.pb.ListPathResponse.displayName = 'proto.api.buckets.pb.ListPathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3002,16 +2986,37 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ListIpfsPathReply = function(opt_data) {
+proto.api.buckets.pb.PathItem = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.api.buckets.pb.PathItem.repeatedFields_, null);
+};
+goog.inherits(proto.api.buckets.pb.PathItem, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.PathItem.displayName = 'proto.api.buckets.pb.PathItem';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ListIpfsPathRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ListIpfsPathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ListIpfsPathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ListIpfsPathReply.displayName = 'proto.buckets.pb.ListIpfsPathReply';
+  proto.api.buckets.pb.ListIpfsPathRequest.displayName = 'proto.api.buckets.pb.ListIpfsPathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3023,37 +3028,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PushPathRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.buckets.pb.PushPathRequest.oneofGroups_);
-};
-goog.inherits(proto.buckets.pb.PushPathRequest, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.buckets.pb.PushPathRequest.displayName = 'proto.buckets.pb.PushPathRequest';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.buckets.pb.PushPathRequest.Header = function(opt_data) {
+proto.api.buckets.pb.ListIpfsPathResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.PushPathRequest.Header, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ListIpfsPathResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PushPathRequest.Header.displayName = 'proto.buckets.pb.PushPathRequest.Header';
+  proto.api.buckets.pb.ListIpfsPathResponse.displayName = 'proto.api.buckets.pb.ListIpfsPathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3065,16 +3049,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PushPathReply = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.buckets.pb.PushPathReply.oneofGroups_);
+proto.api.buckets.pb.PushPathRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.api.buckets.pb.PushPathRequest.oneofGroups_);
 };
-goog.inherits(proto.buckets.pb.PushPathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PushPathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PushPathReply.displayName = 'proto.buckets.pb.PushPathReply';
+  proto.api.buckets.pb.PushPathRequest.displayName = 'proto.api.buckets.pb.PushPathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3086,16 +3070,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PushPathReply.Event = function(opt_data) {
+proto.api.buckets.pb.PushPathRequest.Header = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.PushPathReply.Event, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PushPathRequest.Header, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PushPathReply.Event.displayName = 'proto.buckets.pb.PushPathReply.Event';
+  proto.api.buckets.pb.PushPathRequest.Header.displayName = 'proto.api.buckets.pb.PushPathRequest.Header';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3107,16 +3091,37 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PullPathRequest = function(opt_data) {
+proto.api.buckets.pb.PushPathResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.api.buckets.pb.PushPathResponse.oneofGroups_);
+};
+goog.inherits(proto.api.buckets.pb.PushPathResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.PushPathResponse.displayName = 'proto.api.buckets.pb.PushPathResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.PushPathResponse.Event = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.PullPathRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PushPathResponse.Event, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PullPathRequest.displayName = 'proto.buckets.pb.PullPathRequest';
+  proto.api.buckets.pb.PushPathResponse.Event.displayName = 'proto.api.buckets.pb.PushPathResponse.Event';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3128,16 +3133,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PullPathReply = function(opt_data) {
+proto.api.buckets.pb.PullPathRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.PullPathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PullPathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PullPathReply.displayName = 'proto.buckets.pb.PullPathReply';
+  proto.api.buckets.pb.PullPathRequest.displayName = 'proto.api.buckets.pb.PullPathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3149,16 +3154,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PullIpfsPathRequest = function(opt_data) {
+proto.api.buckets.pb.PullPathResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.PullIpfsPathRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PullPathResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PullIpfsPathRequest.displayName = 'proto.buckets.pb.PullIpfsPathRequest';
+  proto.api.buckets.pb.PullPathResponse.displayName = 'proto.api.buckets.pb.PullPathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3170,16 +3175,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.PullIpfsPathReply = function(opt_data) {
+proto.api.buckets.pb.PullIpfsPathRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.PullIpfsPathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PullIpfsPathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.PullIpfsPathReply.displayName = 'proto.buckets.pb.PullIpfsPathReply';
+  proto.api.buckets.pb.PullIpfsPathRequest.displayName = 'proto.api.buckets.pb.PullIpfsPathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3191,16 +3196,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.SetPathRequest = function(opt_data) {
+proto.api.buckets.pb.PullIpfsPathResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.SetPathRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PullIpfsPathResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.SetPathRequest.displayName = 'proto.buckets.pb.SetPathRequest';
+  proto.api.buckets.pb.PullIpfsPathResponse.displayName = 'proto.api.buckets.pb.PullIpfsPathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3212,16 +3217,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.SetPathReply = function(opt_data) {
+proto.api.buckets.pb.SetPathRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.SetPathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.SetPathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.SetPathReply.displayName = 'proto.buckets.pb.SetPathReply';
+  proto.api.buckets.pb.SetPathRequest.displayName = 'proto.api.buckets.pb.SetPathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3233,16 +3238,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.RemoveRequest = function(opt_data) {
+proto.api.buckets.pb.SetPathResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.RemoveRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.SetPathResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.RemoveRequest.displayName = 'proto.buckets.pb.RemoveRequest';
+  proto.api.buckets.pb.SetPathResponse.displayName = 'proto.api.buckets.pb.SetPathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3254,16 +3259,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.RemoveReply = function(opt_data) {
+proto.api.buckets.pb.RemoveRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.RemoveReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.RemoveRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.RemoveReply.displayName = 'proto.buckets.pb.RemoveReply';
+  proto.api.buckets.pb.RemoveRequest.displayName = 'proto.api.buckets.pb.RemoveRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3275,16 +3280,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.RemovePathRequest = function(opt_data) {
+proto.api.buckets.pb.RemoveResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.RemovePathRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.RemoveResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.RemovePathRequest.displayName = 'proto.buckets.pb.RemovePathRequest';
+  proto.api.buckets.pb.RemoveResponse.displayName = 'proto.api.buckets.pb.RemoveResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3296,16 +3301,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.RemovePathReply = function(opt_data) {
+proto.api.buckets.pb.RemovePathRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.RemovePathReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.RemovePathRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.RemovePathReply.displayName = 'proto.buckets.pb.RemovePathReply';
+  proto.api.buckets.pb.RemovePathRequest.displayName = 'proto.api.buckets.pb.RemovePathRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3317,16 +3322,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveRequest = function(opt_data) {
+proto.api.buckets.pb.RemovePathResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.RemovePathResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveRequest.displayName = 'proto.buckets.pb.ArchiveRequest';
+  proto.api.buckets.pb.RemovePathResponse.displayName = 'proto.api.buckets.pb.RemovePathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3338,16 +3343,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveReply = function(opt_data) {
+proto.api.buckets.pb.PushPathAccessRolesRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PushPathAccessRolesRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveReply.displayName = 'proto.buckets.pb.ArchiveReply';
+  proto.api.buckets.pb.PushPathAccessRolesRequest.displayName = 'proto.api.buckets.pb.PushPathAccessRolesRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3359,16 +3364,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveStatusRequest = function(opt_data) {
+proto.api.buckets.pb.PushPathAccessRolesResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveStatusRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PushPathAccessRolesResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveStatusRequest.displayName = 'proto.buckets.pb.ArchiveStatusRequest';
+  proto.api.buckets.pb.PushPathAccessRolesResponse.displayName = 'proto.api.buckets.pb.PushPathAccessRolesResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3380,16 +3385,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveStatusReply = function(opt_data) {
+proto.api.buckets.pb.PullPathAccessRolesRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveStatusReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PullPathAccessRolesRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveStatusReply.displayName = 'proto.buckets.pb.ArchiveStatusReply';
+  proto.api.buckets.pb.PullPathAccessRolesRequest.displayName = 'proto.api.buckets.pb.PullPathAccessRolesRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3401,16 +3406,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveInfoRequest = function(opt_data) {
+proto.api.buckets.pb.PullPathAccessRolesResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveInfoRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.PullPathAccessRolesResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveInfoRequest.displayName = 'proto.buckets.pb.ArchiveInfoRequest';
+  proto.api.buckets.pb.PullPathAccessRolesResponse.displayName = 'proto.api.buckets.pb.PullPathAccessRolesResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3422,16 +3427,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveInfoReply = function(opt_data) {
+proto.api.buckets.pb.ArchiveRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveInfoReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ArchiveRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveInfoReply.displayName = 'proto.buckets.pb.ArchiveInfoReply';
+  proto.api.buckets.pb.ArchiveRequest.displayName = 'proto.api.buckets.pb.ArchiveRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3443,37 +3448,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveInfoReply.Archive = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.buckets.pb.ArchiveInfoReply.Archive.repeatedFields_, null);
-};
-goog.inherits(proto.buckets.pb.ArchiveInfoReply.Archive, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.buckets.pb.ArchiveInfoReply.Archive.displayName = 'proto.buckets.pb.ArchiveInfoReply.Archive';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal = function(opt_data) {
+proto.api.buckets.pb.ArchiveResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveInfoReply.Archive.Deal, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ArchiveResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveInfoReply.Archive.Deal.displayName = 'proto.buckets.pb.ArchiveInfoReply.Archive.Deal';
+  proto.api.buckets.pb.ArchiveResponse.displayName = 'proto.api.buckets.pb.ArchiveResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3485,16 +3469,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveWatchRequest = function(opt_data) {
+proto.api.buckets.pb.ArchiveStatusRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveWatchRequest, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ArchiveStatusRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveWatchRequest.displayName = 'proto.buckets.pb.ArchiveWatchRequest';
+  proto.api.buckets.pb.ArchiveStatusRequest.displayName = 'proto.api.buckets.pb.ArchiveStatusRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3506,16 +3490,142 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.buckets.pb.ArchiveWatchReply = function(opt_data) {
+proto.api.buckets.pb.ArchiveStatusResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.buckets.pb.ArchiveWatchReply, jspb.Message);
+goog.inherits(proto.api.buckets.pb.ArchiveStatusResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.buckets.pb.ArchiveWatchReply.displayName = 'proto.buckets.pb.ArchiveWatchReply';
+  proto.api.buckets.pb.ArchiveStatusResponse.displayName = 'proto.api.buckets.pb.ArchiveStatusResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveInfoRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveInfoRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveInfoRequest.displayName = 'proto.api.buckets.pb.ArchiveInfoRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveInfoResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveInfoResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveInfoResponse.displayName = 'proto.api.buckets.pb.ArchiveInfoResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveInfoResponse.Archive = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.api.buckets.pb.ArchiveInfoResponse.Archive.repeatedFields_, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveInfoResponse.Archive, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveInfoResponse.Archive.displayName = 'proto.api.buckets.pb.ArchiveInfoResponse.Archive';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.displayName = 'proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveWatchRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveWatchRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveWatchRequest.displayName = 'proto.api.buckets.pb.ArchiveWatchRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveWatchResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveWatchResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveWatchResponse.displayName = 'proto.api.buckets.pb.ArchiveWatchResponse';
 }
 
 
@@ -3533,8 +3643,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.Root.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.Root.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.Metadata.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.Metadata.toObject(opt_includeInstance, this);
 };
 
 
@@ -3543,18 +3653,14 @@ proto.buckets.pb.Root.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.Root} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.Metadata} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.Root.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.Metadata.toObject = function(includeInstance, msg) {
   var f, obj = {
-    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    name: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    path: jspb.Message.getFieldWithDefault(msg, 3, ""),
-    createdat: jspb.Message.getFieldWithDefault(msg, 4, 0),
-    updatedat: jspb.Message.getFieldWithDefault(msg, 5, 0),
-    thread: jspb.Message.getFieldWithDefault(msg, 6, "")
+    rolesMap: (f = msg.getRolesMap()) ? f.toObject(includeInstance, undefined) : [],
+    updatedAt: jspb.Message.getFieldWithDefault(msg, 2, 0)
   };
 
   if (includeInstance) {
@@ -3568,23 +3674,193 @@ proto.buckets.pb.Root.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.Root}
+ * @return {!proto.api.buckets.pb.Metadata}
  */
-proto.buckets.pb.Root.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.Metadata.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.Root;
-  return proto.buckets.pb.Root.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.Metadata;
+  return proto.api.buckets.pb.Metadata.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.Root} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.Metadata} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.Root}
+ * @return {!proto.api.buckets.pb.Metadata}
  */
-proto.buckets.pb.Root.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.Metadata.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = msg.getRolesMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readEnum, null, "", 0);
+         });
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setUpdatedAt(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.Metadata.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.Metadata.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.Metadata} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.Metadata.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getRolesMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeEnum);
+  }
+  f = message.getUpdatedAt();
+  if (f !== 0) {
+    writer.writeInt64(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * map<string, PathAccessRole> roles = 1;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.api.buckets.pb.PathAccessRole>}
+ */
+proto.api.buckets.pb.Metadata.prototype.getRolesMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.api.buckets.pb.PathAccessRole>} */ (
+      jspb.Message.getMapField(this, 1, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.api.buckets.pb.Metadata} returns this
+ */
+proto.api.buckets.pb.Metadata.prototype.clearRolesMap = function() {
+  this.getRolesMap().clear();
+  return this;};
+
+
+/**
+ * optional int64 updated_at = 2;
+ * @return {number}
+ */
+proto.api.buckets.pb.Metadata.prototype.getUpdatedAt = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.Metadata} returns this
+ */
+proto.api.buckets.pb.Metadata.prototype.setUpdatedAt = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.Root.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.Root.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.Root} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.Root.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    name: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    path: jspb.Message.getFieldWithDefault(msg, 3, ""),
+    createdAt: jspb.Message.getFieldWithDefault(msg, 4, 0),
+    updatedAt: jspb.Message.getFieldWithDefault(msg, 5, 0),
+    thread: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    owner: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    version: jspb.Message.getFieldWithDefault(msg, 8, 0),
+    metadata: (f = msg.getMetadata()) && proto.api.buckets.pb.Metadata.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.Root}
+ */
+proto.api.buckets.pb.Root.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.Root;
+  return proto.api.buckets.pb.Root.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.Root} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.Root}
+ */
+proto.api.buckets.pb.Root.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3605,15 +3881,28 @@ proto.buckets.pb.Root.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 4:
       var value = /** @type {number} */ (reader.readInt64());
-      msg.setCreatedat(value);
+      msg.setCreatedAt(value);
       break;
     case 5:
       var value = /** @type {number} */ (reader.readInt64());
-      msg.setUpdatedat(value);
+      msg.setUpdatedAt(value);
       break;
     case 6:
       var value = /** @type {string} */ (reader.readString());
       msg.setThread(value);
+      break;
+    case 7:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setOwner(value);
+      break;
+    case 8:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setVersion(value);
+      break;
+    case 9:
+      var value = new proto.api.buckets.pb.Metadata;
+      reader.readMessage(value,proto.api.buckets.pb.Metadata.deserializeBinaryFromReader);
+      msg.setMetadata(value);
       break;
     default:
       reader.skipField();
@@ -3628,9 +3917,9 @@ proto.buckets.pb.Root.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.Root.prototype.serializeBinary = function() {
+proto.api.buckets.pb.Root.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.Root.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.Root.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3638,11 +3927,11 @@ proto.buckets.pb.Root.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.Root} message
+ * @param {!proto.api.buckets.pb.Root} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.Root.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.Root.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -3665,14 +3954,14 @@ proto.buckets.pb.Root.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getCreatedat();
+  f = message.getCreatedAt();
   if (f !== 0) {
     writer.writeInt64(
       4,
       f
     );
   }
-  f = message.getUpdatedat();
+  f = message.getUpdatedAt();
   if (f !== 0) {
     writer.writeInt64(
       5,
@@ -3686,6 +3975,28 @@ proto.buckets.pb.Root.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
+  f = message.getOwner();
+  if (f.length > 0) {
+    writer.writeString(
+      7,
+      f
+    );
+  }
+  f = message.getVersion();
+  if (f !== 0) {
+    writer.writeInt32(
+      8,
+      f
+    );
+  }
+  f = message.getMetadata();
+  if (f != null) {
+    writer.writeMessage(
+      9,
+      f,
+      proto.api.buckets.pb.Metadata.serializeBinaryToWriter
+    );
+  }
 };
 
 
@@ -3693,16 +4004,16 @@ proto.buckets.pb.Root.serializeBinaryToWriter = function(message, writer) {
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.Root.prototype.getKey = function() {
+proto.api.buckets.pb.Root.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.Root} returns this
+ * @return {!proto.api.buckets.pb.Root} returns this
  */
-proto.buckets.pb.Root.prototype.setKey = function(value) {
+proto.api.buckets.pb.Root.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -3711,16 +4022,16 @@ proto.buckets.pb.Root.prototype.setKey = function(value) {
  * optional string name = 2;
  * @return {string}
  */
-proto.buckets.pb.Root.prototype.getName = function() {
+proto.api.buckets.pb.Root.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.Root} returns this
+ * @return {!proto.api.buckets.pb.Root} returns this
  */
-proto.buckets.pb.Root.prototype.setName = function(value) {
+proto.api.buckets.pb.Root.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -3729,52 +4040,52 @@ proto.buckets.pb.Root.prototype.setName = function(value) {
  * optional string path = 3;
  * @return {string}
  */
-proto.buckets.pb.Root.prototype.getPath = function() {
+proto.api.buckets.pb.Root.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.Root} returns this
+ * @return {!proto.api.buckets.pb.Root} returns this
  */
-proto.buckets.pb.Root.prototype.setPath = function(value) {
+proto.api.buckets.pb.Root.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
 
 /**
- * optional int64 createdAt = 4;
+ * optional int64 created_at = 4;
  * @return {number}
  */
-proto.buckets.pb.Root.prototype.getCreatedat = function() {
+proto.api.buckets.pb.Root.prototype.getCreatedAt = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.buckets.pb.Root} returns this
+ * @return {!proto.api.buckets.pb.Root} returns this
  */
-proto.buckets.pb.Root.prototype.setCreatedat = function(value) {
+proto.api.buckets.pb.Root.prototype.setCreatedAt = function(value) {
   return jspb.Message.setProto3IntField(this, 4, value);
 };
 
 
 /**
- * optional int64 updatedAt = 5;
+ * optional int64 updated_at = 5;
  * @return {number}
  */
-proto.buckets.pb.Root.prototype.getUpdatedat = function() {
+proto.api.buckets.pb.Root.prototype.getUpdatedAt = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 5, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.buckets.pb.Root} returns this
+ * @return {!proto.api.buckets.pb.Root} returns this
  */
-proto.buckets.pb.Root.prototype.setUpdatedat = function(value) {
+proto.api.buckets.pb.Root.prototype.setUpdatedAt = function(value) {
   return jspb.Message.setProto3IntField(this, 5, value);
 };
 
@@ -3783,17 +4094,90 @@ proto.buckets.pb.Root.prototype.setUpdatedat = function(value) {
  * optional string thread = 6;
  * @return {string}
  */
-proto.buckets.pb.Root.prototype.getThread = function() {
+proto.api.buckets.pb.Root.prototype.getThread = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 6, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.Root} returns this
+ * @return {!proto.api.buckets.pb.Root} returns this
  */
-proto.buckets.pb.Root.prototype.setThread = function(value) {
+proto.api.buckets.pb.Root.prototype.setThread = function(value) {
   return jspb.Message.setProto3StringField(this, 6, value);
+};
+
+
+/**
+ * optional string owner = 7;
+ * @return {string}
+ */
+proto.api.buckets.pb.Root.prototype.getOwner = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.Root} returns this
+ */
+proto.api.buckets.pb.Root.prototype.setOwner = function(value) {
+  return jspb.Message.setProto3StringField(this, 7, value);
+};
+
+
+/**
+ * optional int32 version = 8;
+ * @return {number}
+ */
+proto.api.buckets.pb.Root.prototype.getVersion = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 8, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.Root} returns this
+ */
+proto.api.buckets.pb.Root.prototype.setVersion = function(value) {
+  return jspb.Message.setProto3IntField(this, 8, value);
+};
+
+
+/**
+ * optional Metadata metadata = 9;
+ * @return {?proto.api.buckets.pb.Metadata}
+ */
+proto.api.buckets.pb.Root.prototype.getMetadata = function() {
+  return /** @type{?proto.api.buckets.pb.Metadata} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Metadata, 9));
+};
+
+
+/**
+ * @param {?proto.api.buckets.pb.Metadata|undefined} value
+ * @return {!proto.api.buckets.pb.Root} returns this
+*/
+proto.api.buckets.pb.Root.prototype.setMetadata = function(value) {
+  return jspb.Message.setWrapperField(this, 9, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.buckets.pb.Root} returns this
+ */
+proto.api.buckets.pb.Root.prototype.clearMetadata = function() {
+  return this.setMetadata(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.buckets.pb.Root.prototype.hasMetadata = function() {
+  return jspb.Message.getField(this, 9) != null;
 };
 
 
@@ -3813,8 +4197,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ListRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ListRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -3823,11 +4207,11 @@ proto.buckets.pb.ListRequest.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ListRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ListRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -3843,23 +4227,23 @@ proto.buckets.pb.ListRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListRequest}
+ * @return {!proto.api.buckets.pb.ListRequest}
  */
-proto.buckets.pb.ListRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ListRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListRequest;
-  return proto.buckets.pb.ListRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ListRequest;
+  return proto.api.buckets.pb.ListRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ListRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListRequest}
+ * @return {!proto.api.buckets.pb.ListRequest}
  */
-proto.buckets.pb.ListRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ListRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3879,9 +4263,9 @@ proto.buckets.pb.ListRequest.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ListRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ListRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -3889,11 +4273,11 @@ proto.buckets.pb.ListRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListRequest} message
+ * @param {!proto.api.buckets.pb.ListRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ListRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -3904,7 +4288,7 @@ proto.buckets.pb.ListRequest.serializeBinaryToWriter = function(message, writer)
  * @private {!Array<number>}
  * @const
  */
-proto.buckets.pb.ListReply.repeatedFields_ = [1];
+proto.api.buckets.pb.ListResponse.repeatedFields_ = [1];
 
 
 
@@ -3921,8 +4305,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ListResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ListResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -3931,14 +4315,14 @@ proto.buckets.pb.ListReply.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ListResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ListResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     rootsList: jspb.Message.toObjectList(msg.getRootsList(),
-    proto.buckets.pb.Root.toObject, includeInstance)
+    proto.api.buckets.pb.Root.toObject, includeInstance)
   };
 
   if (includeInstance) {
@@ -3952,23 +4336,23 @@ proto.buckets.pb.ListReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListReply}
+ * @return {!proto.api.buckets.pb.ListResponse}
  */
-proto.buckets.pb.ListReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ListResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListReply;
-  return proto.buckets.pb.ListReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ListResponse;
+  return proto.api.buckets.pb.ListResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ListResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListReply}
+ * @return {!proto.api.buckets.pb.ListResponse}
  */
-proto.buckets.pb.ListReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ListResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -3976,8 +4360,8 @@ proto.buckets.pb.ListReply.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.Root;
-      reader.readMessage(value,proto.buckets.pb.Root.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.Root;
+      reader.readMessage(value,proto.api.buckets.pb.Root.deserializeBinaryFromReader);
       msg.addRoots(value);
       break;
     default:
@@ -3993,9 +4377,9 @@ proto.buckets.pb.ListReply.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ListResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ListResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4003,18 +4387,18 @@ proto.buckets.pb.ListReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListReply} message
+ * @param {!proto.api.buckets.pb.ListResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ListResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRootsList();
   if (f.length > 0) {
     writer.writeRepeatedMessage(
       1,
       f,
-      proto.buckets.pb.Root.serializeBinaryToWriter
+      proto.api.buckets.pb.Root.serializeBinaryToWriter
     );
   }
 };
@@ -4022,38 +4406,38 @@ proto.buckets.pb.ListReply.serializeBinaryToWriter = function(message, writer) {
 
 /**
  * repeated Root roots = 1;
- * @return {!Array<!proto.buckets.pb.Root>}
+ * @return {!Array<!proto.api.buckets.pb.Root>}
  */
-proto.buckets.pb.ListReply.prototype.getRootsList = function() {
-  return /** @type{!Array<!proto.buckets.pb.Root>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.buckets.pb.Root, 1));
+proto.api.buckets.pb.ListResponse.prototype.getRootsList = function() {
+  return /** @type{!Array<!proto.api.buckets.pb.Root>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.api.buckets.pb.Root, 1));
 };
 
 
 /**
- * @param {!Array<!proto.buckets.pb.Root>} value
- * @return {!proto.buckets.pb.ListReply} returns this
+ * @param {!Array<!proto.api.buckets.pb.Root>} value
+ * @return {!proto.api.buckets.pb.ListResponse} returns this
 */
-proto.buckets.pb.ListReply.prototype.setRootsList = function(value) {
+proto.api.buckets.pb.ListResponse.prototype.setRootsList = function(value) {
   return jspb.Message.setRepeatedWrapperField(this, 1, value);
 };
 
 
 /**
- * @param {!proto.buckets.pb.Root=} opt_value
+ * @param {!proto.api.buckets.pb.Root=} opt_value
  * @param {number=} opt_index
- * @return {!proto.buckets.pb.Root}
+ * @return {!proto.api.buckets.pb.Root}
  */
-proto.buckets.pb.ListReply.prototype.addRoots = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.buckets.pb.Root, opt_index);
+proto.api.buckets.pb.ListResponse.prototype.addRoots = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.api.buckets.pb.Root, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.buckets.pb.ListReply} returns this
+ * @return {!proto.api.buckets.pb.ListResponse} returns this
  */
-proto.buckets.pb.ListReply.prototype.clearRootsList = function() {
+proto.api.buckets.pb.ListResponse.prototype.clearRootsList = function() {
   return this.setRootsList([]);
 };
 
@@ -4074,8 +4458,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.InitRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.InitRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.CreateRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.CreateRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -4084,14 +4468,14 @@ proto.buckets.pb.InitRequest.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.InitRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.CreateRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.InitRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.CreateRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    bootstrapcid: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    bootstrapCid: jspb.Message.getFieldWithDefault(msg, 2, ""),
     pb_private: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
   };
 
@@ -4106,23 +4490,23 @@ proto.buckets.pb.InitRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.InitRequest}
+ * @return {!proto.api.buckets.pb.CreateRequest}
  */
-proto.buckets.pb.InitRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.CreateRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.InitRequest;
-  return proto.buckets.pb.InitRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.CreateRequest;
+  return proto.api.buckets.pb.CreateRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.InitRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.CreateRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.InitRequest}
+ * @return {!proto.api.buckets.pb.CreateRequest}
  */
-proto.buckets.pb.InitRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.CreateRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4135,7 +4519,7 @@ proto.buckets.pb.InitRequest.deserializeBinaryFromReader = function(msg, reader)
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
-      msg.setBootstrapcid(value);
+      msg.setBootstrapCid(value);
       break;
     case 3:
       var value = /** @type {boolean} */ (reader.readBool());
@@ -4154,9 +4538,9 @@ proto.buckets.pb.InitRequest.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.InitRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.CreateRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.InitRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.CreateRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4164,11 +4548,11 @@ proto.buckets.pb.InitRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.InitRequest} message
+ * @param {!proto.api.buckets.pb.CreateRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.InitRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.CreateRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getName();
   if (f.length > 0) {
@@ -4177,7 +4561,7 @@ proto.buckets.pb.InitRequest.serializeBinaryToWriter = function(message, writer)
       f
     );
   }
-  f = message.getBootstrapcid();
+  f = message.getBootstrapCid();
   if (f.length > 0) {
     writer.writeString(
       2,
@@ -4198,34 +4582,34 @@ proto.buckets.pb.InitRequest.serializeBinaryToWriter = function(message, writer)
  * optional string name = 1;
  * @return {string}
  */
-proto.buckets.pb.InitRequest.prototype.getName = function() {
+proto.api.buckets.pb.CreateRequest.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.InitRequest} returns this
+ * @return {!proto.api.buckets.pb.CreateRequest} returns this
  */
-proto.buckets.pb.InitRequest.prototype.setName = function(value) {
+proto.api.buckets.pb.CreateRequest.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
- * optional string bootstrapCid = 2;
+ * optional string bootstrap_cid = 2;
  * @return {string}
  */
-proto.buckets.pb.InitRequest.prototype.getBootstrapcid = function() {
+proto.api.buckets.pb.CreateRequest.prototype.getBootstrapCid = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.InitRequest} returns this
+ * @return {!proto.api.buckets.pb.CreateRequest} returns this
  */
-proto.buckets.pb.InitRequest.prototype.setBootstrapcid = function(value) {
+proto.api.buckets.pb.CreateRequest.prototype.setBootstrapCid = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -4234,16 +4618,16 @@ proto.buckets.pb.InitRequest.prototype.setBootstrapcid = function(value) {
  * optional bool private = 3;
  * @return {boolean}
  */
-proto.buckets.pb.InitRequest.prototype.getPrivate = function() {
+proto.api.buckets.pb.CreateRequest.prototype.getPrivate = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.buckets.pb.InitRequest} returns this
+ * @return {!proto.api.buckets.pb.CreateRequest} returns this
  */
-proto.buckets.pb.InitRequest.prototype.setPrivate = function(value) {
+proto.api.buckets.pb.CreateRequest.prototype.setPrivate = function(value) {
   return jspb.Message.setProto3BooleanField(this, 3, value);
 };
 
@@ -4264,8 +4648,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.InitReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.InitReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.CreateResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.CreateResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -4274,16 +4658,16 @@ proto.buckets.pb.InitReply.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.InitReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.CreateResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.InitReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.CreateResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    root: (f = msg.getRoot()) && proto.buckets.pb.Root.toObject(includeInstance, f),
-    links: (f = msg.getLinks()) && proto.buckets.pb.LinksReply.toObject(includeInstance, f),
+    root: (f = msg.getRoot()) && proto.api.buckets.pb.Root.toObject(includeInstance, f),
+    links: (f = msg.getLinks()) && proto.api.buckets.pb.LinksResponse.toObject(includeInstance, f),
     seed: msg.getSeed_asB64(),
-    seedcid: jspb.Message.getFieldWithDefault(msg, 4, "")
+    seedCid: jspb.Message.getFieldWithDefault(msg, 4, "")
   };
 
   if (includeInstance) {
@@ -4297,23 +4681,23 @@ proto.buckets.pb.InitReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.InitReply}
+ * @return {!proto.api.buckets.pb.CreateResponse}
  */
-proto.buckets.pb.InitReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.CreateResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.InitReply;
-  return proto.buckets.pb.InitReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.CreateResponse;
+  return proto.api.buckets.pb.CreateResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.InitReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.CreateResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.InitReply}
+ * @return {!proto.api.buckets.pb.CreateResponse}
  */
-proto.buckets.pb.InitReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.CreateResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4321,13 +4705,13 @@ proto.buckets.pb.InitReply.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.Root;
-      reader.readMessage(value,proto.buckets.pb.Root.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.Root;
+      reader.readMessage(value,proto.api.buckets.pb.Root.deserializeBinaryFromReader);
       msg.setRoot(value);
       break;
     case 2:
-      var value = new proto.buckets.pb.LinksReply;
-      reader.readMessage(value,proto.buckets.pb.LinksReply.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.LinksResponse;
+      reader.readMessage(value,proto.api.buckets.pb.LinksResponse.deserializeBinaryFromReader);
       msg.setLinks(value);
       break;
     case 3:
@@ -4336,7 +4720,7 @@ proto.buckets.pb.InitReply.deserializeBinaryFromReader = function(msg, reader) {
       break;
     case 4:
       var value = /** @type {string} */ (reader.readString());
-      msg.setSeedcid(value);
+      msg.setSeedCid(value);
       break;
     default:
       reader.skipField();
@@ -4351,9 +4735,9 @@ proto.buckets.pb.InitReply.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.InitReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.CreateResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.InitReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.CreateResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4361,18 +4745,18 @@ proto.buckets.pb.InitReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.InitReply} message
+ * @param {!proto.api.buckets.pb.CreateResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.InitReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.CreateResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRoot();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.Root.serializeBinaryToWriter
+      proto.api.buckets.pb.Root.serializeBinaryToWriter
     );
   }
   f = message.getLinks();
@@ -4380,7 +4764,7 @@ proto.buckets.pb.InitReply.serializeBinaryToWriter = function(message, writer) {
     writer.writeMessage(
       2,
       f,
-      proto.buckets.pb.LinksReply.serializeBinaryToWriter
+      proto.api.buckets.pb.LinksResponse.serializeBinaryToWriter
     );
   }
   f = message.getSeed_asU8();
@@ -4390,7 +4774,7 @@ proto.buckets.pb.InitReply.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getSeedcid();
+  f = message.getSeedCid();
   if (f.length > 0) {
     writer.writeString(
       4,
@@ -4402,28 +4786,28 @@ proto.buckets.pb.InitReply.serializeBinaryToWriter = function(message, writer) {
 
 /**
  * optional Root root = 1;
- * @return {?proto.buckets.pb.Root}
+ * @return {?proto.api.buckets.pb.Root}
  */
-proto.buckets.pb.InitReply.prototype.getRoot = function() {
-  return /** @type{?proto.buckets.pb.Root} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.Root, 1));
+proto.api.buckets.pb.CreateResponse.prototype.getRoot = function() {
+  return /** @type{?proto.api.buckets.pb.Root} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Root, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.Root|undefined} value
- * @return {!proto.buckets.pb.InitReply} returns this
+ * @param {?proto.api.buckets.pb.Root|undefined} value
+ * @return {!proto.api.buckets.pb.CreateResponse} returns this
 */
-proto.buckets.pb.InitReply.prototype.setRoot = function(value) {
+proto.api.buckets.pb.CreateResponse.prototype.setRoot = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.InitReply} returns this
+ * @return {!proto.api.buckets.pb.CreateResponse} returns this
  */
-proto.buckets.pb.InitReply.prototype.clearRoot = function() {
+proto.api.buckets.pb.CreateResponse.prototype.clearRoot = function() {
   return this.setRoot(undefined);
 };
 
@@ -4432,35 +4816,35 @@ proto.buckets.pb.InitReply.prototype.clearRoot = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.InitReply.prototype.hasRoot = function() {
+proto.api.buckets.pb.CreateResponse.prototype.hasRoot = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
 
 /**
- * optional LinksReply links = 2;
- * @return {?proto.buckets.pb.LinksReply}
+ * optional LinksResponse links = 2;
+ * @return {?proto.api.buckets.pb.LinksResponse}
  */
-proto.buckets.pb.InitReply.prototype.getLinks = function() {
-  return /** @type{?proto.buckets.pb.LinksReply} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.LinksReply, 2));
+proto.api.buckets.pb.CreateResponse.prototype.getLinks = function() {
+  return /** @type{?proto.api.buckets.pb.LinksResponse} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.LinksResponse, 2));
 };
 
 
 /**
- * @param {?proto.buckets.pb.LinksReply|undefined} value
- * @return {!proto.buckets.pb.InitReply} returns this
+ * @param {?proto.api.buckets.pb.LinksResponse|undefined} value
+ * @return {!proto.api.buckets.pb.CreateResponse} returns this
 */
-proto.buckets.pb.InitReply.prototype.setLinks = function(value) {
+proto.api.buckets.pb.CreateResponse.prototype.setLinks = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.InitReply} returns this
+ * @return {!proto.api.buckets.pb.CreateResponse} returns this
  */
-proto.buckets.pb.InitReply.prototype.clearLinks = function() {
+proto.api.buckets.pb.CreateResponse.prototype.clearLinks = function() {
   return this.setLinks(undefined);
 };
 
@@ -4469,7 +4853,7 @@ proto.buckets.pb.InitReply.prototype.clearLinks = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.InitReply.prototype.hasLinks = function() {
+proto.api.buckets.pb.CreateResponse.prototype.hasLinks = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -4478,7 +4862,7 @@ proto.buckets.pb.InitReply.prototype.hasLinks = function() {
  * optional bytes seed = 3;
  * @return {!(string|Uint8Array)}
  */
-proto.buckets.pb.InitReply.prototype.getSeed = function() {
+proto.api.buckets.pb.CreateResponse.prototype.getSeed = function() {
   return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
@@ -4488,7 +4872,7 @@ proto.buckets.pb.InitReply.prototype.getSeed = function() {
  * This is a type-conversion wrapper around `getSeed()`
  * @return {string}
  */
-proto.buckets.pb.InitReply.prototype.getSeed_asB64 = function() {
+proto.api.buckets.pb.CreateResponse.prototype.getSeed_asB64 = function() {
   return /** @type {string} */ (jspb.Message.bytesAsB64(
       this.getSeed()));
 };
@@ -4501,7 +4885,7 @@ proto.buckets.pb.InitReply.prototype.getSeed_asB64 = function() {
  * This is a type-conversion wrapper around `getSeed()`
  * @return {!Uint8Array}
  */
-proto.buckets.pb.InitReply.prototype.getSeed_asU8 = function() {
+proto.api.buckets.pb.CreateResponse.prototype.getSeed_asU8 = function() {
   return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
       this.getSeed()));
 };
@@ -4509,27 +4893,27 @@ proto.buckets.pb.InitReply.prototype.getSeed_asU8 = function() {
 
 /**
  * @param {!(string|Uint8Array)} value
- * @return {!proto.buckets.pb.InitReply} returns this
+ * @return {!proto.api.buckets.pb.CreateResponse} returns this
  */
-proto.buckets.pb.InitReply.prototype.setSeed = function(value) {
+proto.api.buckets.pb.CreateResponse.prototype.setSeed = function(value) {
   return jspb.Message.setProto3BytesField(this, 3, value);
 };
 
 
 /**
- * optional string seedCid = 4;
+ * optional string seed_cid = 4;
  * @return {string}
  */
-proto.buckets.pb.InitReply.prototype.getSeedcid = function() {
+proto.api.buckets.pb.CreateResponse.prototype.getSeedCid = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.InitReply} returns this
+ * @return {!proto.api.buckets.pb.CreateResponse} returns this
  */
-proto.buckets.pb.InitReply.prototype.setSeedcid = function(value) {
+proto.api.buckets.pb.CreateResponse.prototype.setSeedCid = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
 };
 
@@ -4550,8 +4934,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.RootRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.RootRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.RootRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.RootRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -4560,11 +4944,11 @@ proto.buckets.pb.RootRequest.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.RootRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.RootRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RootRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.RootRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -4580,23 +4964,23 @@ proto.buckets.pb.RootRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.RootRequest}
+ * @return {!proto.api.buckets.pb.RootRequest}
  */
-proto.buckets.pb.RootRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.RootRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.RootRequest;
-  return proto.buckets.pb.RootRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.RootRequest;
+  return proto.api.buckets.pb.RootRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.RootRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.RootRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.RootRequest}
+ * @return {!proto.api.buckets.pb.RootRequest}
  */
-proto.buckets.pb.RootRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.RootRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4620,9 +5004,9 @@ proto.buckets.pb.RootRequest.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.RootRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.RootRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.RootRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.RootRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4630,11 +5014,11 @@ proto.buckets.pb.RootRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.RootRequest} message
+ * @param {!proto.api.buckets.pb.RootRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RootRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.RootRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -4650,16 +5034,16 @@ proto.buckets.pb.RootRequest.serializeBinaryToWriter = function(message, writer)
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.RootRequest.prototype.getKey = function() {
+proto.api.buckets.pb.RootRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.RootRequest} returns this
+ * @return {!proto.api.buckets.pb.RootRequest} returns this
  */
-proto.buckets.pb.RootRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.RootRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -4680,8 +5064,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.RootReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.RootReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.RootResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.RootResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -4690,13 +5074,13 @@ proto.buckets.pb.RootReply.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.RootReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.RootResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RootReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.RootResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    root: (f = msg.getRoot()) && proto.buckets.pb.Root.toObject(includeInstance, f)
+    root: (f = msg.getRoot()) && proto.api.buckets.pb.Root.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -4710,23 +5094,23 @@ proto.buckets.pb.RootReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.RootReply}
+ * @return {!proto.api.buckets.pb.RootResponse}
  */
-proto.buckets.pb.RootReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.RootResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.RootReply;
-  return proto.buckets.pb.RootReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.RootResponse;
+  return proto.api.buckets.pb.RootResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.RootReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.RootResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.RootReply}
+ * @return {!proto.api.buckets.pb.RootResponse}
  */
-proto.buckets.pb.RootReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.RootResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4734,8 +5118,8 @@ proto.buckets.pb.RootReply.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.Root;
-      reader.readMessage(value,proto.buckets.pb.Root.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.Root;
+      reader.readMessage(value,proto.api.buckets.pb.Root.deserializeBinaryFromReader);
       msg.setRoot(value);
       break;
     default:
@@ -4751,9 +5135,9 @@ proto.buckets.pb.RootReply.deserializeBinaryFromReader = function(msg, reader) {
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.RootReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.RootResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.RootReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.RootResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4761,18 +5145,18 @@ proto.buckets.pb.RootReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.RootReply} message
+ * @param {!proto.api.buckets.pb.RootResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RootReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.RootResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRoot();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.Root.serializeBinaryToWriter
+      proto.api.buckets.pb.Root.serializeBinaryToWriter
     );
   }
 };
@@ -4780,28 +5164,28 @@ proto.buckets.pb.RootReply.serializeBinaryToWriter = function(message, writer) {
 
 /**
  * optional Root root = 1;
- * @return {?proto.buckets.pb.Root}
+ * @return {?proto.api.buckets.pb.Root}
  */
-proto.buckets.pb.RootReply.prototype.getRoot = function() {
-  return /** @type{?proto.buckets.pb.Root} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.Root, 1));
+proto.api.buckets.pb.RootResponse.prototype.getRoot = function() {
+  return /** @type{?proto.api.buckets.pb.Root} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Root, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.Root|undefined} value
- * @return {!proto.buckets.pb.RootReply} returns this
+ * @param {?proto.api.buckets.pb.Root|undefined} value
+ * @return {!proto.api.buckets.pb.RootResponse} returns this
 */
-proto.buckets.pb.RootReply.prototype.setRoot = function(value) {
+proto.api.buckets.pb.RootResponse.prototype.setRoot = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.RootReply} returns this
+ * @return {!proto.api.buckets.pb.RootResponse} returns this
  */
-proto.buckets.pb.RootReply.prototype.clearRoot = function() {
+proto.api.buckets.pb.RootResponse.prototype.clearRoot = function() {
   return this.setRoot(undefined);
 };
 
@@ -4810,7 +5194,7 @@ proto.buckets.pb.RootReply.prototype.clearRoot = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.RootReply.prototype.hasRoot = function() {
+proto.api.buckets.pb.RootResponse.prototype.hasRoot = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -4831,8 +5215,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.LinksRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.LinksRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.LinksRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.LinksRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -4841,11 +5225,11 @@ proto.buckets.pb.LinksRequest.prototype.toObject = function(opt_includeInstance)
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.LinksRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.LinksRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.LinksRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.LinksRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -4861,23 +5245,23 @@ proto.buckets.pb.LinksRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.LinksRequest}
+ * @return {!proto.api.buckets.pb.LinksRequest}
  */
-proto.buckets.pb.LinksRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.LinksRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.LinksRequest;
-  return proto.buckets.pb.LinksRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.LinksRequest;
+  return proto.api.buckets.pb.LinksRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.LinksRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.LinksRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.LinksRequest}
+ * @return {!proto.api.buckets.pb.LinksRequest}
  */
-proto.buckets.pb.LinksRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.LinksRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4901,9 +5285,9 @@ proto.buckets.pb.LinksRequest.deserializeBinaryFromReader = function(msg, reader
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.LinksRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.LinksRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.LinksRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.LinksRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -4911,11 +5295,11 @@ proto.buckets.pb.LinksRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.LinksRequest} message
+ * @param {!proto.api.buckets.pb.LinksRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.LinksRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.LinksRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -4931,16 +5315,16 @@ proto.buckets.pb.LinksRequest.serializeBinaryToWriter = function(message, writer
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.LinksRequest.prototype.getKey = function() {
+proto.api.buckets.pb.LinksRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.LinksRequest} returns this
+ * @return {!proto.api.buckets.pb.LinksRequest} returns this
  */
-proto.buckets.pb.LinksRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.LinksRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -4961,8 +5345,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.LinksReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.LinksReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.LinksResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.LinksResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -4971,11 +5355,11 @@ proto.buckets.pb.LinksReply.prototype.toObject = function(opt_includeInstance) {
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.LinksReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.LinksResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.LinksReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.LinksResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     url: jspb.Message.getFieldWithDefault(msg, 1, ""),
     www: jspb.Message.getFieldWithDefault(msg, 2, ""),
@@ -4993,23 +5377,23 @@ proto.buckets.pb.LinksReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.LinksReply}
+ * @return {!proto.api.buckets.pb.LinksResponse}
  */
-proto.buckets.pb.LinksReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.LinksResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.LinksReply;
-  return proto.buckets.pb.LinksReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.LinksResponse;
+  return proto.api.buckets.pb.LinksResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.LinksReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.LinksResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.LinksReply}
+ * @return {!proto.api.buckets.pb.LinksResponse}
  */
-proto.buckets.pb.LinksReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.LinksResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5041,9 +5425,9 @@ proto.buckets.pb.LinksReply.deserializeBinaryFromReader = function(msg, reader) 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.LinksReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.LinksResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.LinksReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.LinksResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5051,11 +5435,11 @@ proto.buckets.pb.LinksReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.LinksReply} message
+ * @param {!proto.api.buckets.pb.LinksResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.LinksReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.LinksResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getUrl();
   if (f.length > 0) {
@@ -5082,55 +5466,55 @@ proto.buckets.pb.LinksReply.serializeBinaryToWriter = function(message, writer) 
 
 
 /**
- * optional string URL = 1;
+ * optional string url = 1;
  * @return {string}
  */
-proto.buckets.pb.LinksReply.prototype.getUrl = function() {
+proto.api.buckets.pb.LinksResponse.prototype.getUrl = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.LinksReply} returns this
+ * @return {!proto.api.buckets.pb.LinksResponse} returns this
  */
-proto.buckets.pb.LinksReply.prototype.setUrl = function(value) {
+proto.api.buckets.pb.LinksResponse.prototype.setUrl = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
- * optional string WWW = 2;
+ * optional string www = 2;
  * @return {string}
  */
-proto.buckets.pb.LinksReply.prototype.getWww = function() {
+proto.api.buckets.pb.LinksResponse.prototype.getWww = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.LinksReply} returns this
+ * @return {!proto.api.buckets.pb.LinksResponse} returns this
  */
-proto.buckets.pb.LinksReply.prototype.setWww = function(value) {
+proto.api.buckets.pb.LinksResponse.prototype.setWww = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
 
 /**
- * optional string IPNS = 3;
+ * optional string ipns = 3;
  * @return {string}
  */
-proto.buckets.pb.LinksReply.prototype.getIpns = function() {
+proto.api.buckets.pb.LinksResponse.prototype.getIpns = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.LinksReply} returns this
+ * @return {!proto.api.buckets.pb.LinksResponse} returns this
  */
-proto.buckets.pb.LinksReply.prototype.setIpns = function(value) {
+proto.api.buckets.pb.LinksResponse.prototype.setIpns = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -5151,8 +5535,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListPathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListPathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ListPathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ListPathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -5161,11 +5545,11 @@ proto.buckets.pb.ListPathRequest.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListPathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ListPathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListPathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ListPathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
     path: jspb.Message.getFieldWithDefault(msg, 2, "")
@@ -5182,23 +5566,23 @@ proto.buckets.pb.ListPathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListPathRequest}
+ * @return {!proto.api.buckets.pb.ListPathRequest}
  */
-proto.buckets.pb.ListPathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ListPathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListPathRequest;
-  return proto.buckets.pb.ListPathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ListPathRequest;
+  return proto.api.buckets.pb.ListPathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListPathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ListPathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListPathRequest}
+ * @return {!proto.api.buckets.pb.ListPathRequest}
  */
-proto.buckets.pb.ListPathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ListPathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5226,9 +5610,9 @@ proto.buckets.pb.ListPathRequest.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListPathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ListPathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListPathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ListPathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5236,11 +5620,11 @@ proto.buckets.pb.ListPathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListPathRequest} message
+ * @param {!proto.api.buckets.pb.ListPathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListPathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ListPathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -5263,16 +5647,16 @@ proto.buckets.pb.ListPathRequest.serializeBinaryToWriter = function(message, wri
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.ListPathRequest.prototype.getKey = function() {
+proto.api.buckets.pb.ListPathRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ListPathRequest} returns this
+ * @return {!proto.api.buckets.pb.ListPathRequest} returns this
  */
-proto.buckets.pb.ListPathRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.ListPathRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -5281,16 +5665,16 @@ proto.buckets.pb.ListPathRequest.prototype.setKey = function(value) {
  * optional string path = 2;
  * @return {string}
  */
-proto.buckets.pb.ListPathRequest.prototype.getPath = function() {
+proto.api.buckets.pb.ListPathRequest.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ListPathRequest} returns this
+ * @return {!proto.api.buckets.pb.ListPathRequest} returns this
  */
-proto.buckets.pb.ListPathRequest.prototype.setPath = function(value) {
+proto.api.buckets.pb.ListPathRequest.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -5311,8 +5695,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListPathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListPathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ListPathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ListPathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5321,14 +5705,14 @@ proto.buckets.pb.ListPathReply.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListPathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ListPathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListPathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ListPathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    item: (f = msg.getItem()) && proto.buckets.pb.ListPathItem.toObject(includeInstance, f),
-    root: (f = msg.getRoot()) && proto.buckets.pb.Root.toObject(includeInstance, f)
+    item: (f = msg.getItem()) && proto.api.buckets.pb.PathItem.toObject(includeInstance, f),
+    root: (f = msg.getRoot()) && proto.api.buckets.pb.Root.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -5342,23 +5726,23 @@ proto.buckets.pb.ListPathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListPathReply}
+ * @return {!proto.api.buckets.pb.ListPathResponse}
  */
-proto.buckets.pb.ListPathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ListPathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListPathReply;
-  return proto.buckets.pb.ListPathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ListPathResponse;
+  return proto.api.buckets.pb.ListPathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListPathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ListPathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListPathReply}
+ * @return {!proto.api.buckets.pb.ListPathResponse}
  */
-proto.buckets.pb.ListPathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ListPathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5366,13 +5750,13 @@ proto.buckets.pb.ListPathReply.deserializeBinaryFromReader = function(msg, reade
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.ListPathItem;
-      reader.readMessage(value,proto.buckets.pb.ListPathItem.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.PathItem;
+      reader.readMessage(value,proto.api.buckets.pb.PathItem.deserializeBinaryFromReader);
       msg.setItem(value);
       break;
     case 2:
-      var value = new proto.buckets.pb.Root;
-      reader.readMessage(value,proto.buckets.pb.Root.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.Root;
+      reader.readMessage(value,proto.api.buckets.pb.Root.deserializeBinaryFromReader);
       msg.setRoot(value);
       break;
     default:
@@ -5388,9 +5772,9 @@ proto.buckets.pb.ListPathReply.deserializeBinaryFromReader = function(msg, reade
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListPathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ListPathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListPathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ListPathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5398,18 +5782,18 @@ proto.buckets.pb.ListPathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListPathReply} message
+ * @param {!proto.api.buckets.pb.ListPathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListPathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ListPathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getItem();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.ListPathItem.serializeBinaryToWriter
+      proto.api.buckets.pb.PathItem.serializeBinaryToWriter
     );
   }
   f = message.getRoot();
@@ -5417,36 +5801,36 @@ proto.buckets.pb.ListPathReply.serializeBinaryToWriter = function(message, write
     writer.writeMessage(
       2,
       f,
-      proto.buckets.pb.Root.serializeBinaryToWriter
+      proto.api.buckets.pb.Root.serializeBinaryToWriter
     );
   }
 };
 
 
 /**
- * optional ListPathItem item = 1;
- * @return {?proto.buckets.pb.ListPathItem}
+ * optional PathItem item = 1;
+ * @return {?proto.api.buckets.pb.PathItem}
  */
-proto.buckets.pb.ListPathReply.prototype.getItem = function() {
-  return /** @type{?proto.buckets.pb.ListPathItem} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.ListPathItem, 1));
+proto.api.buckets.pb.ListPathResponse.prototype.getItem = function() {
+  return /** @type{?proto.api.buckets.pb.PathItem} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.PathItem, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.ListPathItem|undefined} value
- * @return {!proto.buckets.pb.ListPathReply} returns this
+ * @param {?proto.api.buckets.pb.PathItem|undefined} value
+ * @return {!proto.api.buckets.pb.ListPathResponse} returns this
 */
-proto.buckets.pb.ListPathReply.prototype.setItem = function(value) {
+proto.api.buckets.pb.ListPathResponse.prototype.setItem = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.ListPathReply} returns this
+ * @return {!proto.api.buckets.pb.ListPathResponse} returns this
  */
-proto.buckets.pb.ListPathReply.prototype.clearItem = function() {
+proto.api.buckets.pb.ListPathResponse.prototype.clearItem = function() {
   return this.setItem(undefined);
 };
 
@@ -5455,35 +5839,35 @@ proto.buckets.pb.ListPathReply.prototype.clearItem = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.ListPathReply.prototype.hasItem = function() {
+proto.api.buckets.pb.ListPathResponse.prototype.hasItem = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
 
 /**
  * optional Root root = 2;
- * @return {?proto.buckets.pb.Root}
+ * @return {?proto.api.buckets.pb.Root}
  */
-proto.buckets.pb.ListPathReply.prototype.getRoot = function() {
-  return /** @type{?proto.buckets.pb.Root} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.Root, 2));
+proto.api.buckets.pb.ListPathResponse.prototype.getRoot = function() {
+  return /** @type{?proto.api.buckets.pb.Root} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Root, 2));
 };
 
 
 /**
- * @param {?proto.buckets.pb.Root|undefined} value
- * @return {!proto.buckets.pb.ListPathReply} returns this
+ * @param {?proto.api.buckets.pb.Root|undefined} value
+ * @return {!proto.api.buckets.pb.ListPathResponse} returns this
 */
-proto.buckets.pb.ListPathReply.prototype.setRoot = function(value) {
+proto.api.buckets.pb.ListPathResponse.prototype.setRoot = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.ListPathReply} returns this
+ * @return {!proto.api.buckets.pb.ListPathResponse} returns this
  */
-proto.buckets.pb.ListPathReply.prototype.clearRoot = function() {
+proto.api.buckets.pb.ListPathResponse.prototype.clearRoot = function() {
   return this.setRoot(undefined);
 };
 
@@ -5492,7 +5876,7 @@ proto.buckets.pb.ListPathReply.prototype.clearRoot = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.ListPathReply.prototype.hasRoot = function() {
+proto.api.buckets.pb.ListPathResponse.prototype.hasRoot = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -5503,7 +5887,7 @@ proto.buckets.pb.ListPathReply.prototype.hasRoot = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.buckets.pb.ListPathItem.repeatedFields_ = [6];
+proto.api.buckets.pb.PathItem.repeatedFields_ = [6];
 
 
 
@@ -5520,8 +5904,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListPathItem.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListPathItem.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PathItem.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PathItem.toObject(opt_includeInstance, this);
 };
 
 
@@ -5530,19 +5914,21 @@ proto.buckets.pb.ListPathItem.prototype.toObject = function(opt_includeInstance)
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListPathItem} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PathItem} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListPathItem.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PathItem.toObject = function(includeInstance, msg) {
   var f, obj = {
     cid: jspb.Message.getFieldWithDefault(msg, 1, ""),
     name: jspb.Message.getFieldWithDefault(msg, 2, ""),
     path: jspb.Message.getFieldWithDefault(msg, 3, ""),
     size: jspb.Message.getFieldWithDefault(msg, 4, 0),
-    isdir: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
+    isDir: jspb.Message.getBooleanFieldWithDefault(msg, 5, false),
     itemsList: jspb.Message.toObjectList(msg.getItemsList(),
-    proto.buckets.pb.ListPathItem.toObject, includeInstance)
+    proto.api.buckets.pb.PathItem.toObject, includeInstance),
+    itemsCount: jspb.Message.getFieldWithDefault(msg, 7, 0),
+    metadata: (f = msg.getMetadata()) && proto.api.buckets.pb.Metadata.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -5556,23 +5942,23 @@ proto.buckets.pb.ListPathItem.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListPathItem}
+ * @return {!proto.api.buckets.pb.PathItem}
  */
-proto.buckets.pb.ListPathItem.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PathItem.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListPathItem;
-  return proto.buckets.pb.ListPathItem.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PathItem;
+  return proto.api.buckets.pb.PathItem.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListPathItem} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PathItem} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListPathItem}
+ * @return {!proto.api.buckets.pb.PathItem}
  */
-proto.buckets.pb.ListPathItem.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PathItem.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5597,12 +5983,21 @@ proto.buckets.pb.ListPathItem.deserializeBinaryFromReader = function(msg, reader
       break;
     case 5:
       var value = /** @type {boolean} */ (reader.readBool());
-      msg.setIsdir(value);
+      msg.setIsDir(value);
       break;
     case 6:
-      var value = new proto.buckets.pb.ListPathItem;
-      reader.readMessage(value,proto.buckets.pb.ListPathItem.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.PathItem;
+      reader.readMessage(value,proto.api.buckets.pb.PathItem.deserializeBinaryFromReader);
       msg.addItems(value);
+      break;
+    case 7:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setItemsCount(value);
+      break;
+    case 9:
+      var value = new proto.api.buckets.pb.Metadata;
+      reader.readMessage(value,proto.api.buckets.pb.Metadata.deserializeBinaryFromReader);
+      msg.setMetadata(value);
       break;
     default:
       reader.skipField();
@@ -5617,9 +6012,9 @@ proto.buckets.pb.ListPathItem.deserializeBinaryFromReader = function(msg, reader
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListPathItem.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PathItem.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListPathItem.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PathItem.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5627,11 +6022,11 @@ proto.buckets.pb.ListPathItem.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListPathItem} message
+ * @param {!proto.api.buckets.pb.PathItem} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListPathItem.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PathItem.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getCid();
   if (f.length > 0) {
@@ -5661,7 +6056,7 @@ proto.buckets.pb.ListPathItem.serializeBinaryToWriter = function(message, writer
       f
     );
   }
-  f = message.getIsdir();
+  f = message.getIsDir();
   if (f) {
     writer.writeBool(
       5,
@@ -5673,7 +6068,22 @@ proto.buckets.pb.ListPathItem.serializeBinaryToWriter = function(message, writer
     writer.writeRepeatedMessage(
       6,
       f,
-      proto.buckets.pb.ListPathItem.serializeBinaryToWriter
+      proto.api.buckets.pb.PathItem.serializeBinaryToWriter
+    );
+  }
+  f = message.getItemsCount();
+  if (f !== 0) {
+    writer.writeInt32(
+      7,
+      f
+    );
+  }
+  f = message.getMetadata();
+  if (f != null) {
+    writer.writeMessage(
+      9,
+      f,
+      proto.api.buckets.pb.Metadata.serializeBinaryToWriter
     );
   }
 };
@@ -5683,16 +6093,16 @@ proto.buckets.pb.ListPathItem.serializeBinaryToWriter = function(message, writer
  * optional string cid = 1;
  * @return {string}
  */
-proto.buckets.pb.ListPathItem.prototype.getCid = function() {
+proto.api.buckets.pb.PathItem.prototype.getCid = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @return {!proto.api.buckets.pb.PathItem} returns this
  */
-proto.buckets.pb.ListPathItem.prototype.setCid = function(value) {
+proto.api.buckets.pb.PathItem.prototype.setCid = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -5701,16 +6111,16 @@ proto.buckets.pb.ListPathItem.prototype.setCid = function(value) {
  * optional string name = 2;
  * @return {string}
  */
-proto.buckets.pb.ListPathItem.prototype.getName = function() {
+proto.api.buckets.pb.PathItem.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @return {!proto.api.buckets.pb.PathItem} returns this
  */
-proto.buckets.pb.ListPathItem.prototype.setName = function(value) {
+proto.api.buckets.pb.PathItem.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -5719,16 +6129,16 @@ proto.buckets.pb.ListPathItem.prototype.setName = function(value) {
  * optional string path = 3;
  * @return {string}
  */
-proto.buckets.pb.ListPathItem.prototype.getPath = function() {
+proto.api.buckets.pb.PathItem.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @return {!proto.api.buckets.pb.PathItem} returns this
  */
-proto.buckets.pb.ListPathItem.prototype.setPath = function(value) {
+proto.api.buckets.pb.PathItem.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -5737,73 +6147,128 @@ proto.buckets.pb.ListPathItem.prototype.setPath = function(value) {
  * optional int64 size = 4;
  * @return {number}
  */
-proto.buckets.pb.ListPathItem.prototype.getSize = function() {
+proto.api.buckets.pb.PathItem.prototype.getSize = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @return {!proto.api.buckets.pb.PathItem} returns this
  */
-proto.buckets.pb.ListPathItem.prototype.setSize = function(value) {
+proto.api.buckets.pb.PathItem.prototype.setSize = function(value) {
   return jspb.Message.setProto3IntField(this, 4, value);
 };
 
 
 /**
- * optional bool isDir = 5;
+ * optional bool is_dir = 5;
  * @return {boolean}
  */
-proto.buckets.pb.ListPathItem.prototype.getIsdir = function() {
+proto.api.buckets.pb.PathItem.prototype.getIsDir = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @return {!proto.api.buckets.pb.PathItem} returns this
  */
-proto.buckets.pb.ListPathItem.prototype.setIsdir = function(value) {
+proto.api.buckets.pb.PathItem.prototype.setIsDir = function(value) {
   return jspb.Message.setProto3BooleanField(this, 5, value);
 };
 
 
 /**
- * repeated ListPathItem items = 6;
- * @return {!Array<!proto.buckets.pb.ListPathItem>}
+ * repeated PathItem items = 6;
+ * @return {!Array<!proto.api.buckets.pb.PathItem>}
  */
-proto.buckets.pb.ListPathItem.prototype.getItemsList = function() {
-  return /** @type{!Array<!proto.buckets.pb.ListPathItem>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.buckets.pb.ListPathItem, 6));
+proto.api.buckets.pb.PathItem.prototype.getItemsList = function() {
+  return /** @type{!Array<!proto.api.buckets.pb.PathItem>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.api.buckets.pb.PathItem, 6));
 };
 
 
 /**
- * @param {!Array<!proto.buckets.pb.ListPathItem>} value
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @param {!Array<!proto.api.buckets.pb.PathItem>} value
+ * @return {!proto.api.buckets.pb.PathItem} returns this
 */
-proto.buckets.pb.ListPathItem.prototype.setItemsList = function(value) {
+proto.api.buckets.pb.PathItem.prototype.setItemsList = function(value) {
   return jspb.Message.setRepeatedWrapperField(this, 6, value);
 };
 
 
 /**
- * @param {!proto.buckets.pb.ListPathItem=} opt_value
+ * @param {!proto.api.buckets.pb.PathItem=} opt_value
  * @param {number=} opt_index
- * @return {!proto.buckets.pb.ListPathItem}
+ * @return {!proto.api.buckets.pb.PathItem}
  */
-proto.buckets.pb.ListPathItem.prototype.addItems = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 6, opt_value, proto.buckets.pb.ListPathItem, opt_index);
+proto.api.buckets.pb.PathItem.prototype.addItems = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 6, opt_value, proto.api.buckets.pb.PathItem, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.buckets.pb.ListPathItem} returns this
+ * @return {!proto.api.buckets.pb.PathItem} returns this
  */
-proto.buckets.pb.ListPathItem.prototype.clearItemsList = function() {
+proto.api.buckets.pb.PathItem.prototype.clearItemsList = function() {
   return this.setItemsList([]);
+};
+
+
+/**
+ * optional int32 items_count = 7;
+ * @return {number}
+ */
+proto.api.buckets.pb.PathItem.prototype.getItemsCount = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.PathItem} returns this
+ */
+proto.api.buckets.pb.PathItem.prototype.setItemsCount = function(value) {
+  return jspb.Message.setProto3IntField(this, 7, value);
+};
+
+
+/**
+ * optional Metadata metadata = 9;
+ * @return {?proto.api.buckets.pb.Metadata}
+ */
+proto.api.buckets.pb.PathItem.prototype.getMetadata = function() {
+  return /** @type{?proto.api.buckets.pb.Metadata} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Metadata, 9));
+};
+
+
+/**
+ * @param {?proto.api.buckets.pb.Metadata|undefined} value
+ * @return {!proto.api.buckets.pb.PathItem} returns this
+*/
+proto.api.buckets.pb.PathItem.prototype.setMetadata = function(value) {
+  return jspb.Message.setWrapperField(this, 9, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.buckets.pb.PathItem} returns this
+ */
+proto.api.buckets.pb.PathItem.prototype.clearMetadata = function() {
+  return this.setMetadata(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.buckets.pb.PathItem.prototype.hasMetadata = function() {
+  return jspb.Message.getField(this, 9) != null;
 };
 
 
@@ -5823,8 +6288,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListIpfsPathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListIpfsPathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ListIpfsPathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ListIpfsPathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -5833,11 +6298,11 @@ proto.buckets.pb.ListIpfsPathRequest.prototype.toObject = function(opt_includeIn
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListIpfsPathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ListIpfsPathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListIpfsPathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ListIpfsPathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     path: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -5853,23 +6318,23 @@ proto.buckets.pb.ListIpfsPathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListIpfsPathRequest}
+ * @return {!proto.api.buckets.pb.ListIpfsPathRequest}
  */
-proto.buckets.pb.ListIpfsPathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ListIpfsPathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListIpfsPathRequest;
-  return proto.buckets.pb.ListIpfsPathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ListIpfsPathRequest;
+  return proto.api.buckets.pb.ListIpfsPathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListIpfsPathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ListIpfsPathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListIpfsPathRequest}
+ * @return {!proto.api.buckets.pb.ListIpfsPathRequest}
  */
-proto.buckets.pb.ListIpfsPathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ListIpfsPathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5893,9 +6358,9 @@ proto.buckets.pb.ListIpfsPathRequest.deserializeBinaryFromReader = function(msg,
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListIpfsPathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ListIpfsPathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListIpfsPathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ListIpfsPathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5903,11 +6368,11 @@ proto.buckets.pb.ListIpfsPathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListIpfsPathRequest} message
+ * @param {!proto.api.buckets.pb.ListIpfsPathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListIpfsPathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ListIpfsPathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getPath();
   if (f.length > 0) {
@@ -5923,16 +6388,16 @@ proto.buckets.pb.ListIpfsPathRequest.serializeBinaryToWriter = function(message,
  * optional string path = 1;
  * @return {string}
  */
-proto.buckets.pb.ListIpfsPathRequest.prototype.getPath = function() {
+proto.api.buckets.pb.ListIpfsPathRequest.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ListIpfsPathRequest} returns this
+ * @return {!proto.api.buckets.pb.ListIpfsPathRequest} returns this
  */
-proto.buckets.pb.ListIpfsPathRequest.prototype.setPath = function(value) {
+proto.api.buckets.pb.ListIpfsPathRequest.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -5953,8 +6418,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ListIpfsPathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ListIpfsPathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ListIpfsPathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ListIpfsPathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5963,13 +6428,13 @@ proto.buckets.pb.ListIpfsPathReply.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ListIpfsPathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ListIpfsPathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListIpfsPathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ListIpfsPathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    item: (f = msg.getItem()) && proto.buckets.pb.ListPathItem.toObject(includeInstance, f)
+    item: (f = msg.getItem()) && proto.api.buckets.pb.PathItem.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -5983,23 +6448,23 @@ proto.buckets.pb.ListIpfsPathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ListIpfsPathReply}
+ * @return {!proto.api.buckets.pb.ListIpfsPathResponse}
  */
-proto.buckets.pb.ListIpfsPathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ListIpfsPathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ListIpfsPathReply;
-  return proto.buckets.pb.ListIpfsPathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ListIpfsPathResponse;
+  return proto.api.buckets.pb.ListIpfsPathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ListIpfsPathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ListIpfsPathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ListIpfsPathReply}
+ * @return {!proto.api.buckets.pb.ListIpfsPathResponse}
  */
-proto.buckets.pb.ListIpfsPathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ListIpfsPathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6007,8 +6472,8 @@ proto.buckets.pb.ListIpfsPathReply.deserializeBinaryFromReader = function(msg, r
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.ListPathItem;
-      reader.readMessage(value,proto.buckets.pb.ListPathItem.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.PathItem;
+      reader.readMessage(value,proto.api.buckets.pb.PathItem.deserializeBinaryFromReader);
       msg.setItem(value);
       break;
     default:
@@ -6024,9 +6489,9 @@ proto.buckets.pb.ListIpfsPathReply.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ListIpfsPathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ListIpfsPathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ListIpfsPathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ListIpfsPathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6034,47 +6499,47 @@ proto.buckets.pb.ListIpfsPathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ListIpfsPathReply} message
+ * @param {!proto.api.buckets.pb.ListIpfsPathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ListIpfsPathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ListIpfsPathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getItem();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.ListPathItem.serializeBinaryToWriter
+      proto.api.buckets.pb.PathItem.serializeBinaryToWriter
     );
   }
 };
 
 
 /**
- * optional ListPathItem item = 1;
- * @return {?proto.buckets.pb.ListPathItem}
+ * optional PathItem item = 1;
+ * @return {?proto.api.buckets.pb.PathItem}
  */
-proto.buckets.pb.ListIpfsPathReply.prototype.getItem = function() {
-  return /** @type{?proto.buckets.pb.ListPathItem} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.ListPathItem, 1));
+proto.api.buckets.pb.ListIpfsPathResponse.prototype.getItem = function() {
+  return /** @type{?proto.api.buckets.pb.PathItem} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.PathItem, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.ListPathItem|undefined} value
- * @return {!proto.buckets.pb.ListIpfsPathReply} returns this
+ * @param {?proto.api.buckets.pb.PathItem|undefined} value
+ * @return {!proto.api.buckets.pb.ListIpfsPathResponse} returns this
 */
-proto.buckets.pb.ListIpfsPathReply.prototype.setItem = function(value) {
+proto.api.buckets.pb.ListIpfsPathResponse.prototype.setItem = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.ListIpfsPathReply} returns this
+ * @return {!proto.api.buckets.pb.ListIpfsPathResponse} returns this
  */
-proto.buckets.pb.ListIpfsPathReply.prototype.clearItem = function() {
+proto.api.buckets.pb.ListIpfsPathResponse.prototype.clearItem = function() {
   return this.setItem(undefined);
 };
 
@@ -6083,7 +6548,7 @@ proto.buckets.pb.ListIpfsPathReply.prototype.clearItem = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.ListIpfsPathReply.prototype.hasItem = function() {
+proto.api.buckets.pb.ListIpfsPathResponse.prototype.hasItem = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -6097,22 +6562,22 @@ proto.buckets.pb.ListIpfsPathReply.prototype.hasItem = function() {
  * @private {!Array<!Array<number>>}
  * @const
  */
-proto.buckets.pb.PushPathRequest.oneofGroups_ = [[1,2]];
+proto.api.buckets.pb.PushPathRequest.oneofGroups_ = [[1,2]];
 
 /**
  * @enum {number}
  */
-proto.buckets.pb.PushPathRequest.PayloadCase = {
+proto.api.buckets.pb.PushPathRequest.PayloadCase = {
   PAYLOAD_NOT_SET: 0,
   HEADER: 1,
   CHUNK: 2
 };
 
 /**
- * @return {proto.buckets.pb.PushPathRequest.PayloadCase}
+ * @return {proto.api.buckets.pb.PushPathRequest.PayloadCase}
  */
-proto.buckets.pb.PushPathRequest.prototype.getPayloadCase = function() {
-  return /** @type {proto.buckets.pb.PushPathRequest.PayloadCase} */(jspb.Message.computeOneofCase(this, proto.buckets.pb.PushPathRequest.oneofGroups_[0]));
+proto.api.buckets.pb.PushPathRequest.prototype.getPayloadCase = function() {
+  return /** @type {proto.api.buckets.pb.PushPathRequest.PayloadCase} */(jspb.Message.computeOneofCase(this, proto.api.buckets.pb.PushPathRequest.oneofGroups_[0]));
 };
 
 
@@ -6130,8 +6595,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PushPathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PushPathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PushPathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PushPathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -6140,13 +6605,13 @@ proto.buckets.pb.PushPathRequest.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PushPathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PushPathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PushPathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    header: (f = msg.getHeader()) && proto.buckets.pb.PushPathRequest.Header.toObject(includeInstance, f),
+    header: (f = msg.getHeader()) && proto.api.buckets.pb.PushPathRequest.Header.toObject(includeInstance, f),
     chunk: msg.getChunk_asB64()
   };
 
@@ -6161,23 +6626,23 @@ proto.buckets.pb.PushPathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PushPathRequest}
+ * @return {!proto.api.buckets.pb.PushPathRequest}
  */
-proto.buckets.pb.PushPathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PushPathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PushPathRequest;
-  return proto.buckets.pb.PushPathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PushPathRequest;
+  return proto.api.buckets.pb.PushPathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PushPathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PushPathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PushPathRequest}
+ * @return {!proto.api.buckets.pb.PushPathRequest}
  */
-proto.buckets.pb.PushPathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PushPathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6185,8 +6650,8 @@ proto.buckets.pb.PushPathRequest.deserializeBinaryFromReader = function(msg, rea
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.PushPathRequest.Header;
-      reader.readMessage(value,proto.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.PushPathRequest.Header;
+      reader.readMessage(value,proto.api.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader);
       msg.setHeader(value);
       break;
     case 2:
@@ -6206,9 +6671,9 @@ proto.buckets.pb.PushPathRequest.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PushPathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PushPathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PushPathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6216,18 +6681,18 @@ proto.buckets.pb.PushPathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PushPathRequest} message
+ * @param {!proto.api.buckets.pb.PushPathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PushPathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getHeader();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter
+      proto.api.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter
     );
   }
   f = /** @type {!(string|Uint8Array)} */ (jspb.Message.getField(message, 2));
@@ -6256,8 +6721,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PushPathRequest.Header.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PushPathRequest.Header.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PushPathRequest.Header.toObject(opt_includeInstance, this);
 };
 
 
@@ -6266,11 +6731,11 @@ proto.buckets.pb.PushPathRequest.Header.prototype.toObject = function(opt_includ
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PushPathRequest.Header} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PushPathRequest.Header} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathRequest.Header.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PushPathRequest.Header.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
     path: jspb.Message.getFieldWithDefault(msg, 2, ""),
@@ -6288,23 +6753,23 @@ proto.buckets.pb.PushPathRequest.Header.toObject = function(includeInstance, msg
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PushPathRequest.Header}
+ * @return {!proto.api.buckets.pb.PushPathRequest.Header}
  */
-proto.buckets.pb.PushPathRequest.Header.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PushPathRequest.Header.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PushPathRequest.Header;
-  return proto.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PushPathRequest.Header;
+  return proto.api.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PushPathRequest.Header} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PushPathRequest.Header} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PushPathRequest.Header}
+ * @return {!proto.api.buckets.pb.PushPathRequest.Header}
  */
-proto.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6336,9 +6801,9 @@ proto.buckets.pb.PushPathRequest.Header.deserializeBinaryFromReader = function(m
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6346,11 +6811,11 @@ proto.buckets.pb.PushPathRequest.Header.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PushPathRequest.Header} message
+ * @param {!proto.api.buckets.pb.PushPathRequest.Header} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -6380,16 +6845,16 @@ proto.buckets.pb.PushPathRequest.Header.serializeBinaryToWriter = function(messa
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.getKey = function() {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathRequest.Header} returns this
+ * @return {!proto.api.buckets.pb.PushPathRequest.Header} returns this
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.setKey = function(value) {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6398,16 +6863,16 @@ proto.buckets.pb.PushPathRequest.Header.prototype.setKey = function(value) {
  * optional string path = 2;
  * @return {string}
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.getPath = function() {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathRequest.Header} returns this
+ * @return {!proto.api.buckets.pb.PushPathRequest.Header} returns this
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.setPath = function(value) {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -6416,44 +6881,44 @@ proto.buckets.pb.PushPathRequest.Header.prototype.setPath = function(value) {
  * optional string root = 3;
  * @return {string}
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.getRoot = function() {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.getRoot = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathRequest.Header} returns this
+ * @return {!proto.api.buckets.pb.PushPathRequest.Header} returns this
  */
-proto.buckets.pb.PushPathRequest.Header.prototype.setRoot = function(value) {
+proto.api.buckets.pb.PushPathRequest.Header.prototype.setRoot = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
 
 /**
  * optional Header header = 1;
- * @return {?proto.buckets.pb.PushPathRequest.Header}
+ * @return {?proto.api.buckets.pb.PushPathRequest.Header}
  */
-proto.buckets.pb.PushPathRequest.prototype.getHeader = function() {
-  return /** @type{?proto.buckets.pb.PushPathRequest.Header} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.PushPathRequest.Header, 1));
+proto.api.buckets.pb.PushPathRequest.prototype.getHeader = function() {
+  return /** @type{?proto.api.buckets.pb.PushPathRequest.Header} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.PushPathRequest.Header, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.PushPathRequest.Header|undefined} value
- * @return {!proto.buckets.pb.PushPathRequest} returns this
+ * @param {?proto.api.buckets.pb.PushPathRequest.Header|undefined} value
+ * @return {!proto.api.buckets.pb.PushPathRequest} returns this
 */
-proto.buckets.pb.PushPathRequest.prototype.setHeader = function(value) {
-  return jspb.Message.setOneofWrapperField(this, 1, proto.buckets.pb.PushPathRequest.oneofGroups_[0], value);
+proto.api.buckets.pb.PushPathRequest.prototype.setHeader = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.api.buckets.pb.PushPathRequest.oneofGroups_[0], value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.PushPathRequest} returns this
+ * @return {!proto.api.buckets.pb.PushPathRequest} returns this
  */
-proto.buckets.pb.PushPathRequest.prototype.clearHeader = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.clearHeader = function() {
   return this.setHeader(undefined);
 };
 
@@ -6462,7 +6927,7 @@ proto.buckets.pb.PushPathRequest.prototype.clearHeader = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.PushPathRequest.prototype.hasHeader = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.hasHeader = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -6471,7 +6936,7 @@ proto.buckets.pb.PushPathRequest.prototype.hasHeader = function() {
  * optional bytes chunk = 2;
  * @return {!(string|Uint8Array)}
  */
-proto.buckets.pb.PushPathRequest.prototype.getChunk = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.getChunk = function() {
   return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
@@ -6481,7 +6946,7 @@ proto.buckets.pb.PushPathRequest.prototype.getChunk = function() {
  * This is a type-conversion wrapper around `getChunk()`
  * @return {string}
  */
-proto.buckets.pb.PushPathRequest.prototype.getChunk_asB64 = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.getChunk_asB64 = function() {
   return /** @type {string} */ (jspb.Message.bytesAsB64(
       this.getChunk()));
 };
@@ -6494,7 +6959,7 @@ proto.buckets.pb.PushPathRequest.prototype.getChunk_asB64 = function() {
  * This is a type-conversion wrapper around `getChunk()`
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PushPathRequest.prototype.getChunk_asU8 = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.getChunk_asU8 = function() {
   return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
       this.getChunk()));
 };
@@ -6502,19 +6967,19 @@ proto.buckets.pb.PushPathRequest.prototype.getChunk_asU8 = function() {
 
 /**
  * @param {!(string|Uint8Array)} value
- * @return {!proto.buckets.pb.PushPathRequest} returns this
+ * @return {!proto.api.buckets.pb.PushPathRequest} returns this
  */
-proto.buckets.pb.PushPathRequest.prototype.setChunk = function(value) {
-  return jspb.Message.setOneofField(this, 2, proto.buckets.pb.PushPathRequest.oneofGroups_[0], value);
+proto.api.buckets.pb.PushPathRequest.prototype.setChunk = function(value) {
+  return jspb.Message.setOneofField(this, 2, proto.api.buckets.pb.PushPathRequest.oneofGroups_[0], value);
 };
 
 
 /**
  * Clears the field making it undefined.
- * @return {!proto.buckets.pb.PushPathRequest} returns this
+ * @return {!proto.api.buckets.pb.PushPathRequest} returns this
  */
-proto.buckets.pb.PushPathRequest.prototype.clearChunk = function() {
-  return jspb.Message.setOneofField(this, 2, proto.buckets.pb.PushPathRequest.oneofGroups_[0], undefined);
+proto.api.buckets.pb.PushPathRequest.prototype.clearChunk = function() {
+  return jspb.Message.setOneofField(this, 2, proto.api.buckets.pb.PushPathRequest.oneofGroups_[0], undefined);
 };
 
 
@@ -6522,7 +6987,7 @@ proto.buckets.pb.PushPathRequest.prototype.clearChunk = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.PushPathRequest.prototype.hasChunk = function() {
+proto.api.buckets.pb.PushPathRequest.prototype.hasChunk = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -6536,22 +7001,22 @@ proto.buckets.pb.PushPathRequest.prototype.hasChunk = function() {
  * @private {!Array<!Array<number>>}
  * @const
  */
-proto.buckets.pb.PushPathReply.oneofGroups_ = [[1,2]];
+proto.api.buckets.pb.PushPathResponse.oneofGroups_ = [[1,2]];
 
 /**
  * @enum {number}
  */
-proto.buckets.pb.PushPathReply.PayloadCase = {
+proto.api.buckets.pb.PushPathResponse.PayloadCase = {
   PAYLOAD_NOT_SET: 0,
   EVENT: 1,
   ERROR: 2
 };
 
 /**
- * @return {proto.buckets.pb.PushPathReply.PayloadCase}
+ * @return {proto.api.buckets.pb.PushPathResponse.PayloadCase}
  */
-proto.buckets.pb.PushPathReply.prototype.getPayloadCase = function() {
-  return /** @type {proto.buckets.pb.PushPathReply.PayloadCase} */(jspb.Message.computeOneofCase(this, proto.buckets.pb.PushPathReply.oneofGroups_[0]));
+proto.api.buckets.pb.PushPathResponse.prototype.getPayloadCase = function() {
+  return /** @type {proto.api.buckets.pb.PushPathResponse.PayloadCase} */(jspb.Message.computeOneofCase(this, proto.api.buckets.pb.PushPathResponse.oneofGroups_[0]));
 };
 
 
@@ -6569,8 +7034,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PushPathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PushPathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PushPathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PushPathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -6579,13 +7044,13 @@ proto.buckets.pb.PushPathReply.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PushPathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PushPathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PushPathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    event: (f = msg.getEvent()) && proto.buckets.pb.PushPathReply.Event.toObject(includeInstance, f),
+    event: (f = msg.getEvent()) && proto.api.buckets.pb.PushPathResponse.Event.toObject(includeInstance, f),
     error: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
@@ -6600,23 +7065,23 @@ proto.buckets.pb.PushPathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PushPathReply}
+ * @return {!proto.api.buckets.pb.PushPathResponse}
  */
-proto.buckets.pb.PushPathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PushPathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PushPathReply;
-  return proto.buckets.pb.PushPathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PushPathResponse;
+  return proto.api.buckets.pb.PushPathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PushPathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PushPathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PushPathReply}
+ * @return {!proto.api.buckets.pb.PushPathResponse}
  */
-proto.buckets.pb.PushPathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PushPathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6624,8 +7089,8 @@ proto.buckets.pb.PushPathReply.deserializeBinaryFromReader = function(msg, reade
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.PushPathReply.Event;
-      reader.readMessage(value,proto.buckets.pb.PushPathReply.Event.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.PushPathResponse.Event;
+      reader.readMessage(value,proto.api.buckets.pb.PushPathResponse.Event.deserializeBinaryFromReader);
       msg.setEvent(value);
       break;
     case 2:
@@ -6645,9 +7110,9 @@ proto.buckets.pb.PushPathReply.deserializeBinaryFromReader = function(msg, reade
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PushPathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PushPathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PushPathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PushPathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6655,18 +7120,18 @@ proto.buckets.pb.PushPathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PushPathReply} message
+ * @param {!proto.api.buckets.pb.PushPathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PushPathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getEvent();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.PushPathReply.Event.serializeBinaryToWriter
+      proto.api.buckets.pb.PushPathResponse.Event.serializeBinaryToWriter
     );
   }
   f = /** @type {string} */ (jspb.Message.getField(message, 2));
@@ -6695,8 +7160,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PushPathReply.Event.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PushPathResponse.Event.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PushPathResponse.Event.toObject(opt_includeInstance, this);
 };
 
 
@@ -6705,17 +7170,17 @@ proto.buckets.pb.PushPathReply.Event.prototype.toObject = function(opt_includeIn
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PushPathReply.Event} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PushPathResponse.Event} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathReply.Event.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PushPathResponse.Event.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     path: jspb.Message.getFieldWithDefault(msg, 2, ""),
     bytes: jspb.Message.getFieldWithDefault(msg, 3, 0),
     size: jspb.Message.getFieldWithDefault(msg, 4, ""),
-    root: (f = msg.getRoot()) && proto.buckets.pb.Root.toObject(includeInstance, f)
+    root: (f = msg.getRoot()) && proto.api.buckets.pb.Root.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -6729,23 +7194,23 @@ proto.buckets.pb.PushPathReply.Event.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PushPathReply.Event}
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event}
  */
-proto.buckets.pb.PushPathReply.Event.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PushPathResponse.Event.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PushPathReply.Event;
-  return proto.buckets.pb.PushPathReply.Event.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PushPathResponse.Event;
+  return proto.api.buckets.pb.PushPathResponse.Event.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PushPathReply.Event} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PushPathResponse.Event} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PushPathReply.Event}
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event}
  */
-proto.buckets.pb.PushPathReply.Event.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PushPathResponse.Event.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6769,8 +7234,8 @@ proto.buckets.pb.PushPathReply.Event.deserializeBinaryFromReader = function(msg,
       msg.setSize(value);
       break;
     case 5:
-      var value = new proto.buckets.pb.Root;
-      reader.readMessage(value,proto.buckets.pb.Root.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.Root;
+      reader.readMessage(value,proto.api.buckets.pb.Root.deserializeBinaryFromReader);
       msg.setRoot(value);
       break;
     default:
@@ -6786,9 +7251,9 @@ proto.buckets.pb.PushPathReply.Event.deserializeBinaryFromReader = function(msg,
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PushPathReply.Event.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PushPathResponse.Event.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6796,11 +7261,11 @@ proto.buckets.pb.PushPathReply.Event.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PushPathReply.Event} message
+ * @param {!proto.api.buckets.pb.PushPathResponse.Event} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PushPathReply.Event.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PushPathResponse.Event.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getName();
   if (f.length > 0) {
@@ -6835,7 +7300,7 @@ proto.buckets.pb.PushPathReply.Event.serializeBinaryToWriter = function(message,
     writer.writeMessage(
       5,
       f,
-      proto.buckets.pb.Root.serializeBinaryToWriter
+      proto.api.buckets.pb.Root.serializeBinaryToWriter
     );
   }
 };
@@ -6845,16 +7310,16 @@ proto.buckets.pb.PushPathReply.Event.serializeBinaryToWriter = function(message,
  * optional string name = 1;
  * @return {string}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.getName = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathReply.Event} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event} returns this
  */
-proto.buckets.pb.PushPathReply.Event.prototype.setName = function(value) {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -6863,16 +7328,16 @@ proto.buckets.pb.PushPathReply.Event.prototype.setName = function(value) {
  * optional string path = 2;
  * @return {string}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.getPath = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathReply.Event} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event} returns this
  */
-proto.buckets.pb.PushPathReply.Event.prototype.setPath = function(value) {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -6881,16 +7346,16 @@ proto.buckets.pb.PushPathReply.Event.prototype.setPath = function(value) {
  * optional int64 bytes = 3;
  * @return {number}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.getBytes = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.getBytes = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
 };
 
 
 /**
  * @param {number} value
- * @return {!proto.buckets.pb.PushPathReply.Event} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event} returns this
  */
-proto.buckets.pb.PushPathReply.Event.prototype.setBytes = function(value) {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.setBytes = function(value) {
   return jspb.Message.setProto3IntField(this, 3, value);
 };
 
@@ -6899,44 +7364,44 @@ proto.buckets.pb.PushPathReply.Event.prototype.setBytes = function(value) {
  * optional string size = 4;
  * @return {string}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.getSize = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.getSize = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathReply.Event} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event} returns this
  */
-proto.buckets.pb.PushPathReply.Event.prototype.setSize = function(value) {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.setSize = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
 };
 
 
 /**
  * optional Root root = 5;
- * @return {?proto.buckets.pb.Root}
+ * @return {?proto.api.buckets.pb.Root}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.getRoot = function() {
-  return /** @type{?proto.buckets.pb.Root} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.Root, 5));
+proto.api.buckets.pb.PushPathResponse.Event.prototype.getRoot = function() {
+  return /** @type{?proto.api.buckets.pb.Root} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Root, 5));
 };
 
 
 /**
- * @param {?proto.buckets.pb.Root|undefined} value
- * @return {!proto.buckets.pb.PushPathReply.Event} returns this
+ * @param {?proto.api.buckets.pb.Root|undefined} value
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event} returns this
 */
-proto.buckets.pb.PushPathReply.Event.prototype.setRoot = function(value) {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.setRoot = function(value) {
   return jspb.Message.setWrapperField(this, 5, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.PushPathReply.Event} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse.Event} returns this
  */
-proto.buckets.pb.PushPathReply.Event.prototype.clearRoot = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.clearRoot = function() {
   return this.setRoot(undefined);
 };
 
@@ -6945,35 +7410,35 @@ proto.buckets.pb.PushPathReply.Event.prototype.clearRoot = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.PushPathReply.Event.prototype.hasRoot = function() {
+proto.api.buckets.pb.PushPathResponse.Event.prototype.hasRoot = function() {
   return jspb.Message.getField(this, 5) != null;
 };
 
 
 /**
  * optional Event event = 1;
- * @return {?proto.buckets.pb.PushPathReply.Event}
+ * @return {?proto.api.buckets.pb.PushPathResponse.Event}
  */
-proto.buckets.pb.PushPathReply.prototype.getEvent = function() {
-  return /** @type{?proto.buckets.pb.PushPathReply.Event} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.PushPathReply.Event, 1));
+proto.api.buckets.pb.PushPathResponse.prototype.getEvent = function() {
+  return /** @type{?proto.api.buckets.pb.PushPathResponse.Event} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.PushPathResponse.Event, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.PushPathReply.Event|undefined} value
- * @return {!proto.buckets.pb.PushPathReply} returns this
+ * @param {?proto.api.buckets.pb.PushPathResponse.Event|undefined} value
+ * @return {!proto.api.buckets.pb.PushPathResponse} returns this
 */
-proto.buckets.pb.PushPathReply.prototype.setEvent = function(value) {
-  return jspb.Message.setOneofWrapperField(this, 1, proto.buckets.pb.PushPathReply.oneofGroups_[0], value);
+proto.api.buckets.pb.PushPathResponse.prototype.setEvent = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.api.buckets.pb.PushPathResponse.oneofGroups_[0], value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.PushPathReply} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse} returns this
  */
-proto.buckets.pb.PushPathReply.prototype.clearEvent = function() {
+proto.api.buckets.pb.PushPathResponse.prototype.clearEvent = function() {
   return this.setEvent(undefined);
 };
 
@@ -6982,7 +7447,7 @@ proto.buckets.pb.PushPathReply.prototype.clearEvent = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.PushPathReply.prototype.hasEvent = function() {
+proto.api.buckets.pb.PushPathResponse.prototype.hasEvent = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -6991,26 +7456,26 @@ proto.buckets.pb.PushPathReply.prototype.hasEvent = function() {
  * optional string error = 2;
  * @return {string}
  */
-proto.buckets.pb.PushPathReply.prototype.getError = function() {
+proto.api.buckets.pb.PushPathResponse.prototype.getError = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PushPathReply} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse} returns this
  */
-proto.buckets.pb.PushPathReply.prototype.setError = function(value) {
-  return jspb.Message.setOneofField(this, 2, proto.buckets.pb.PushPathReply.oneofGroups_[0], value);
+proto.api.buckets.pb.PushPathResponse.prototype.setError = function(value) {
+  return jspb.Message.setOneofField(this, 2, proto.api.buckets.pb.PushPathResponse.oneofGroups_[0], value);
 };
 
 
 /**
  * Clears the field making it undefined.
- * @return {!proto.buckets.pb.PushPathReply} returns this
+ * @return {!proto.api.buckets.pb.PushPathResponse} returns this
  */
-proto.buckets.pb.PushPathReply.prototype.clearError = function() {
-  return jspb.Message.setOneofField(this, 2, proto.buckets.pb.PushPathReply.oneofGroups_[0], undefined);
+proto.api.buckets.pb.PushPathResponse.prototype.clearError = function() {
+  return jspb.Message.setOneofField(this, 2, proto.api.buckets.pb.PushPathResponse.oneofGroups_[0], undefined);
 };
 
 
@@ -7018,7 +7483,7 @@ proto.buckets.pb.PushPathReply.prototype.clearError = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.PushPathReply.prototype.hasError = function() {
+proto.api.buckets.pb.PushPathResponse.prototype.hasError = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -7039,8 +7504,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PullPathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PullPathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PullPathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PullPathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7049,11 +7514,11 @@ proto.buckets.pb.PullPathRequest.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PullPathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PullPathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullPathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PullPathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
     path: jspb.Message.getFieldWithDefault(msg, 2, "")
@@ -7070,23 +7535,23 @@ proto.buckets.pb.PullPathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PullPathRequest}
+ * @return {!proto.api.buckets.pb.PullPathRequest}
  */
-proto.buckets.pb.PullPathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PullPathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PullPathRequest;
-  return proto.buckets.pb.PullPathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PullPathRequest;
+  return proto.api.buckets.pb.PullPathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PullPathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PullPathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PullPathRequest}
+ * @return {!proto.api.buckets.pb.PullPathRequest}
  */
-proto.buckets.pb.PullPathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PullPathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7114,9 +7579,9 @@ proto.buckets.pb.PullPathRequest.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PullPathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PullPathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PullPathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PullPathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7124,11 +7589,11 @@ proto.buckets.pb.PullPathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PullPathRequest} message
+ * @param {!proto.api.buckets.pb.PullPathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullPathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PullPathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -7151,16 +7616,16 @@ proto.buckets.pb.PullPathRequest.serializeBinaryToWriter = function(message, wri
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.PullPathRequest.prototype.getKey = function() {
+proto.api.buckets.pb.PullPathRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PullPathRequest} returns this
+ * @return {!proto.api.buckets.pb.PullPathRequest} returns this
  */
-proto.buckets.pb.PullPathRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.PullPathRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -7169,16 +7634,16 @@ proto.buckets.pb.PullPathRequest.prototype.setKey = function(value) {
  * optional string path = 2;
  * @return {string}
  */
-proto.buckets.pb.PullPathRequest.prototype.getPath = function() {
+proto.api.buckets.pb.PullPathRequest.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PullPathRequest} returns this
+ * @return {!proto.api.buckets.pb.PullPathRequest} returns this
  */
-proto.buckets.pb.PullPathRequest.prototype.setPath = function(value) {
+proto.api.buckets.pb.PullPathRequest.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -7199,8 +7664,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PullPathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PullPathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PullPathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PullPathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -7209,11 +7674,11 @@ proto.buckets.pb.PullPathReply.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PullPathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PullPathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullPathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PullPathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     chunk: msg.getChunk_asB64()
   };
@@ -7229,23 +7694,23 @@ proto.buckets.pb.PullPathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PullPathReply}
+ * @return {!proto.api.buckets.pb.PullPathResponse}
  */
-proto.buckets.pb.PullPathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PullPathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PullPathReply;
-  return proto.buckets.pb.PullPathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PullPathResponse;
+  return proto.api.buckets.pb.PullPathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PullPathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PullPathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PullPathReply}
+ * @return {!proto.api.buckets.pb.PullPathResponse}
  */
-proto.buckets.pb.PullPathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PullPathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7269,9 +7734,9 @@ proto.buckets.pb.PullPathReply.deserializeBinaryFromReader = function(msg, reade
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PullPathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PullPathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PullPathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PullPathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7279,11 +7744,11 @@ proto.buckets.pb.PullPathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PullPathReply} message
+ * @param {!proto.api.buckets.pb.PullPathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullPathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PullPathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getChunk_asU8();
   if (f.length > 0) {
@@ -7299,7 +7764,7 @@ proto.buckets.pb.PullPathReply.serializeBinaryToWriter = function(message, write
  * optional bytes chunk = 1;
  * @return {!(string|Uint8Array)}
  */
-proto.buckets.pb.PullPathReply.prototype.getChunk = function() {
+proto.api.buckets.pb.PullPathResponse.prototype.getChunk = function() {
   return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
@@ -7309,7 +7774,7 @@ proto.buckets.pb.PullPathReply.prototype.getChunk = function() {
  * This is a type-conversion wrapper around `getChunk()`
  * @return {string}
  */
-proto.buckets.pb.PullPathReply.prototype.getChunk_asB64 = function() {
+proto.api.buckets.pb.PullPathResponse.prototype.getChunk_asB64 = function() {
   return /** @type {string} */ (jspb.Message.bytesAsB64(
       this.getChunk()));
 };
@@ -7322,7 +7787,7 @@ proto.buckets.pb.PullPathReply.prototype.getChunk_asB64 = function() {
  * This is a type-conversion wrapper around `getChunk()`
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PullPathReply.prototype.getChunk_asU8 = function() {
+proto.api.buckets.pb.PullPathResponse.prototype.getChunk_asU8 = function() {
   return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
       this.getChunk()));
 };
@@ -7330,9 +7795,9 @@ proto.buckets.pb.PullPathReply.prototype.getChunk_asU8 = function() {
 
 /**
  * @param {!(string|Uint8Array)} value
- * @return {!proto.buckets.pb.PullPathReply} returns this
+ * @return {!proto.api.buckets.pb.PullPathResponse} returns this
  */
-proto.buckets.pb.PullPathReply.prototype.setChunk = function(value) {
+proto.api.buckets.pb.PullPathResponse.prototype.setChunk = function(value) {
   return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
@@ -7353,8 +7818,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PullIpfsPathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PullIpfsPathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PullIpfsPathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PullIpfsPathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7363,11 +7828,11 @@ proto.buckets.pb.PullIpfsPathRequest.prototype.toObject = function(opt_includeIn
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PullIpfsPathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PullIpfsPathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullIpfsPathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PullIpfsPathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     path: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -7383,23 +7848,23 @@ proto.buckets.pb.PullIpfsPathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PullIpfsPathRequest}
+ * @return {!proto.api.buckets.pb.PullIpfsPathRequest}
  */
-proto.buckets.pb.PullIpfsPathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PullIpfsPathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PullIpfsPathRequest;
-  return proto.buckets.pb.PullIpfsPathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PullIpfsPathRequest;
+  return proto.api.buckets.pb.PullIpfsPathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PullIpfsPathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PullIpfsPathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PullIpfsPathRequest}
+ * @return {!proto.api.buckets.pb.PullIpfsPathRequest}
  */
-proto.buckets.pb.PullIpfsPathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PullIpfsPathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7423,9 +7888,9 @@ proto.buckets.pb.PullIpfsPathRequest.deserializeBinaryFromReader = function(msg,
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PullIpfsPathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PullIpfsPathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PullIpfsPathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PullIpfsPathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7433,11 +7898,11 @@ proto.buckets.pb.PullIpfsPathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PullIpfsPathRequest} message
+ * @param {!proto.api.buckets.pb.PullIpfsPathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullIpfsPathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PullIpfsPathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getPath();
   if (f.length > 0) {
@@ -7453,16 +7918,16 @@ proto.buckets.pb.PullIpfsPathRequest.serializeBinaryToWriter = function(message,
  * optional string path = 1;
  * @return {string}
  */
-proto.buckets.pb.PullIpfsPathRequest.prototype.getPath = function() {
+proto.api.buckets.pb.PullIpfsPathRequest.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.PullIpfsPathRequest} returns this
+ * @return {!proto.api.buckets.pb.PullIpfsPathRequest} returns this
  */
-proto.buckets.pb.PullIpfsPathRequest.prototype.setPath = function(value) {
+proto.api.buckets.pb.PullIpfsPathRequest.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -7483,8 +7948,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.PullIpfsPathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.PullIpfsPathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PullIpfsPathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PullIpfsPathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -7493,11 +7958,11 @@ proto.buckets.pb.PullIpfsPathReply.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.PullIpfsPathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PullIpfsPathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullIpfsPathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PullIpfsPathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     chunk: msg.getChunk_asB64()
   };
@@ -7513,23 +7978,23 @@ proto.buckets.pb.PullIpfsPathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.PullIpfsPathReply}
+ * @return {!proto.api.buckets.pb.PullIpfsPathResponse}
  */
-proto.buckets.pb.PullIpfsPathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PullIpfsPathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.PullIpfsPathReply;
-  return proto.buckets.pb.PullIpfsPathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PullIpfsPathResponse;
+  return proto.api.buckets.pb.PullIpfsPathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.PullIpfsPathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PullIpfsPathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.PullIpfsPathReply}
+ * @return {!proto.api.buckets.pb.PullIpfsPathResponse}
  */
-proto.buckets.pb.PullIpfsPathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PullIpfsPathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7553,9 +8018,9 @@ proto.buckets.pb.PullIpfsPathReply.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PullIpfsPathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PullIpfsPathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.PullIpfsPathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PullIpfsPathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7563,11 +8028,11 @@ proto.buckets.pb.PullIpfsPathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.PullIpfsPathReply} message
+ * @param {!proto.api.buckets.pb.PullIpfsPathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.PullIpfsPathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PullIpfsPathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getChunk_asU8();
   if (f.length > 0) {
@@ -7583,7 +8048,7 @@ proto.buckets.pb.PullIpfsPathReply.serializeBinaryToWriter = function(message, w
  * optional bytes chunk = 1;
  * @return {!(string|Uint8Array)}
  */
-proto.buckets.pb.PullIpfsPathReply.prototype.getChunk = function() {
+proto.api.buckets.pb.PullIpfsPathResponse.prototype.getChunk = function() {
   return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
@@ -7593,7 +8058,7 @@ proto.buckets.pb.PullIpfsPathReply.prototype.getChunk = function() {
  * This is a type-conversion wrapper around `getChunk()`
  * @return {string}
  */
-proto.buckets.pb.PullIpfsPathReply.prototype.getChunk_asB64 = function() {
+proto.api.buckets.pb.PullIpfsPathResponse.prototype.getChunk_asB64 = function() {
   return /** @type {string} */ (jspb.Message.bytesAsB64(
       this.getChunk()));
 };
@@ -7606,7 +8071,7 @@ proto.buckets.pb.PullIpfsPathReply.prototype.getChunk_asB64 = function() {
  * This is a type-conversion wrapper around `getChunk()`
  * @return {!Uint8Array}
  */
-proto.buckets.pb.PullIpfsPathReply.prototype.getChunk_asU8 = function() {
+proto.api.buckets.pb.PullIpfsPathResponse.prototype.getChunk_asU8 = function() {
   return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
       this.getChunk()));
 };
@@ -7614,9 +8079,9 @@ proto.buckets.pb.PullIpfsPathReply.prototype.getChunk_asU8 = function() {
 
 /**
  * @param {!(string|Uint8Array)} value
- * @return {!proto.buckets.pb.PullIpfsPathReply} returns this
+ * @return {!proto.api.buckets.pb.PullIpfsPathResponse} returns this
  */
-proto.buckets.pb.PullIpfsPathReply.prototype.setChunk = function(value) {
+proto.api.buckets.pb.PullIpfsPathResponse.prototype.setChunk = function(value) {
   return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
@@ -7637,8 +8102,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.SetPathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.SetPathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.SetPathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.SetPathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7647,11 +8112,11 @@ proto.buckets.pb.SetPathRequest.prototype.toObject = function(opt_includeInstanc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.SetPathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.SetPathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.SetPathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.SetPathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
     path: jspb.Message.getFieldWithDefault(msg, 2, ""),
@@ -7669,23 +8134,23 @@ proto.buckets.pb.SetPathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.SetPathRequest}
+ * @return {!proto.api.buckets.pb.SetPathRequest}
  */
-proto.buckets.pb.SetPathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.SetPathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.SetPathRequest;
-  return proto.buckets.pb.SetPathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.SetPathRequest;
+  return proto.api.buckets.pb.SetPathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.SetPathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.SetPathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.SetPathRequest}
+ * @return {!proto.api.buckets.pb.SetPathRequest}
  */
-proto.buckets.pb.SetPathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.SetPathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7717,9 +8182,9 @@ proto.buckets.pb.SetPathRequest.deserializeBinaryFromReader = function(msg, read
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.SetPathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.SetPathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.SetPathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.SetPathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7727,11 +8192,11 @@ proto.buckets.pb.SetPathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.SetPathRequest} message
+ * @param {!proto.api.buckets.pb.SetPathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.SetPathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.SetPathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -7761,16 +8226,16 @@ proto.buckets.pb.SetPathRequest.serializeBinaryToWriter = function(message, writ
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.SetPathRequest.prototype.getKey = function() {
+proto.api.buckets.pb.SetPathRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.SetPathRequest} returns this
+ * @return {!proto.api.buckets.pb.SetPathRequest} returns this
  */
-proto.buckets.pb.SetPathRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.SetPathRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -7779,16 +8244,16 @@ proto.buckets.pb.SetPathRequest.prototype.setKey = function(value) {
  * optional string path = 2;
  * @return {string}
  */
-proto.buckets.pb.SetPathRequest.prototype.getPath = function() {
+proto.api.buckets.pb.SetPathRequest.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.SetPathRequest} returns this
+ * @return {!proto.api.buckets.pb.SetPathRequest} returns this
  */
-proto.buckets.pb.SetPathRequest.prototype.setPath = function(value) {
+proto.api.buckets.pb.SetPathRequest.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -7797,16 +8262,16 @@ proto.buckets.pb.SetPathRequest.prototype.setPath = function(value) {
  * optional string cid = 3;
  * @return {string}
  */
-proto.buckets.pb.SetPathRequest.prototype.getCid = function() {
+proto.api.buckets.pb.SetPathRequest.prototype.getCid = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.SetPathRequest} returns this
+ * @return {!proto.api.buckets.pb.SetPathRequest} returns this
  */
-proto.buckets.pb.SetPathRequest.prototype.setCid = function(value) {
+proto.api.buckets.pb.SetPathRequest.prototype.setCid = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -7827,8 +8292,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.SetPathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.SetPathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.SetPathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.SetPathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -7837,11 +8302,11 @@ proto.buckets.pb.SetPathReply.prototype.toObject = function(opt_includeInstance)
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.SetPathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.SetPathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.SetPathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.SetPathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -7857,23 +8322,23 @@ proto.buckets.pb.SetPathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.SetPathReply}
+ * @return {!proto.api.buckets.pb.SetPathResponse}
  */
-proto.buckets.pb.SetPathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.SetPathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.SetPathReply;
-  return proto.buckets.pb.SetPathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.SetPathResponse;
+  return proto.api.buckets.pb.SetPathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.SetPathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.SetPathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.SetPathReply}
+ * @return {!proto.api.buckets.pb.SetPathResponse}
  */
-proto.buckets.pb.SetPathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.SetPathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7893,9 +8358,9 @@ proto.buckets.pb.SetPathReply.deserializeBinaryFromReader = function(msg, reader
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.SetPathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.SetPathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.SetPathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.SetPathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -7903,11 +8368,11 @@ proto.buckets.pb.SetPathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.SetPathReply} message
+ * @param {!proto.api.buckets.pb.SetPathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.SetPathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.SetPathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -7928,8 +8393,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.RemoveRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.RemoveRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.RemoveRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.RemoveRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -7938,11 +8403,11 @@ proto.buckets.pb.RemoveRequest.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.RemoveRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.RemoveRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemoveRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.RemoveRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -7958,23 +8423,23 @@ proto.buckets.pb.RemoveRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.RemoveRequest}
+ * @return {!proto.api.buckets.pb.RemoveRequest}
  */
-proto.buckets.pb.RemoveRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.RemoveRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.RemoveRequest;
-  return proto.buckets.pb.RemoveRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.RemoveRequest;
+  return proto.api.buckets.pb.RemoveRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.RemoveRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.RemoveRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.RemoveRequest}
+ * @return {!proto.api.buckets.pb.RemoveRequest}
  */
-proto.buckets.pb.RemoveRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.RemoveRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -7998,9 +8463,9 @@ proto.buckets.pb.RemoveRequest.deserializeBinaryFromReader = function(msg, reade
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.RemoveRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.RemoveRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.RemoveRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.RemoveRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8008,11 +8473,11 @@ proto.buckets.pb.RemoveRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.RemoveRequest} message
+ * @param {!proto.api.buckets.pb.RemoveRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemoveRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.RemoveRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -8028,16 +8493,16 @@ proto.buckets.pb.RemoveRequest.serializeBinaryToWriter = function(message, write
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.RemoveRequest.prototype.getKey = function() {
+proto.api.buckets.pb.RemoveRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.RemoveRequest} returns this
+ * @return {!proto.api.buckets.pb.RemoveRequest} returns this
  */
-proto.buckets.pb.RemoveRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.RemoveRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -8058,8 +8523,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.RemoveReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.RemoveReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.RemoveResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.RemoveResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -8068,11 +8533,11 @@ proto.buckets.pb.RemoveReply.prototype.toObject = function(opt_includeInstance) 
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.RemoveReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.RemoveResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemoveReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.RemoveResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -8088,23 +8553,23 @@ proto.buckets.pb.RemoveReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.RemoveReply}
+ * @return {!proto.api.buckets.pb.RemoveResponse}
  */
-proto.buckets.pb.RemoveReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.RemoveResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.RemoveReply;
-  return proto.buckets.pb.RemoveReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.RemoveResponse;
+  return proto.api.buckets.pb.RemoveResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.RemoveReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.RemoveResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.RemoveReply}
+ * @return {!proto.api.buckets.pb.RemoveResponse}
  */
-proto.buckets.pb.RemoveReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.RemoveResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8124,9 +8589,9 @@ proto.buckets.pb.RemoveReply.deserializeBinaryFromReader = function(msg, reader)
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.RemoveReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.RemoveResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.RemoveReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.RemoveResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8134,11 +8599,11 @@ proto.buckets.pb.RemoveReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.RemoveReply} message
+ * @param {!proto.api.buckets.pb.RemoveResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemoveReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.RemoveResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -8159,8 +8624,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.RemovePathRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.RemovePathRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.RemovePathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.RemovePathRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -8169,11 +8634,11 @@ proto.buckets.pb.RemovePathRequest.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.RemovePathRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.RemovePathRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemovePathRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.RemovePathRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
     path: jspb.Message.getFieldWithDefault(msg, 2, ""),
@@ -8191,23 +8656,23 @@ proto.buckets.pb.RemovePathRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.RemovePathRequest}
+ * @return {!proto.api.buckets.pb.RemovePathRequest}
  */
-proto.buckets.pb.RemovePathRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.RemovePathRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.RemovePathRequest;
-  return proto.buckets.pb.RemovePathRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.RemovePathRequest;
+  return proto.api.buckets.pb.RemovePathRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.RemovePathRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.RemovePathRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.RemovePathRequest}
+ * @return {!proto.api.buckets.pb.RemovePathRequest}
  */
-proto.buckets.pb.RemovePathRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.RemovePathRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8239,9 +8704,9 @@ proto.buckets.pb.RemovePathRequest.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.RemovePathRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.RemovePathRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.RemovePathRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.RemovePathRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8249,11 +8714,11 @@ proto.buckets.pb.RemovePathRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.RemovePathRequest} message
+ * @param {!proto.api.buckets.pb.RemovePathRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemovePathRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.RemovePathRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -8283,16 +8748,16 @@ proto.buckets.pb.RemovePathRequest.serializeBinaryToWriter = function(message, w
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.RemovePathRequest.prototype.getKey = function() {
+proto.api.buckets.pb.RemovePathRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.RemovePathRequest} returns this
+ * @return {!proto.api.buckets.pb.RemovePathRequest} returns this
  */
-proto.buckets.pb.RemovePathRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.RemovePathRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -8301,16 +8766,16 @@ proto.buckets.pb.RemovePathRequest.prototype.setKey = function(value) {
  * optional string path = 2;
  * @return {string}
  */
-proto.buckets.pb.RemovePathRequest.prototype.getPath = function() {
+proto.api.buckets.pb.RemovePathRequest.prototype.getPath = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.RemovePathRequest} returns this
+ * @return {!proto.api.buckets.pb.RemovePathRequest} returns this
  */
-proto.buckets.pb.RemovePathRequest.prototype.setPath = function(value) {
+proto.api.buckets.pb.RemovePathRequest.prototype.setPath = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -8319,16 +8784,16 @@ proto.buckets.pb.RemovePathRequest.prototype.setPath = function(value) {
  * optional string root = 3;
  * @return {string}
  */
-proto.buckets.pb.RemovePathRequest.prototype.getRoot = function() {
+proto.api.buckets.pb.RemovePathRequest.prototype.getRoot = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.RemovePathRequest} returns this
+ * @return {!proto.api.buckets.pb.RemovePathRequest} returns this
  */
-proto.buckets.pb.RemovePathRequest.prototype.setRoot = function(value) {
+proto.api.buckets.pb.RemovePathRequest.prototype.setRoot = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -8349,8 +8814,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.RemovePathReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.RemovePathReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.RemovePathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.RemovePathResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -8359,13 +8824,13 @@ proto.buckets.pb.RemovePathReply.prototype.toObject = function(opt_includeInstan
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.RemovePathReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.RemovePathResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemovePathReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.RemovePathResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    root: (f = msg.getRoot()) && proto.buckets.pb.Root.toObject(includeInstance, f)
+    root: (f = msg.getRoot()) && proto.api.buckets.pb.Root.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -8379,23 +8844,23 @@ proto.buckets.pb.RemovePathReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.RemovePathReply}
+ * @return {!proto.api.buckets.pb.RemovePathResponse}
  */
-proto.buckets.pb.RemovePathReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.RemovePathResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.RemovePathReply;
-  return proto.buckets.pb.RemovePathReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.RemovePathResponse;
+  return proto.api.buckets.pb.RemovePathResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.RemovePathReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.RemovePathResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.RemovePathReply}
+ * @return {!proto.api.buckets.pb.RemovePathResponse}
  */
-proto.buckets.pb.RemovePathReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.RemovePathResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8403,8 +8868,8 @@ proto.buckets.pb.RemovePathReply.deserializeBinaryFromReader = function(msg, rea
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = new proto.buckets.pb.Root;
-      reader.readMessage(value,proto.buckets.pb.Root.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.Root;
+      reader.readMessage(value,proto.api.buckets.pb.Root.deserializeBinaryFromReader);
       msg.setRoot(value);
       break;
     default:
@@ -8420,9 +8885,9 @@ proto.buckets.pb.RemovePathReply.deserializeBinaryFromReader = function(msg, rea
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.RemovePathReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.RemovePathResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.RemovePathReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.RemovePathResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8430,18 +8895,18 @@ proto.buckets.pb.RemovePathReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.RemovePathReply} message
+ * @param {!proto.api.buckets.pb.RemovePathResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.RemovePathReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.RemovePathResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRoot();
   if (f != null) {
     writer.writeMessage(
       1,
       f,
-      proto.buckets.pb.Root.serializeBinaryToWriter
+      proto.api.buckets.pb.Root.serializeBinaryToWriter
     );
   }
 };
@@ -8449,28 +8914,28 @@ proto.buckets.pb.RemovePathReply.serializeBinaryToWriter = function(message, wri
 
 /**
  * optional Root root = 1;
- * @return {?proto.buckets.pb.Root}
+ * @return {?proto.api.buckets.pb.Root}
  */
-proto.buckets.pb.RemovePathReply.prototype.getRoot = function() {
-  return /** @type{?proto.buckets.pb.Root} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.Root, 1));
+proto.api.buckets.pb.RemovePathResponse.prototype.getRoot = function() {
+  return /** @type{?proto.api.buckets.pb.Root} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.Root, 1));
 };
 
 
 /**
- * @param {?proto.buckets.pb.Root|undefined} value
- * @return {!proto.buckets.pb.RemovePathReply} returns this
+ * @param {?proto.api.buckets.pb.Root|undefined} value
+ * @return {!proto.api.buckets.pb.RemovePathResponse} returns this
 */
-proto.buckets.pb.RemovePathReply.prototype.setRoot = function(value) {
+proto.api.buckets.pb.RemovePathResponse.prototype.setRoot = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.RemovePathReply} returns this
+ * @return {!proto.api.buckets.pb.RemovePathResponse} returns this
  */
-proto.buckets.pb.RemovePathReply.prototype.clearRoot = function() {
+proto.api.buckets.pb.RemovePathResponse.prototype.clearRoot = function() {
   return this.setRoot(undefined);
 };
 
@@ -8479,7 +8944,7 @@ proto.buckets.pb.RemovePathReply.prototype.clearRoot = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.RemovePathReply.prototype.hasRoot = function() {
+proto.api.buckets.pb.RemovePathResponse.prototype.hasRoot = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -8500,8 +8965,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PushPathAccessRolesRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -8510,376 +8975,15 @@ proto.buckets.pb.ArchiveRequest.prototype.toObject = function(opt_includeInstanc
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.PushPathAccessRolesRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    key: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveRequest}
- */
-proto.buckets.pb.ArchiveRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveRequest;
-  return proto.buckets.pb.ArchiveRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveRequest}
- */
-proto.buckets.pb.ArchiveRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setKey(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.buckets.pb.ArchiveRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.buckets.pb.ArchiveRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getKey();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string key = 1;
- * @return {string}
- */
-proto.buckets.pb.ArchiveRequest.prototype.getKey = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.buckets.pb.ArchiveRequest} returns this
- */
-proto.buckets.pb.ArchiveRequest.prototype.setKey = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.buckets.pb.ArchiveReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveReply.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveReply} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.buckets.pb.ArchiveReply.toObject = function(includeInstance, msg) {
-  var f, obj = {
-
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveReply}
- */
-proto.buckets.pb.ArchiveReply.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveReply;
-  return proto.buckets.pb.ArchiveReply.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveReply} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveReply}
- */
-proto.buckets.pb.ArchiveReply.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.buckets.pb.ArchiveReply.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveReply.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveReply} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.buckets.pb.ArchiveReply.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.buckets.pb.ArchiveStatusRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveStatusRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveStatusRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.buckets.pb.ArchiveStatusRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    key: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveStatusRequest}
- */
-proto.buckets.pb.ArchiveStatusRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveStatusRequest;
-  return proto.buckets.pb.ArchiveStatusRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveStatusRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveStatusRequest}
- */
-proto.buckets.pb.ArchiveStatusRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setKey(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.buckets.pb.ArchiveStatusRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveStatusRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveStatusRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.buckets.pb.ArchiveStatusRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getKey();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string key = 1;
- * @return {string}
- */
-proto.buckets.pb.ArchiveStatusRequest.prototype.getKey = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.buckets.pb.ArchiveStatusRequest} returns this
- */
-proto.buckets.pb.ArchiveStatusRequest.prototype.setKey = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.buckets.pb.ArchiveStatusReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveStatusReply.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveStatusReply} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.buckets.pb.ArchiveStatusReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.PushPathAccessRolesRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    status: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    failedmsg: jspb.Message.getFieldWithDefault(msg, 3, "")
+    path: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    rolesMap: (f = msg.getRolesMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -8893,23 +8997,23 @@ proto.buckets.pb.ArchiveStatusReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveStatusReply}
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesRequest}
  */
-proto.buckets.pb.ArchiveStatusReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.PushPathAccessRolesRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveStatusReply;
-  return proto.buckets.pb.ArchiveStatusReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.PushPathAccessRolesRequest;
+  return proto.api.buckets.pb.PushPathAccessRolesRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveStatusReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.PushPathAccessRolesRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveStatusReply}
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesRequest}
  */
-proto.buckets.pb.ArchiveStatusReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.PushPathAccessRolesRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -8921,12 +9025,14 @@ proto.buckets.pb.ArchiveStatusReply.deserializeBinaryFromReader = function(msg, 
       msg.setKey(value);
       break;
     case 2:
-      var value = /** @type {!proto.buckets.pb.ArchiveStatusReply.Status} */ (reader.readEnum());
-      msg.setStatus(value);
+      var value = /** @type {string} */ (reader.readString());
+      msg.setPath(value);
       break;
     case 3:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setFailedmsg(value);
+      var value = msg.getRolesMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readEnum, null, "", 0);
+         });
       break;
     default:
       reader.skipField();
@@ -8941,9 +9047,9 @@ proto.buckets.pb.ArchiveStatusReply.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveStatusReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.PushPathAccessRolesRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -8951,11 +9057,957 @@ proto.buckets.pb.ArchiveStatusReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveStatusReply} message
+ * @param {!proto.api.buckets.pb.PushPathAccessRolesRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveStatusReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.PushPathAccessRolesRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getPath();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getRolesMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(3, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeEnum);
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesRequest} returns this
+ */
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string path = 2;
+ * @return {string}
+ */
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.getPath = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesRequest} returns this
+ */
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.setPath = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * map<string, PathAccessRole> roles = 3;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.api.buckets.pb.PathAccessRole>}
+ */
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.getRolesMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.api.buckets.pb.PathAccessRole>} */ (
+      jspb.Message.getMapField(this, 3, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesRequest} returns this
+ */
+proto.api.buckets.pb.PushPathAccessRolesRequest.prototype.clearRolesMap = function() {
+  this.getRolesMap().clear();
+  return this;};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.PushPathAccessRolesResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PushPathAccessRolesResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.PushPathAccessRolesResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.PushPathAccessRolesResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesResponse}
+ */
+proto.api.buckets.pb.PushPathAccessRolesResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.PushPathAccessRolesResponse;
+  return proto.api.buckets.pb.PushPathAccessRolesResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.PushPathAccessRolesResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.PushPathAccessRolesResponse}
+ */
+proto.api.buckets.pb.PushPathAccessRolesResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.PushPathAccessRolesResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.PushPathAccessRolesResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.PushPathAccessRolesResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.PushPathAccessRolesResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PullPathAccessRolesRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.PullPathAccessRolesRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    path: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesRequest}
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.PullPathAccessRolesRequest;
+  return proto.api.buckets.pb.PullPathAccessRolesRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.PullPathAccessRolesRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesRequest}
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setPath(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.PullPathAccessRolesRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.PullPathAccessRolesRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getPath();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesRequest} returns this
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string path = 2;
+ * @return {string}
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.prototype.getPath = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesRequest} returns this
+ */
+proto.api.buckets.pb.PullPathAccessRolesRequest.prototype.setPath = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.PullPathAccessRolesResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.PullPathAccessRolesResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    rolesMap: (f = msg.getRolesMap()) ? f.toObject(includeInstance, undefined) : []
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesResponse}
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.PullPathAccessRolesResponse;
+  return proto.api.buckets.pb.PullPathAccessRolesResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.PullPathAccessRolesResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesResponse}
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = msg.getRolesMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readEnum, null, "", 0);
+         });
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.PullPathAccessRolesResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.PullPathAccessRolesResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getRolesMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeEnum);
+  }
+};
+
+
+/**
+ * map<string, PathAccessRole> roles = 1;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.api.buckets.pb.PathAccessRole>}
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.prototype.getRolesMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.api.buckets.pb.PathAccessRole>} */ (
+      jspb.Message.getMapField(this, 1, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.api.buckets.pb.PullPathAccessRolesResponse} returns this
+ */
+proto.api.buckets.pb.PullPathAccessRolesResponse.prototype.clearRolesMap = function() {
+  this.getRolesMap().clear();
+  return this;};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.ArchiveRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.ArchiveRequest}
+ */
+proto.api.buckets.pb.ArchiveRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.ArchiveRequest;
+  return proto.api.buckets.pb.ArchiveRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.ArchiveRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.ArchiveRequest}
+ */
+proto.api.buckets.pb.ArchiveRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.ArchiveRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.ArchiveRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.ArchiveRequest} returns this
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.ArchiveResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.ArchiveResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.ArchiveResponse}
+ */
+proto.api.buckets.pb.ArchiveResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.ArchiveResponse;
+  return proto.api.buckets.pb.ArchiveResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.ArchiveResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.ArchiveResponse}
+ */
+proto.api.buckets.pb.ArchiveResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.ArchiveResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.ArchiveResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.ArchiveResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveStatusRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.ArchiveStatusRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.ArchiveStatusRequest}
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.ArchiveStatusRequest;
+  return proto.api.buckets.pb.ArchiveStatusRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.ArchiveStatusRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.ArchiveStatusRequest}
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.ArchiveStatusRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.ArchiveStatusRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.ArchiveStatusRequest} returns this
+ */
+proto.api.buckets.pb.ArchiveStatusRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveStatusResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.ArchiveStatusResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveStatusResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    status: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    failedMsg: jspb.Message.getFieldWithDefault(msg, 3, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.ArchiveStatusResponse}
+ */
+proto.api.buckets.pb.ArchiveStatusResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.ArchiveStatusResponse;
+  return proto.api.buckets.pb.ArchiveStatusResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.ArchiveStatusResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.ArchiveStatusResponse}
+ */
+proto.api.buckets.pb.ArchiveStatusResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    case 2:
+      var value = /** @type {!proto.api.buckets.pb.ArchiveStatusResponse.Status} */ (reader.readEnum());
+      msg.setStatus(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setFailedMsg(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.ArchiveStatusResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.ArchiveStatusResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveStatusResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -8971,7 +10023,7 @@ proto.buckets.pb.ArchiveStatusReply.serializeBinaryToWriter = function(message, 
       f
     );
   }
-  f = message.getFailedmsg();
+  f = message.getFailedMsg();
   if (f.length > 0) {
     writer.writeString(
       3,
@@ -8984,63 +10036,64 @@ proto.buckets.pb.ArchiveStatusReply.serializeBinaryToWriter = function(message, 
 /**
  * @enum {number}
  */
-proto.buckets.pb.ArchiveStatusReply.Status = {
-  EXECUTING: 0,
-  FAILED: 1,
-  DONE: 2,
-  CANCELED: 3
+proto.api.buckets.pb.ArchiveStatusResponse.Status = {
+  STATUS_UNSPECIFIED: 0,
+  STATUS_EXECUTING: 1,
+  STATUS_FAILED: 2,
+  STATUS_DONE: 3,
+  STATUS_CANCELED: 4
 };
 
 /**
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.getKey = function() {
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveStatusReply} returns this
+ * @return {!proto.api.buckets.pb.ArchiveStatusResponse} returns this
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.setKey = function(value) {
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
  * optional Status status = 2;
- * @return {!proto.buckets.pb.ArchiveStatusReply.Status}
+ * @return {!proto.api.buckets.pb.ArchiveStatusResponse.Status}
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.getStatus = function() {
-  return /** @type {!proto.buckets.pb.ArchiveStatusReply.Status} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.getStatus = function() {
+  return /** @type {!proto.api.buckets.pb.ArchiveStatusResponse.Status} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
 };
 
 
 /**
- * @param {!proto.buckets.pb.ArchiveStatusReply.Status} value
- * @return {!proto.buckets.pb.ArchiveStatusReply} returns this
+ * @param {!proto.api.buckets.pb.ArchiveStatusResponse.Status} value
+ * @return {!proto.api.buckets.pb.ArchiveStatusResponse} returns this
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.setStatus = function(value) {
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.setStatus = function(value) {
   return jspb.Message.setProto3EnumField(this, 2, value);
 };
 
 
 /**
- * optional string failedMsg = 3;
+ * optional string failed_msg = 3;
  * @return {string}
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.getFailedmsg = function() {
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.getFailedMsg = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveStatusReply} returns this
+ * @return {!proto.api.buckets.pb.ArchiveStatusResponse} returns this
  */
-proto.buckets.pb.ArchiveStatusReply.prototype.setFailedmsg = function(value) {
+proto.api.buckets.pb.ArchiveStatusResponse.prototype.setFailedMsg = function(value) {
   return jspb.Message.setProto3StringField(this, 3, value);
 };
 
@@ -9061,8 +10114,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveInfoRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveInfoRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ArchiveInfoRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveInfoRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -9071,11 +10124,11 @@ proto.buckets.pb.ArchiveInfoRequest.prototype.toObject = function(opt_includeIns
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveInfoRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ArchiveInfoRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ArchiveInfoRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -9091,23 +10144,23 @@ proto.buckets.pb.ArchiveInfoRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveInfoRequest}
+ * @return {!proto.api.buckets.pb.ArchiveInfoRequest}
  */
-proto.buckets.pb.ArchiveInfoRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ArchiveInfoRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveInfoRequest;
-  return proto.buckets.pb.ArchiveInfoRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ArchiveInfoRequest;
+  return proto.api.buckets.pb.ArchiveInfoRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveInfoRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ArchiveInfoRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveInfoRequest}
+ * @return {!proto.api.buckets.pb.ArchiveInfoRequest}
  */
-proto.buckets.pb.ArchiveInfoRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ArchiveInfoRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9131,9 +10184,9 @@ proto.buckets.pb.ArchiveInfoRequest.deserializeBinaryFromReader = function(msg, 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveInfoRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ArchiveInfoRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveInfoRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ArchiveInfoRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9141,11 +10194,11 @@ proto.buckets.pb.ArchiveInfoRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveInfoRequest} message
+ * @param {!proto.api.buckets.pb.ArchiveInfoRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ArchiveInfoRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -9161,16 +10214,16 @@ proto.buckets.pb.ArchiveInfoRequest.serializeBinaryToWriter = function(message, 
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveInfoRequest.prototype.getKey = function() {
+proto.api.buckets.pb.ArchiveInfoRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveInfoRequest} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoRequest} returns this
  */
-proto.buckets.pb.ArchiveInfoRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.ArchiveInfoRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -9191,8 +10244,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveInfoReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveInfoResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -9201,14 +10254,14 @@ proto.buckets.pb.ArchiveInfoReply.prototype.toObject = function(opt_includeInsta
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveInfoReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ArchiveInfoResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    archive: (f = msg.getArchive()) && proto.buckets.pb.ArchiveInfoReply.Archive.toObject(includeInstance, f)
+    archive: (f = msg.getArchive()) && proto.api.buckets.pb.ArchiveInfoResponse.Archive.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -9222,23 +10275,23 @@ proto.buckets.pb.ArchiveInfoReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveInfoReply}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse}
  */
-proto.buckets.pb.ArchiveInfoReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ArchiveInfoResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveInfoReply;
-  return proto.buckets.pb.ArchiveInfoReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ArchiveInfoResponse;
+  return proto.api.buckets.pb.ArchiveInfoResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveInfoReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveInfoReply}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse}
  */
-proto.buckets.pb.ArchiveInfoReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ArchiveInfoResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9250,8 +10303,8 @@ proto.buckets.pb.ArchiveInfoReply.deserializeBinaryFromReader = function(msg, re
       msg.setKey(value);
       break;
     case 2:
-      var value = new proto.buckets.pb.ArchiveInfoReply.Archive;
-      reader.readMessage(value,proto.buckets.pb.ArchiveInfoReply.Archive.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.ArchiveInfoResponse.Archive;
+      reader.readMessage(value,proto.api.buckets.pb.ArchiveInfoResponse.Archive.deserializeBinaryFromReader);
       msg.setArchive(value);
       break;
     default:
@@ -9267,9 +10320,9 @@ proto.buckets.pb.ArchiveInfoReply.deserializeBinaryFromReader = function(msg, re
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveInfoReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ArchiveInfoResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9277,11 +10330,11 @@ proto.buckets.pb.ArchiveInfoReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveInfoReply} message
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ArchiveInfoResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -9295,7 +10348,7 @@ proto.buckets.pb.ArchiveInfoReply.serializeBinaryToWriter = function(message, wr
     writer.writeMessage(
       2,
       f,
-      proto.buckets.pb.ArchiveInfoReply.Archive.serializeBinaryToWriter
+      proto.api.buckets.pb.ArchiveInfoResponse.Archive.serializeBinaryToWriter
     );
   }
 };
@@ -9307,7 +10360,7 @@ proto.buckets.pb.ArchiveInfoReply.serializeBinaryToWriter = function(message, wr
  * @private {!Array<number>}
  * @const
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.repeatedFields_ = [2];
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.repeatedFields_ = [2];
 
 
 
@@ -9324,8 +10377,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveInfoReply.Archive.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveInfoResponse.Archive.toObject(opt_includeInstance, this);
 };
 
 
@@ -9334,15 +10387,15 @@ proto.buckets.pb.ArchiveInfoReply.Archive.prototype.toObject = function(opt_incl
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.toObject = function(includeInstance, msg) {
   var f, obj = {
     cid: jspb.Message.getFieldWithDefault(msg, 1, ""),
     dealsList: jspb.Message.toObjectList(msg.getDealsList(),
-    proto.buckets.pb.ArchiveInfoReply.Archive.Deal.toObject, includeInstance)
+    proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.toObject, includeInstance)
   };
 
   if (includeInstance) {
@@ -9356,23 +10409,23 @@ proto.buckets.pb.ArchiveInfoReply.Archive.toObject = function(includeInstance, m
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveInfoReply.Archive;
-  return proto.buckets.pb.ArchiveInfoReply.Archive.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ArchiveInfoResponse.Archive;
+  return proto.api.buckets.pb.ArchiveInfoResponse.Archive.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9384,8 +10437,8 @@ proto.buckets.pb.ArchiveInfoReply.Archive.deserializeBinaryFromReader = function
       msg.setCid(value);
       break;
     case 2:
-      var value = new proto.buckets.pb.ArchiveInfoReply.Archive.Deal;
-      reader.readMessage(value,proto.buckets.pb.ArchiveInfoReply.Archive.Deal.deserializeBinaryFromReader);
+      var value = new proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal;
+      reader.readMessage(value,proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.deserializeBinaryFromReader);
       msg.addDeals(value);
       break;
     default:
@@ -9401,9 +10454,9 @@ proto.buckets.pb.ArchiveInfoReply.Archive.deserializeBinaryFromReader = function
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveInfoReply.Archive.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ArchiveInfoResponse.Archive.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9411,11 +10464,11 @@ proto.buckets.pb.ArchiveInfoReply.Archive.prototype.serializeBinary = function()
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive} message
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getCid();
   if (f.length > 0) {
@@ -9429,7 +10482,7 @@ proto.buckets.pb.ArchiveInfoReply.Archive.serializeBinaryToWriter = function(mes
     writer.writeRepeatedMessage(
       2,
       f,
-      proto.buckets.pb.ArchiveInfoReply.Archive.Deal.serializeBinaryToWriter
+      proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.serializeBinaryToWriter
     );
   }
 };
@@ -9451,8 +10504,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveInfoReply.Archive.Deal.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.toObject(opt_includeInstance, this);
 };
 
 
@@ -9461,13 +10514,13 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.toObject = function(opt
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.toObject = function(includeInstance, msg) {
   var f, obj = {
-    proposalcid: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    proposalCid: jspb.Message.getFieldWithDefault(msg, 1, ""),
     miner: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
@@ -9482,23 +10535,23 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.toObject = function(includeInstan
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveInfoReply.Archive.Deal;
-  return proto.buckets.pb.ArchiveInfoReply.Archive.Deal.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal;
+  return proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9507,7 +10560,7 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.deserializeBinaryFromReader = fun
     switch (field) {
     case 1:
       var value = /** @type {string} */ (reader.readString());
-      msg.setProposalcid(value);
+      msg.setProposalCid(value);
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
@@ -9526,9 +10579,9 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.deserializeBinaryFromReader = fun
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveInfoReply.Archive.Deal.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9536,13 +10589,13 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.serializeBinary = funct
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal} message
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getProposalcid();
+  f = message.getProposalCid();
   if (f.length > 0) {
     writer.writeString(
       1,
@@ -9560,19 +10613,19 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.serializeBinaryToWriter = functio
 
 
 /**
- * optional string proposalCid = 1;
+ * optional string proposal_cid = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.getProposalcid = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.prototype.getProposalCid = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal} returns this
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.setProposalcid = function(value) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.prototype.setProposalCid = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -9581,16 +10634,16 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.setProposalcid = functi
  * optional string miner = 2;
  * @return {string}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.getMiner = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.prototype.getMiner = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal} returns this
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.setMiner = function(value) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal.prototype.setMiner = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -9599,54 +10652,54 @@ proto.buckets.pb.ArchiveInfoReply.Archive.Deal.prototype.setMiner = function(val
  * optional string cid = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.getCid = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.getCid = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive} returns this
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.setCid = function(value) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.setCid = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
  * repeated Deal deals = 2;
- * @return {!Array<!proto.buckets.pb.ArchiveInfoReply.Archive.Deal>}
+ * @return {!Array<!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal>}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.getDealsList = function() {
-  return /** @type{!Array<!proto.buckets.pb.ArchiveInfoReply.Archive.Deal>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.buckets.pb.ArchiveInfoReply.Archive.Deal, 2));
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.getDealsList = function() {
+  return /** @type{!Array<!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal, 2));
 };
 
 
 /**
- * @param {!Array<!proto.buckets.pb.ArchiveInfoReply.Archive.Deal>} value
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive} returns this
+ * @param {!Array<!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal>} value
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive} returns this
 */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.setDealsList = function(value) {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.setDealsList = function(value) {
   return jspb.Message.setRepeatedWrapperField(this, 2, value);
 };
 
 
 /**
- * @param {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal=} opt_value
+ * @param {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal=} opt_value
  * @param {number=} opt_index
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive.Deal}
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal}
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.addDeals = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 2, opt_value, proto.buckets.pb.ArchiveInfoReply.Archive.Deal, opt_index);
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.addDeals = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 2, opt_value, proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal, opt_index);
 };
 
 
 /**
  * Clears the list making it empty but non-null.
- * @return {!proto.buckets.pb.ArchiveInfoReply.Archive} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse.Archive} returns this
  */
-proto.buckets.pb.ArchiveInfoReply.Archive.prototype.clearDealsList = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.Archive.prototype.clearDealsList = function() {
   return this.setDealsList([]);
 };
 
@@ -9655,44 +10708,44 @@ proto.buckets.pb.ArchiveInfoReply.Archive.prototype.clearDealsList = function() 
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.getKey = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveInfoReply} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse} returns this
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.setKey = function(value) {
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
  * optional Archive archive = 2;
- * @return {?proto.buckets.pb.ArchiveInfoReply.Archive}
+ * @return {?proto.api.buckets.pb.ArchiveInfoResponse.Archive}
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.getArchive = function() {
-  return /** @type{?proto.buckets.pb.ArchiveInfoReply.Archive} */ (
-    jspb.Message.getWrapperField(this, proto.buckets.pb.ArchiveInfoReply.Archive, 2));
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.getArchive = function() {
+  return /** @type{?proto.api.buckets.pb.ArchiveInfoResponse.Archive} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.ArchiveInfoResponse.Archive, 2));
 };
 
 
 /**
- * @param {?proto.buckets.pb.ArchiveInfoReply.Archive|undefined} value
- * @return {!proto.buckets.pb.ArchiveInfoReply} returns this
+ * @param {?proto.api.buckets.pb.ArchiveInfoResponse.Archive|undefined} value
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse} returns this
 */
-proto.buckets.pb.ArchiveInfoReply.prototype.setArchive = function(value) {
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.setArchive = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.buckets.pb.ArchiveInfoReply} returns this
+ * @return {!proto.api.buckets.pb.ArchiveInfoResponse} returns this
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.clearArchive = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.clearArchive = function() {
   return this.setArchive(undefined);
 };
 
@@ -9701,7 +10754,7 @@ proto.buckets.pb.ArchiveInfoReply.prototype.clearArchive = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.buckets.pb.ArchiveInfoReply.prototype.hasArchive = function() {
+proto.api.buckets.pb.ArchiveInfoResponse.prototype.hasArchive = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -9722,8 +10775,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveWatchRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveWatchRequest.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ArchiveWatchRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveWatchRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -9732,11 +10785,11 @@ proto.buckets.pb.ArchiveWatchRequest.prototype.toObject = function(opt_includeIn
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveWatchRequest} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ArchiveWatchRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveWatchRequest.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ArchiveWatchRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     key: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -9752,23 +10805,23 @@ proto.buckets.pb.ArchiveWatchRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveWatchRequest}
+ * @return {!proto.api.buckets.pb.ArchiveWatchRequest}
  */
-proto.buckets.pb.ArchiveWatchRequest.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ArchiveWatchRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveWatchRequest;
-  return proto.buckets.pb.ArchiveWatchRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ArchiveWatchRequest;
+  return proto.api.buckets.pb.ArchiveWatchRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveWatchRequest} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ArchiveWatchRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveWatchRequest}
+ * @return {!proto.api.buckets.pb.ArchiveWatchRequest}
  */
-proto.buckets.pb.ArchiveWatchRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ArchiveWatchRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9792,9 +10845,9 @@ proto.buckets.pb.ArchiveWatchRequest.deserializeBinaryFromReader = function(msg,
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveWatchRequest.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ArchiveWatchRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveWatchRequest.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ArchiveWatchRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9802,11 +10855,11 @@ proto.buckets.pb.ArchiveWatchRequest.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveWatchRequest} message
+ * @param {!proto.api.buckets.pb.ArchiveWatchRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveWatchRequest.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ArchiveWatchRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getKey();
   if (f.length > 0) {
@@ -9822,16 +10875,16 @@ proto.buckets.pb.ArchiveWatchRequest.serializeBinaryToWriter = function(message,
  * optional string key = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveWatchRequest.prototype.getKey = function() {
+proto.api.buckets.pb.ArchiveWatchRequest.prototype.getKey = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveWatchRequest} returns this
+ * @return {!proto.api.buckets.pb.ArchiveWatchRequest} returns this
  */
-proto.buckets.pb.ArchiveWatchRequest.prototype.setKey = function(value) {
+proto.api.buckets.pb.ArchiveWatchRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -9852,8 +10905,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.buckets.pb.ArchiveWatchReply.prototype.toObject = function(opt_includeInstance) {
-  return proto.buckets.pb.ArchiveWatchReply.toObject(opt_includeInstance, this);
+proto.api.buckets.pb.ArchiveWatchResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveWatchResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -9862,11 +10915,11 @@ proto.buckets.pb.ArchiveWatchReply.prototype.toObject = function(opt_includeInst
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.buckets.pb.ArchiveWatchReply} msg The msg instance to transform.
+ * @param {!proto.api.buckets.pb.ArchiveWatchResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveWatchReply.toObject = function(includeInstance, msg) {
+proto.api.buckets.pb.ArchiveWatchResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     msg: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
@@ -9882,23 +10935,23 @@ proto.buckets.pb.ArchiveWatchReply.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.buckets.pb.ArchiveWatchReply}
+ * @return {!proto.api.buckets.pb.ArchiveWatchResponse}
  */
-proto.buckets.pb.ArchiveWatchReply.deserializeBinary = function(bytes) {
+proto.api.buckets.pb.ArchiveWatchResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.buckets.pb.ArchiveWatchReply;
-  return proto.buckets.pb.ArchiveWatchReply.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.api.buckets.pb.ArchiveWatchResponse;
+  return proto.api.buckets.pb.ArchiveWatchResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.buckets.pb.ArchiveWatchReply} msg The message object to deserialize into.
+ * @param {!proto.api.buckets.pb.ArchiveWatchResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.buckets.pb.ArchiveWatchReply}
+ * @return {!proto.api.buckets.pb.ArchiveWatchResponse}
  */
-proto.buckets.pb.ArchiveWatchReply.deserializeBinaryFromReader = function(msg, reader) {
+proto.api.buckets.pb.ArchiveWatchResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -9922,9 +10975,9 @@ proto.buckets.pb.ArchiveWatchReply.deserializeBinaryFromReader = function(msg, r
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.buckets.pb.ArchiveWatchReply.prototype.serializeBinary = function() {
+proto.api.buckets.pb.ArchiveWatchResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.buckets.pb.ArchiveWatchReply.serializeBinaryToWriter(this, writer);
+  proto.api.buckets.pb.ArchiveWatchResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -9932,11 +10985,11 @@ proto.buckets.pb.ArchiveWatchReply.prototype.serializeBinary = function() {
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.buckets.pb.ArchiveWatchReply} message
+ * @param {!proto.api.buckets.pb.ArchiveWatchResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.buckets.pb.ArchiveWatchReply.serializeBinaryToWriter = function(message, writer) {
+proto.api.buckets.pb.ArchiveWatchResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getMsg();
   if (f.length > 0) {
@@ -9952,21 +11005,31 @@ proto.buckets.pb.ArchiveWatchReply.serializeBinaryToWriter = function(message, w
  * optional string msg = 1;
  * @return {string}
  */
-proto.buckets.pb.ArchiveWatchReply.prototype.getMsg = function() {
+proto.api.buckets.pb.ArchiveWatchResponse.prototype.getMsg = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.buckets.pb.ArchiveWatchReply} returns this
+ * @return {!proto.api.buckets.pb.ArchiveWatchResponse} returns this
  */
-proto.buckets.pb.ArchiveWatchReply.prototype.setMsg = function(value) {
+proto.api.buckets.pb.ArchiveWatchResponse.prototype.setMsg = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
-goog.object.extend(exports, proto.buckets.pb);
+/**
+ * @enum {number}
+ */
+proto.api.buckets.pb.PathAccessRole = {
+  PATH_ACCESS_ROLE_UNSPECIFIED: 0,
+  PATH_ACCESS_ROLE_READER: 1,
+  PATH_ACCESS_ROLE_WRITER: 2,
+  PATH_ACCESS_ROLE_ADMIN: 3
+};
+
+goog.object.extend(exports, proto.api.buckets.pb);
 
 
 /***/ }),
@@ -10154,15 +11217,18 @@ module.exports = CIDUtil
     function Logger(name, defaultLevel, factory) {
       var self = this;
       var currentLevel;
+
       var storageKey = "loglevel";
-      if (name) {
+      if (typeof name === "string") {
         storageKey += ":" + name;
+      } else if (typeof name === "symbol") {
+        storageKey = undefined;
       }
 
       function persistLevelIfPossible(levelNum) {
           var levelName = (logMethods[levelNum] || 'silent').toUpperCase();
 
-          if (typeof window === undefinedType) return;
+          if (typeof window === undefinedType || !storageKey) return;
 
           // Use localStorage if available
           try {
@@ -10180,7 +11246,7 @@ module.exports = CIDUtil
       function getPersistedLevel() {
           var storedLevel;
 
-          if (typeof window === undefinedType) return;
+          if (typeof window === undefinedType || !storageKey) return;
 
           try {
               storedLevel = window.localStorage[storageKey];
@@ -10273,7 +11339,7 @@ module.exports = CIDUtil
 
     var _loggersByName = {};
     defaultLogger.getLogger = function getLogger(name) {
-        if (typeof name !== "string" || name === "") {
+        if ((typeof name !== "symbol" && typeof name !== "string") || name === "") {
           throw new TypeError("You must supply a name when creating a logger.");
         }
 
@@ -10299,6 +11365,9 @@ module.exports = CIDUtil
     defaultLogger.getLoggers = function getLoggers() {
         return _loggersByName;
     };
+
+    // ES6 default export, for compatibility
+    defaultLogger['default'] = defaultLogger;
 
     return defaultLogger;
 }));
@@ -10701,174 +11770,192 @@ module.exports = (function () {
 /***/ 148:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
-// package: buckets.pb
+// package: api.buckets.pb
 // file: buckets.proto
 
 var buckets_pb = __webpack_require__(97);
 var grpc = __webpack_require__(837).grpc;
 
-var API = (function () {
-  function API() {}
-  API.serviceName = "buckets.pb.API";
-  return API;
+var APIService = (function () {
+  function APIService() {}
+  APIService.serviceName = "api.buckets.pb.APIService";
+  return APIService;
 }());
 
-API.List = {
+APIService.List = {
   methodName: "List",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.ListRequest,
-  responseType: buckets_pb.ListReply
+  responseType: buckets_pb.ListResponse
 };
 
-API.Init = {
-  methodName: "Init",
-  service: API,
+APIService.Create = {
+  methodName: "Create",
+  service: APIService,
   requestStream: false,
   responseStream: false,
-  requestType: buckets_pb.InitRequest,
-  responseType: buckets_pb.InitReply
+  requestType: buckets_pb.CreateRequest,
+  responseType: buckets_pb.CreateResponse
 };
 
-API.Root = {
+APIService.Root = {
   methodName: "Root",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.RootRequest,
-  responseType: buckets_pb.RootReply
+  responseType: buckets_pb.RootResponse
 };
 
-API.Links = {
+APIService.Links = {
   methodName: "Links",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.LinksRequest,
-  responseType: buckets_pb.LinksReply
+  responseType: buckets_pb.LinksResponse
 };
 
-API.ListPath = {
+APIService.ListPath = {
   methodName: "ListPath",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.ListPathRequest,
-  responseType: buckets_pb.ListPathReply
+  responseType: buckets_pb.ListPathResponse
 };
 
-API.ListIpfsPath = {
+APIService.ListIpfsPath = {
   methodName: "ListIpfsPath",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.ListIpfsPathRequest,
-  responseType: buckets_pb.ListIpfsPathReply
+  responseType: buckets_pb.ListIpfsPathResponse
 };
 
-API.PushPath = {
+APIService.PushPath = {
   methodName: "PushPath",
-  service: API,
+  service: APIService,
   requestStream: true,
   responseStream: true,
   requestType: buckets_pb.PushPathRequest,
-  responseType: buckets_pb.PushPathReply
+  responseType: buckets_pb.PushPathResponse
 };
 
-API.PullPath = {
+APIService.PullPath = {
   methodName: "PullPath",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: true,
   requestType: buckets_pb.PullPathRequest,
-  responseType: buckets_pb.PullPathReply
+  responseType: buckets_pb.PullPathResponse
 };
 
-API.PullIpfsPath = {
+APIService.PullIpfsPath = {
   methodName: "PullIpfsPath",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: true,
   requestType: buckets_pb.PullIpfsPathRequest,
-  responseType: buckets_pb.PullIpfsPathReply
+  responseType: buckets_pb.PullIpfsPathResponse
 };
 
-API.SetPath = {
+APIService.SetPath = {
   methodName: "SetPath",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.SetPathRequest,
-  responseType: buckets_pb.SetPathReply
+  responseType: buckets_pb.SetPathResponse
 };
 
-API.Remove = {
+APIService.Remove = {
   methodName: "Remove",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.RemoveRequest,
-  responseType: buckets_pb.RemoveReply
+  responseType: buckets_pb.RemoveResponse
 };
 
-API.RemovePath = {
+APIService.RemovePath = {
   methodName: "RemovePath",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.RemovePathRequest,
-  responseType: buckets_pb.RemovePathReply
+  responseType: buckets_pb.RemovePathResponse
 };
 
-API.Archive = {
+APIService.PushPathAccessRoles = {
+  methodName: "PushPathAccessRoles",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: buckets_pb.PushPathAccessRolesRequest,
+  responseType: buckets_pb.PushPathAccessRolesResponse
+};
+
+APIService.PullPathAccessRoles = {
+  methodName: "PullPathAccessRoles",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: buckets_pb.PullPathAccessRolesRequest,
+  responseType: buckets_pb.PullPathAccessRolesResponse
+};
+
+APIService.Archive = {
   methodName: "Archive",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.ArchiveRequest,
-  responseType: buckets_pb.ArchiveReply
+  responseType: buckets_pb.ArchiveResponse
 };
 
-API.ArchiveStatus = {
+APIService.ArchiveStatus = {
   methodName: "ArchiveStatus",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.ArchiveStatusRequest,
-  responseType: buckets_pb.ArchiveStatusReply
+  responseType: buckets_pb.ArchiveStatusResponse
 };
 
-API.ArchiveInfo = {
+APIService.ArchiveInfo = {
   methodName: "ArchiveInfo",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: false,
   requestType: buckets_pb.ArchiveInfoRequest,
-  responseType: buckets_pb.ArchiveInfoReply
+  responseType: buckets_pb.ArchiveInfoResponse
 };
 
-API.ArchiveWatch = {
+APIService.ArchiveWatch = {
   methodName: "ArchiveWatch",
-  service: API,
+  service: APIService,
   requestStream: false,
   responseStream: true,
   requestType: buckets_pb.ArchiveWatchRequest,
-  responseType: buckets_pb.ArchiveWatchReply
+  responseType: buckets_pb.ArchiveWatchResponse
 };
 
-exports.API = API;
+exports.APIService = APIService;
 
-function APIClient(serviceHost, options) {
+function APIServiceClient(serviceHost, options) {
   this.serviceHost = serviceHost;
   this.options = options || {};
 }
 
-APIClient.prototype.list = function list(requestMessage, metadata, callback) {
+APIServiceClient.prototype.list = function list(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.List, {
+  var client = grpc.unary(APIService.List, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -10895,11 +11982,11 @@ APIClient.prototype.list = function list(requestMessage, metadata, callback) {
   };
 };
 
-APIClient.prototype.init = function init(requestMessage, metadata, callback) {
+APIServiceClient.prototype.create = function create(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.Init, {
+  var client = grpc.unary(APIService.Create, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -10926,11 +12013,11 @@ APIClient.prototype.init = function init(requestMessage, metadata, callback) {
   };
 };
 
-APIClient.prototype.root = function root(requestMessage, metadata, callback) {
+APIServiceClient.prototype.root = function root(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.Root, {
+  var client = grpc.unary(APIService.Root, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -10957,11 +12044,11 @@ APIClient.prototype.root = function root(requestMessage, metadata, callback) {
   };
 };
 
-APIClient.prototype.links = function links(requestMessage, metadata, callback) {
+APIServiceClient.prototype.links = function links(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.Links, {
+  var client = grpc.unary(APIService.Links, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -10988,11 +12075,11 @@ APIClient.prototype.links = function links(requestMessage, metadata, callback) {
   };
 };
 
-APIClient.prototype.listPath = function listPath(requestMessage, metadata, callback) {
+APIServiceClient.prototype.listPath = function listPath(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.ListPath, {
+  var client = grpc.unary(APIService.ListPath, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11019,11 +12106,11 @@ APIClient.prototype.listPath = function listPath(requestMessage, metadata, callb
   };
 };
 
-APIClient.prototype.listIpfsPath = function listIpfsPath(requestMessage, metadata, callback) {
+APIServiceClient.prototype.listIpfsPath = function listIpfsPath(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.ListIpfsPath, {
+  var client = grpc.unary(APIService.ListIpfsPath, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11050,13 +12137,13 @@ APIClient.prototype.listIpfsPath = function listIpfsPath(requestMessage, metadat
   };
 };
 
-APIClient.prototype.pushPath = function pushPath(metadata) {
+APIServiceClient.prototype.pushPath = function pushPath(metadata) {
   var listeners = {
     data: [],
     end: [],
     status: []
   };
-  var client = grpc.client(API.PushPath, {
+  var client = grpc.client(APIService.PushPath, {
     host: this.serviceHost,
     metadata: metadata,
     transport: this.options.transport
@@ -11095,13 +12182,13 @@ APIClient.prototype.pushPath = function pushPath(metadata) {
   };
 };
 
-APIClient.prototype.pullPath = function pullPath(requestMessage, metadata) {
+APIServiceClient.prototype.pullPath = function pullPath(requestMessage, metadata) {
   var listeners = {
     data: [],
     end: [],
     status: []
   };
-  var client = grpc.invoke(API.PullPath, {
+  var client = grpc.invoke(APIService.PullPath, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11134,13 +12221,13 @@ APIClient.prototype.pullPath = function pullPath(requestMessage, metadata) {
   };
 };
 
-APIClient.prototype.pullIpfsPath = function pullIpfsPath(requestMessage, metadata) {
+APIServiceClient.prototype.pullIpfsPath = function pullIpfsPath(requestMessage, metadata) {
   var listeners = {
     data: [],
     end: [],
     status: []
   };
-  var client = grpc.invoke(API.PullIpfsPath, {
+  var client = grpc.invoke(APIService.PullIpfsPath, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11173,11 +12260,11 @@ APIClient.prototype.pullIpfsPath = function pullIpfsPath(requestMessage, metadat
   };
 };
 
-APIClient.prototype.setPath = function setPath(requestMessage, metadata, callback) {
+APIServiceClient.prototype.setPath = function setPath(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.SetPath, {
+  var client = grpc.unary(APIService.SetPath, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11204,11 +12291,11 @@ APIClient.prototype.setPath = function setPath(requestMessage, metadata, callbac
   };
 };
 
-APIClient.prototype.remove = function remove(requestMessage, metadata, callback) {
+APIServiceClient.prototype.remove = function remove(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.Remove, {
+  var client = grpc.unary(APIService.Remove, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11235,11 +12322,11 @@ APIClient.prototype.remove = function remove(requestMessage, metadata, callback)
   };
 };
 
-APIClient.prototype.removePath = function removePath(requestMessage, metadata, callback) {
+APIServiceClient.prototype.removePath = function removePath(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.RemovePath, {
+  var client = grpc.unary(APIService.RemovePath, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11266,11 +12353,11 @@ APIClient.prototype.removePath = function removePath(requestMessage, metadata, c
   };
 };
 
-APIClient.prototype.archive = function archive(requestMessage, metadata, callback) {
+APIServiceClient.prototype.pushPathAccessRoles = function pushPathAccessRoles(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.Archive, {
+  var client = grpc.unary(APIService.PushPathAccessRoles, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11297,11 +12384,11 @@ APIClient.prototype.archive = function archive(requestMessage, metadata, callbac
   };
 };
 
-APIClient.prototype.archiveStatus = function archiveStatus(requestMessage, metadata, callback) {
+APIServiceClient.prototype.pullPathAccessRoles = function pullPathAccessRoles(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.ArchiveStatus, {
+  var client = grpc.unary(APIService.PullPathAccessRoles, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11328,11 +12415,11 @@ APIClient.prototype.archiveStatus = function archiveStatus(requestMessage, metad
   };
 };
 
-APIClient.prototype.archiveInfo = function archiveInfo(requestMessage, metadata, callback) {
+APIServiceClient.prototype.archive = function archive(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(API.ArchiveInfo, {
+  var client = grpc.unary(APIService.Archive, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11359,13 +12446,75 @@ APIClient.prototype.archiveInfo = function archiveInfo(requestMessage, metadata,
   };
 };
 
-APIClient.prototype.archiveWatch = function archiveWatch(requestMessage, metadata) {
+APIServiceClient.prototype.archiveStatus = function archiveStatus(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.ArchiveStatus, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.archiveInfo = function archiveInfo(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.ArchiveInfo, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.archiveWatch = function archiveWatch(requestMessage, metadata) {
   var listeners = {
     data: [],
     end: [],
     status: []
   };
-  var client = grpc.invoke(API.ArchiveWatch, {
+  var client = grpc.invoke(APIService.ArchiveWatch, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -11398,7 +12547,7 @@ APIClient.prototype.archiveWatch = function archiveWatch(requestMessage, metadat
   };
 };
 
-exports.APIClient = APIClient;
+exports.APIServiceClient = APIServiceClient;
 
 
 
@@ -11501,96 +12650,130 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsInit = exports.BucketsGrpcClient = void 0;
-const loglevel_1 = __importDefault(__webpack_require__(104));
+exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.StatusCode = exports.PathAccessRole = void 0;
+const grpc_web_1 = __webpack_require__(837);
 const buckets_pb_1 = __webpack_require__(97);
 const buckets_pb_service_1 = __webpack_require__(148);
-const cids_1 = __importDefault(__webpack_require__(437));
-const event_iterator_1 = __webpack_require__(266);
-const next_tick_1 = __importDefault(__webpack_require__(126));
-const grpc_web_1 = __webpack_require__(837);
 const context_1 = __webpack_require__(421);
 const grpc_transport_1 = __webpack_require__(647);
+const cids_1 = __importDefault(__webpack_require__(437));
+const event_iterator_1 = __webpack_require__(266);
+const loglevel_1 = __importDefault(__webpack_require__(104));
+const next_tick_1 = __importDefault(__webpack_require__(126));
 const normalize_1 = __webpack_require__(678);
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const block = __webpack_require__(323);
 const logger = loglevel_1.default.getLogger('buckets-api');
-class BucketsGrpcClient {
-    /**
-     * Creates a new gRPC client instance for accessing the Textile Buckets API.
-     * @param context The context to use for interacting with the APIs. Can be modified later.
-     */
-    constructor(context = new context_1.Context(), debug = false) {
-        this.context = context;
-        this.serviceHost = context.host;
-        this.rpcOptions = {
-            transport: grpc_transport_1.WebsocketTransport(),
-            debug,
-        };
-    }
-    unary(methodDescriptor, req, ctx) {
-        return new Promise((resolve, reject) => {
-            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            grpc_web_1.grpc.unary(methodDescriptor, {
-                request: req,
-                host: this.serviceHost,
-                transport: this.rpcOptions.transport,
-                debug: this.rpcOptions.debug,
-                metadata,
-                onEnd: (res) => {
-                    const { status, statusMessage, message } = res;
-                    if (status === grpc_web_1.grpc.Code.OK) {
-                        if (message) {
-                            resolve(message);
-                        }
-                        else {
-                            resolve();
-                        }
-                    }
-                    else {
-                        reject(new Error(statusMessage));
-                    }
-                },
-            });
-        });
-    }
-}
-exports.BucketsGrpcClient = BucketsGrpcClient;
+var PathAccessRole;
+(function (PathAccessRole) {
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_UNSPECIFIED"] = 0] = "PATH_ACCESS_ROLE_UNSPECIFIED";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_READER"] = 1] = "PATH_ACCESS_ROLE_READER";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_WRITER"] = 2] = "PATH_ACCESS_ROLE_WRITER";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_ADMIN"] = 3] = "PATH_ACCESS_ROLE_ADMIN";
+})(PathAccessRole = exports.PathAccessRole || (exports.PathAccessRole = {}));
 /**
- * Initializes a new bucket.
+ * Archive status codes
+ */
+var StatusCode;
+(function (StatusCode) {
+    StatusCode[StatusCode["STATUS_UNSPECIFIED"] = 0] = "STATUS_UNSPECIFIED";
+    StatusCode[StatusCode["STATUS_EXECUTING"] = 1] = "STATUS_EXECUTING";
+    StatusCode[StatusCode["STATUS_FAILED"] = 2] = "STATUS_FAILED";
+    StatusCode[StatusCode["STATUS_DONE"] = 3] = "STATUS_DONE";
+    StatusCode[StatusCode["STATUS_CANCELED"] = 4] = "STATUS_CANCELED";
+})(StatusCode = exports.StatusCode || (exports.StatusCode = {}));
+const convertRootObject = (root) => {
+    return {
+        key: root.getKey(),
+        name: root.getName(),
+        path: root.getPath(),
+        createdAt: root.getCreatedAt(),
+        updatedAt: root.getUpdatedAt(),
+        thread: root.getThread(),
+    };
+};
+const convertRootObjectNullable = (root) => {
+    if (!root)
+        return;
+    return convertRootObject(root);
+};
+const convertMetadata = (metadata) => {
+    if (!metadata)
+        return;
+    const roles = metadata.getRolesMap();
+    const typedRoles = new Map();
+    roles.forEach((entry, key) => typedRoles.set(key, entry));
+    const response = {
+        updatedAt: metadata.getUpdatedAt(),
+        roles: typedRoles,
+    };
+    return response;
+};
+const convertPathItem = (item) => {
+    const list = item.getItemsList();
+    return {
+        cid: item.getCid(),
+        name: item.getName(),
+        path: item.getPath(),
+        size: item.getSize(),
+        isDir: item.getIsDir(),
+        items: list ? list.map(convertPathItem) : [],
+        count: item.getItemsCount(),
+        metadata: convertMetadata(item.getMetadata()),
+    };
+};
+const convertPathItemNullable = (item) => {
+    if (!item)
+        return;
+    return convertPathItem(item);
+};
+/**
+ * Creates a new bucket.
  * @public
  * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
  * @param isPrivate encrypt the bucket contents (default `false`)
  * @example
- * Initialize a Bucket called "app-name-files"
- * ```tyepscript
+ * Creates a Bucket called "app-name-files"
+ * ```typescript
  * import { Buckets } from '@textile/hub'
  *
- * const init = async (buckets: Buckets) => {
- *     return buckets.init("app-name-files")
+ * const create = async (buckets: Buckets) => {
+ *     return buckets.create("app-name-files")
  * }
  * ```
+ *
+ * @internal
  */
-function bucketsInit(api, name, isPrivate = false, ctx) {
+function bucketsCreate(api, name, isPrivate = false, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('init request');
-        const req = new buckets_pb_1.InitRequest();
+        logger.debug('create request');
+        const req = new buckets_pb_1.CreateRequest();
         req.setName(name);
         req.setPrivate(isPrivate);
-        const res = yield api.unary(buckets_pb_service_1.API.Init, req, ctx);
-        return res.toObject();
+        const res = yield api.unary(buckets_pb_service_1.APIService.Create, req, ctx);
+        const links = res.getLinks();
+        return {
+            seed: res.getSeed_asU8(),
+            seedCid: res.getSeedCid(),
+            root: convertRootObjectNullable(res.getRoot()),
+            links: links ? links.toObject() : undefined,
+        };
     });
 }
-exports.bucketsInit = bucketsInit;
+exports.bucketsCreate = bucketsCreate;
 /**
  * Returns the bucket root CID
  * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
  */
 function bucketsRoot(api, key, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('root request');
         const req = new buckets_pb_1.RootRequest();
         req.setKey(key);
-        const res = yield api.unary(buckets_pb_service_1.API.Root, req, ctx);
-        return res.toObject().root;
+        const res = yield api.unary(buckets_pb_service_1.APIService.Root, req, ctx);
+        return convertRootObjectNullable(res.getRoot());
     });
 }
 exports.bucketsRoot = bucketsRoot;
@@ -11599,7 +12782,7 @@ exports.bucketsRoot = bucketsRoot;
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @example
  * Generate the HTTP, IPNS, and IPFS links for a Bucket
- * ```tyepscript
+ * ```typescript
  * import { Buckets } from '@textile/hub'
  *
  * const getLinks = async (buckets: Buckets) => {
@@ -11612,13 +12795,15 @@ exports.bucketsRoot = bucketsRoot;
  *    return links.ipfs
  * }
  * ```
+ *
+ * @internal
  */
 function bucketsLinks(api, key, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('link request');
         const req = new buckets_pb_1.LinksRequest();
         req.setKey(key);
-        const res = yield api.unary(buckets_pb_service_1.API.Links, req, ctx);
+        const res = yield api.unary(buckets_pb_service_1.APIService.Links, req, ctx);
         return res.toObject();
     });
 }
@@ -11634,14 +12819,18 @@ exports.bucketsLinks = bucketsLinks;
  *     const roots = await buckets.list();
  *     return roots.find((bucket) => bucket.name ===  "app-name-files")
  * }
- * ````
+ * ```
+ *
+ * @internal
  */
 function bucketsList(api, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('list request');
         const req = new buckets_pb_1.ListRequest();
-        const res = yield api.unary(buckets_pb_service_1.API.List, req, ctx);
-        return res.toObject().rootsList;
+        const res = yield api.unary(buckets_pb_service_1.APIService.List, req, ctx);
+        const roots = res.getRootsList();
+        const map = roots ? roots.map((m) => m).map((m) => convertRootObject(m)) : [];
+        return map;
     });
 }
 exports.bucketsList = bucketsList;
@@ -11649,6 +12838,8 @@ exports.bucketsList = bucketsList;
  * Returns information about a bucket path.
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
+ *
+ * @internal
  */
 function bucketsListPath(api, key, path, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11656,22 +12847,27 @@ function bucketsListPath(api, key, path, ctx) {
         const req = new buckets_pb_1.ListPathRequest();
         req.setKey(key);
         req.setPath(path);
-        const res = yield api.unary(buckets_pb_service_1.API.ListPath, req, ctx);
-        return res.toObject();
+        const res = yield api.unary(buckets_pb_service_1.APIService.ListPath, req, ctx);
+        return {
+            item: convertPathItemNullable(res.getItem()),
+            root: convertRootObjectNullable(res.getRoot()),
+        };
     });
 }
 exports.bucketsListPath = bucketsListPath;
 /**
  * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
  * @param path UnixFS path
+ *
+ * @internal
  */
 function bucketsListIpfsPath(api, path, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('list path request');
         const req = new buckets_pb_1.ListIpfsPathRequest();
         req.setPath(path);
-        const res = yield api.unary(buckets_pb_service_1.API.ListIpfsPath, req, ctx);
-        return res.toObject().item;
+        const res = yield api.unary(buckets_pb_service_1.APIService.ListIpfsPath, req, ctx);
+        return convertPathItemNullable(res.getItem());
     });
 }
 exports.bucketsListIpfsPath = bucketsListIpfsPath;
@@ -11685,7 +12881,7 @@ exports.bucketsListIpfsPath = bucketsListIpfsPath;
  * This will return the resolved path and the bucket's new root path.
  * @example
  * Push a file to the root of a bucket
- * ```tyepscript
+ * ```typescript
  * import { Buckets } from '@textile/hub'
  *
  * const pushFile = async (content: string, bucketKey: string) => {
@@ -11693,6 +12889,8 @@ exports.bucketsListIpfsPath = bucketsListIpfsPath;
  *    return await buckets.pushPath(bucketKey!, 'index.html', file)
  * }
  * ```
+ *
+ * @internal
  */
 function bucketsPushPath(api, key, path, input, opts, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11700,7 +12898,7 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
             var e_1, _a;
             // Only process the first  input if there are more than one
             const source = (yield normalize_1.normaliseInput(input).next()).value;
-            const client = grpc_web_1.grpc.client(buckets_pb_service_1.API.PushPath, {
+            const client = grpc_web_1.grpc.client(buckets_pb_service_1.APIService.PushPath, {
                 host: api.serviceHost,
                 transport: api.rpcOptions.transport,
                 debug: api.rpcOptions.debug,
@@ -11754,11 +12952,13 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                 client.start(metadata);
                 client.send(req);
                 if (source.content) {
+                    const process = yield block({ size: 4096, noPad: true });
                     try {
-                        for (var _b = __asyncValues(source.content), _c; _c = yield _b.next(), !_c.done;) {
+                        for (var _b = __asyncValues(process(source.content)), _c; _c = yield _b.next(), !_c.done;) {
                             const chunk = _c.value;
+                            const buf = chunk.slice();
                             const part = new buckets_pb_1.PushPathRequest();
-                            part.setChunk(chunk);
+                            part.setChunk(buf);
                             client.send(part);
                         }
                     }
@@ -11777,10 +12977,26 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
 }
 exports.bucketsPushPath = bucketsPushPath;
 /**
+ * Pushes a file to a bucket path.
+ * @internal
+ */
+function bucketsSetPath(api, key, path, cid, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const request = new buckets_pb_1.SetPathRequest();
+        request.setKey(key);
+        request.setPath(path);
+        request.setCid(cid);
+        yield api.unary(buckets_pb_service_1.APIService.SetPath, request, ctx);
+    });
+}
+exports.bucketsSetPath = bucketsSetPath;
+/**
  * Pulls the bucket path, returning the bytes of the given file.
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
  * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
  */
 function bucketsPullPath(api, key, path, opts, ctx) {
     const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
@@ -11789,7 +13005,7 @@ function bucketsPullPath(api, key, path, opts, ctx) {
     request.setPath(path);
     let written = 0;
     const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
-        const resp = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.PullPath, {
+        const resp = grpc_web_1.grpc.invoke(buckets_pb_service_1.APIService.PullPath, {
             host: api.serviceHost,
             transport: api.rpcOptions.transport,
             debug: api.rpcOptions.debug,
@@ -11822,6 +13038,8 @@ exports.bucketsPullPath = bucketsPullPath;
  * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
  * @param path A file/object (sub)-path within a bucket.
  * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
  */
 function bucketsPullIpfsPath(api, path, opts, ctx) {
     const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
@@ -11829,7 +13047,7 @@ function bucketsPullIpfsPath(api, path, opts, ctx) {
     request.setPath(path);
     let written = 0;
     const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
-        const resp = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.PullIpfsPath, {
+        const resp = grpc_web_1.grpc.invoke(buckets_pb_service_1.APIService.PullIpfsPath, {
             host: api.serviceHost,
             transport: api.rpcOptions.transport,
             debug: api.rpcOptions.debug,
@@ -11861,13 +13079,15 @@ exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
 /**
  * Removes an entire bucket. Files and directories will be unpinned.
  * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
  */
 function bucketsRemove(api, key, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('remove request');
         const req = new buckets_pb_1.RemoveRequest();
         req.setKey(key);
-        yield api.unary(buckets_pb_service_1.API.Remove, req, ctx);
+        yield api.unary(buckets_pb_service_1.APIService.Remove, req, ctx);
         return;
     });
 }
@@ -11877,6 +13097,8 @@ exports.bucketsRemove = bucketsRemove;
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
  * @param root optional to specify a root
+ *
+ * @internal
  */
 function bucketsRemovePath(api, key, path, root, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -11886,14 +13108,14 @@ function bucketsRemovePath(api, key, path, root, ctx) {
         req.setPath(path);
         if (root)
             req.setRoot(root);
-        yield api.unary(buckets_pb_service_1.API.RemovePath, req, ctx);
+        yield api.unary(buckets_pb_service_1.APIService.RemovePath, req, ctx);
         return;
     });
 }
 exports.bucketsRemovePath = bucketsRemovePath;
 /**
  * archive creates a Filecoin bucket archive via Powergate.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchive(api, key, ctx) {
@@ -11901,14 +13123,14 @@ function bucketsArchive(api, key, ctx) {
         logger.debug('archive request');
         const req = new buckets_pb_1.ArchiveRequest();
         req.setKey(key);
-        const res = yield api.unary(buckets_pb_service_1.API.Archive, req, ctx);
-        return res.toObject();
+        yield api.unary(buckets_pb_service_1.APIService.Archive, req, ctx);
+        return;
     });
 }
 exports.bucketsArchive = bucketsArchive;
 /**
  * archiveStatus returns the status of a Filecoin bucket archive.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchiveStatus(api, key, ctx) {
@@ -11916,14 +13138,18 @@ function bucketsArchiveStatus(api, key, ctx) {
         logger.debug('archive status request');
         const req = new buckets_pb_1.ArchiveStatusRequest();
         req.setKey(key);
-        const res = yield api.unary(buckets_pb_service_1.API.ArchiveStatus, req, ctx);
-        return res.toObject();
+        const res = yield api.unary(buckets_pb_service_1.APIService.ArchiveStatus, req, ctx);
+        return {
+            key: res.getKey(),
+            status: res.getStatus(),
+            failedMsg: res.getFailedMsg(),
+        };
     });
 }
 exports.bucketsArchiveStatus = bucketsArchiveStatus;
 /**
  * archiveInfo returns info about a Filecoin bucket archive.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchiveInfo(api, key, ctx) {
@@ -11931,14 +13157,25 @@ function bucketsArchiveInfo(api, key, ctx) {
         logger.debug('archive info request');
         const req = new buckets_pb_1.ArchiveInfoRequest();
         req.setKey(key);
-        const res = yield api.unary(buckets_pb_service_1.API.ArchiveInfo, req, ctx);
-        return res.toObject();
+        const res = yield api.unary(buckets_pb_service_1.APIService.ArchiveInfo, req, ctx);
+        const archive = res.getArchive();
+        const deals = archive ? archive.getDealsList() : [];
+        return {
+            key: res.getKey(),
+            cid: archive ? archive.getCid() : undefined,
+            deals: deals.map((d) => {
+                return {
+                    proposalCid: d.getProposalCid(),
+                    miner: d.getMiner(),
+                };
+            }),
+        };
     });
 }
 exports.bucketsArchiveInfo = bucketsArchiveInfo;
 /**
  * archiveWatch watches status events from a Filecoin bucket archive.
- * @beta
+ * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  */
 function bucketsArchiveWatch(api, key, callback, ctx) {
@@ -11947,7 +13184,7 @@ function bucketsArchiveWatch(api, key, callback, ctx) {
         const req = new buckets_pb_1.ArchiveWatchRequest();
         req.setKey(key);
         const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const res = grpc_web_1.grpc.invoke(buckets_pb_service_1.API.ArchiveWatch, {
+        const res = grpc_web_1.grpc.invoke(buckets_pb_service_1.APIService.ArchiveWatch, {
             host: api.context.host,
             request: req,
             metadata,
@@ -11969,6 +13206,51 @@ function bucketsArchiveWatch(api, key, callback, ctx) {
     });
 }
 exports.bucketsArchiveWatch = bucketsArchiveWatch;
+/**
+ * Raw API connected needed by Buckets CI code (compile friendly)
+ * see more https://github.com/textileio/github-action-buckets
+ */
+class BucketsGrpcClient {
+    /**
+     * Creates a new gRPC client instance for accessing the Textile Buckets API.
+     * @param context The context to use for interacting with the APIs. Can be modified later.
+     */
+    constructor(context = new context_1.Context(), debug = false) {
+        this.context = context;
+        this.serviceHost = context.host;
+        this.rpcOptions = {
+            transport: grpc_transport_1.WebsocketTransport(),
+            debug,
+        };
+    }
+    unary(methodDescriptor, req, ctx) {
+        return new Promise((resolve, reject) => {
+            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            grpc_web_1.grpc.unary(methodDescriptor, {
+                request: req,
+                host: this.serviceHost,
+                transport: this.rpcOptions.transport,
+                debug: this.rpcOptions.debug,
+                metadata,
+                onEnd: (res) => {
+                    const { status, statusMessage, message } = res;
+                    if (status === grpc_web_1.grpc.Code.OK) {
+                        if (message) {
+                            resolve(message);
+                        }
+                        else {
+                            resolve();
+                        }
+                    }
+                    else {
+                        reject(new Error(statusMessage));
+                    }
+                },
+            });
+        });
+    }
+}
+exports.BucketsGrpcClient = BucketsGrpcClient;
 //# sourceMappingURL=index.js.map
 
 /***/ }),
@@ -12390,7 +13672,7 @@ jspb.Map.deserializeBinary=function(a,b,c,d,e,f,g){for(;b.nextField()&&!b.isEndG
 jspb.Map.Entry_=function(a,b){this.key=a;this.value=b;this.valueWrapper=void 0};jspb.ExtensionFieldInfo=function(a,b,c,d,e){this.fieldIndex=a;this.fieldName=b;this.ctor=c;this.toObjectFn=d;this.isRepeated=e};jspb.ExtensionFieldBinaryInfo=function(a,b,c,d,e,f){this.fieldInfo=a;this.binaryReaderFn=b;this.binaryWriterFn=c;this.binaryMessageSerializeFn=d;this.binaryMessageDeserializeFn=e;this.isPacked=f};jspb.ExtensionFieldInfo.prototype.isMessageType=function(){return!!this.ctor};jspb.Message=function(){};jspb.Message.GENERATE_TO_OBJECT=!0;jspb.Message.GENERATE_FROM_OBJECT=!goog.DISALLOW_TEST_ONLY_CODE;
 jspb.Message.GENERATE_TO_STRING=!0;jspb.Message.ASSUME_LOCAL_ARRAYS=!1;jspb.Message.SERIALIZE_EMPTY_TRAILING_FIELDS=!0;jspb.Message.SUPPORTS_UINT8ARRAY_="function"==typeof Uint8Array;jspb.Message.prototype.getJsPbMessageId=function(){return this.messageId_};jspb.Message.getIndex_=function(a,b){return b+a.arrayIndexOffset_};jspb.Message.hiddenES6Property_=function(){};jspb.Message.getFieldNumber_=function(a,b){return b-a.arrayIndexOffset_};
 jspb.Message.initialize=function(a,b,c,d,e,f){a.wrappers_=null;b||(b=c?[c]:[]);a.messageId_=c?String(c):void 0;a.arrayIndexOffset_=0===c?-1:0;a.array=b;jspb.Message.initPivotAndExtensionObject_(a,d);a.convertedPrimitiveFields_={};jspb.Message.SERIALIZE_EMPTY_TRAILING_FIELDS||(a.repeatedFields=e);if(e)for(b=0;b<e.length;b++)c=e[b],c<a.pivot_?(c=jspb.Message.getIndex_(a,c),a.array[c]=a.array[c]||jspb.Message.EMPTY_LIST_SENTINEL_):(jspb.Message.maybeInitEmptyExtensionObject_(a),a.extensionObject_[c]=
-a.extensionObject_[c]||jspb.Message.EMPTY_LIST_SENTINEL_);if(f&&f.length)for(b=0;b<f.length;b++)jspb.Message.computeOneofCase(a,f[b])};jspb.Message.EMPTY_LIST_SENTINEL_=goog.DEBUG&&Object.freeze?Object.freeze([]):[];jspb.Message.isArray_=function(a){return jspb.Message.ASSUME_LOCAL_ARRAYS?a instanceof Array:goog.isArray(a)};jspb.Message.isExtensionObject_=function(a){return null!==a&&"object"==typeof a&&!jspb.Message.isArray_(a)&&!(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)};
+a.extensionObject_[c]||jspb.Message.EMPTY_LIST_SENTINEL_);if(f&&f.length)for(b=0;b<f.length;b++)jspb.Message.computeOneofCase(a,f[b])};jspb.Message.EMPTY_LIST_SENTINEL_=goog.DEBUG&&Object.freeze?Object.freeze([]):[];jspb.Message.isArray_=function(a){return jspb.Message.ASSUME_LOCAL_ARRAYS?a instanceof Array:Array.isArray(a)};jspb.Message.isExtensionObject_=function(a){return null!==a&&"object"==typeof a&&!jspb.Message.isArray_(a)&&!(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)};
 jspb.Message.initPivotAndExtensionObject_=function(a,b){var c=a.array.length,d=-1;if(c&&(d=c-1,c=a.array[d],jspb.Message.isExtensionObject_(c))){a.pivot_=jspb.Message.getFieldNumber_(a,d);a.extensionObject_=c;return}-1<b?(a.pivot_=Math.max(b,jspb.Message.getFieldNumber_(a,d+1)),a.extensionObject_=null):a.pivot_=Number.MAX_VALUE};jspb.Message.maybeInitEmptyExtensionObject_=function(a){var b=jspb.Message.getIndex_(a,a.pivot_);a.array[b]||(a.extensionObject_=a.array[b]={})};
 jspb.Message.toObjectList=function(a,b,c){for(var d=[],e=0;e<a.length;e++)d[e]=b.call(a[e],c,a[e]);return d};jspb.Message.toObjectExtension=function(a,b,c,d,e){for(var f in c){var g=c[f],h=d.call(a,g);if(null!=h){for(var k in g.fieldName)if(g.fieldName.hasOwnProperty(k))break;b[k]=g.toObjectFn?g.isRepeated?jspb.Message.toObjectList(h,g.toObjectFn,e):g.toObjectFn(e,h):h}}};
 jspb.Message.serializeBinaryExtensions=function(a,b,c,d){for(var e in c){var f=c[e],g=f.fieldInfo;if(!f.binaryWriterFn)throw Error("Message extension present that was generated without binary serialization support");var h=d.call(a,g);if(null!=h)if(g.isMessageType())if(f.binaryMessageSerializeFn)f.binaryWriterFn.call(b,g.fieldIndex,h,f.binaryMessageSerializeFn);else throw Error("Message extension present holding submessage without binary support enabled, and message is being serialized to binary format");
@@ -12411,7 +13693,7 @@ jspb.Message.getRepeatedWrapperField=function(a,b,c){jspb.Message.wrapRepeatedFi
 jspb.Message.setWrapperField=function(a,b,c){goog.asserts.assertInstanceof(a,jspb.Message);a.wrappers_||(a.wrappers_={});var d=c?c.toArray():c;a.wrappers_[b]=c;return jspb.Message.setField(a,b,d)};jspb.Message.setOneofWrapperField=function(a,b,c,d){goog.asserts.assertInstanceof(a,jspb.Message);a.wrappers_||(a.wrappers_={});var e=d?d.toArray():d;a.wrappers_[b]=d;return jspb.Message.setOneofField(a,b,c,e)};
 jspb.Message.setRepeatedWrapperField=function(a,b,c){goog.asserts.assertInstanceof(a,jspb.Message);a.wrappers_||(a.wrappers_={});c=c||[];for(var d=[],e=0;e<c.length;e++)d[e]=c[e].toArray();a.wrappers_[b]=c;return jspb.Message.setField(a,b,d)};
 jspb.Message.addToRepeatedWrapperField=function(a,b,c,d,e){jspb.Message.wrapRepeatedField_(a,d,b);var f=a.wrappers_[b];f||(f=a.wrappers_[b]=[]);c=c?c:new d;a=jspb.Message.getRepeatedField(a,b);void 0!=e?(f.splice(e,0,c),a.splice(e,0,c.toArray())):(f.push(c),a.push(c.toArray()));return c};jspb.Message.toMap=function(a,b,c,d){for(var e={},f=0;f<a.length;f++)e[b.call(a[f])]=c?c.call(a[f],d,a[f]):a[f];return e};
-jspb.Message.prototype.syncMapFields_=function(){if(this.wrappers_)for(var a in this.wrappers_){var b=this.wrappers_[a];if(goog.isArray(b))for(var c=0;c<b.length;c++)b[c]&&b[c].toArray();else b&&b.toArray()}};jspb.Message.prototype.toArray=function(){this.syncMapFields_();return this.array};jspb.Message.GENERATE_TO_STRING&&(jspb.Message.prototype.toString=function(){this.syncMapFields_();return this.array.toString()});
+jspb.Message.prototype.syncMapFields_=function(){if(this.wrappers_)for(var a in this.wrappers_){var b=this.wrappers_[a];if(Array.isArray(b))for(var c=0;c<b.length;c++)b[c]&&b[c].toArray();else b&&b.toArray()}};jspb.Message.prototype.toArray=function(){this.syncMapFields_();return this.array};jspb.Message.GENERATE_TO_STRING&&(jspb.Message.prototype.toString=function(){this.syncMapFields_();return this.array.toString()});
 jspb.Message.prototype.getExtension=function(a){if(this.extensionObject_){this.wrappers_||(this.wrappers_={});var b=a.fieldIndex;if(a.isRepeated){if(a.isMessageType())return this.wrappers_[b]||(this.wrappers_[b]=goog.array.map(this.extensionObject_[b]||[],function(b){return new a.ctor(b)})),this.wrappers_[b]}else if(a.isMessageType())return!this.wrappers_[b]&&this.extensionObject_[b]&&(this.wrappers_[b]=new a.ctor(this.extensionObject_[b])),this.wrappers_[b];return this.extensionObject_[b]}};
 jspb.Message.prototype.setExtension=function(a,b){this.wrappers_||(this.wrappers_={});jspb.Message.maybeInitEmptyExtensionObject_(this);var c=a.fieldIndex;a.isRepeated?(b=b||[],a.isMessageType()?(this.wrappers_[c]=b,this.extensionObject_[c]=goog.array.map(b,function(a){return a.toArray()})):this.extensionObject_[c]=b):a.isMessageType()?(this.wrappers_[c]=b,this.extensionObject_[c]=b?b.toArray():b):this.extensionObject_[c]=b;return this};
 jspb.Message.difference=function(a,b){if(!(a instanceof b.constructor))throw Error("Messages have different types.");var c=a.toArray();b=b.toArray();var d=[],e=0,f=c.length>b.length?c.length:b.length;a.getJsPbMessageId()&&(d[0]=a.getJsPbMessageId(),e=1);for(;e<f;e++)jspb.Message.compareFields(c[e],b[e])||(d[e]=b[e]);return new a.constructor(d)};jspb.Message.equals=function(a,b){return a==b||!(!a||!b)&&a instanceof b.constructor&&jspb.Message.compareFields(a.toArray(),b.toArray())};
@@ -12420,7 +13702,7 @@ jspb.Message.compareFields=function(a,b){if(a==b)return!0;if(!goog.isObject(a)||
 g.constructor==Object&&(goog.asserts.assert(void 0===d),goog.asserts.assert(c===a.length-1),d=g,g=void 0);h&&h.constructor==Object&&(goog.asserts.assert(void 0===e),goog.asserts.assert(c===b.length-1),e=h,h=void 0);if(!jspb.Message.compareFields(g,h))return!1}return d||e?(d=d||{},e=e||{},jspb.Message.compareExtensions(d,e)):!0}if(a.constructor===Object)return jspb.Message.compareExtensions(a,b);throw Error("Invalid type in JSPB array");};jspb.Message.prototype.cloneMessage=function(){return jspb.Message.cloneMessage(this)};
 jspb.Message.prototype.clone=function(){return jspb.Message.cloneMessage(this)};jspb.Message.clone=function(a){return jspb.Message.cloneMessage(a)};jspb.Message.cloneMessage=function(a){return new a.constructor(jspb.Message.clone_(a.toArray()))};
 jspb.Message.copyInto=function(a,b){goog.asserts.assertInstanceof(a,jspb.Message);goog.asserts.assertInstanceof(b,jspb.Message);goog.asserts.assert(a.constructor==b.constructor,"Copy source and target message should have the same type.");a=jspb.Message.clone(a);for(var c=b.toArray(),d=a.toArray(),e=c.length=0;e<d.length;e++)c[e]=d[e];b.wrappers_=a.wrappers_;b.extensionObject_=a.extensionObject_};
-jspb.Message.clone_=function(a){if(goog.isArray(a)){for(var b=Array(a.length),c=0;c<a.length;c++){var d=a[c];null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d)}return b}if(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)return new Uint8Array(a);b={};for(c in a)d=a[c],null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d);return b};jspb.Message.registerMessageType=function(a,b){b.messageId=a};jspb.Message.messageSetExtensions={};
+jspb.Message.clone_=function(a){if(Array.isArray(a)){for(var b=Array(a.length),c=0;c<a.length;c++){var d=a[c];null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d)}return b}if(jspb.Message.SUPPORTS_UINT8ARRAY_&&a instanceof Uint8Array)return new Uint8Array(a);b={};for(c in a)d=a[c],null!=d&&(b[c]="object"==typeof d?jspb.Message.clone_(goog.asserts.assert(d)):d);return b};jspb.Message.registerMessageType=function(a,b){b.messageId=a};jspb.Message.messageSetExtensions={};
 jspb.Message.messageSetExtensionsBinary={};jspb.arith={};jspb.arith.UInt64=function(a,b){this.lo=a;this.hi=b};jspb.arith.UInt64.prototype.cmp=function(a){return this.hi<a.hi||this.hi==a.hi&&this.lo<a.lo?-1:this.hi==a.hi&&this.lo==a.lo?0:1};jspb.arith.UInt64.prototype.rightShift=function(){return new jspb.arith.UInt64((this.lo>>>1|(this.hi&1)<<31)>>>0,this.hi>>>1>>>0)};jspb.arith.UInt64.prototype.leftShift=function(){return new jspb.arith.UInt64(this.lo<<1>>>0,(this.hi<<1|this.lo>>>31)>>>0)};
 jspb.arith.UInt64.prototype.msb=function(){return!!(this.hi&2147483648)};jspb.arith.UInt64.prototype.lsb=function(){return!!(this.lo&1)};jspb.arith.UInt64.prototype.zero=function(){return 0==this.lo&&0==this.hi};jspb.arith.UInt64.prototype.add=function(a){return new jspb.arith.UInt64((this.lo+a.lo&4294967295)>>>0>>>0,((this.hi+a.hi&4294967295)>>>0)+(4294967296<=this.lo+a.lo?1:0)>>>0)};
 jspb.arith.UInt64.prototype.sub=function(a){return new jspb.arith.UInt64((this.lo-a.lo&4294967295)>>>0>>>0,((this.hi-a.hi&4294967295)>>>0)-(0>this.lo-a.lo?1:0)>>>0)};jspb.arith.UInt64.mul32x32=function(a,b){var c=a&65535;a>>>=16;var d=b&65535,e=b>>>16;b=c*d+65536*(c*e&65535)+65536*(a*d&65535);for(c=a*e+(c*e>>>16)+(a*d>>>16);4294967296<=b;)b-=4294967296,c+=1;return new jspb.arith.UInt64(b>>>0,c>>>0)};
@@ -12522,7 +13804,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -12539,6 +13821,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.execute = void 0;
 // @ts-ignore
 ;
 global.WebSocket = __webpack_require__(237);
@@ -12629,10 +13912,10 @@ function getNextNode(grpc, bucketKey, path) {
         const files = [];
         const dirs = [];
         if (tree.item) {
-            for (const obj of tree.item.itemsList) {
+            for (const obj of tree.item.items) {
                 if (obj.name === '.textileseed')
                     continue;
-                if (obj.isdir) {
+                if (obj.isDir) {
                     dirs.push(`${path}/${obj.name}`);
                 }
                 else {
@@ -12664,95 +13947,100 @@ function getTree(grpc, bucketKey, path = '/') {
         return new BucketTree(folders, leafs);
     });
 }
-function run() {
+function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const api = core.getInput('api');
-            const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447';
-            const key = core.getInput('key').trim();
-            const secret = core.getInput('secret').trim();
-            if (!key || key === '' || !secret || secret === '') {
-                core.setFailed('Invalid credentials');
-                return;
-            }
-            const keyInfo = {
-                key,
-                secret
-            };
-            const thread = core.getInput('thread');
-            const name = core.getInput('bucket');
-            const expire = new Date(Date.now() + 1000 * 600); // 10min expiration
-            const ctx = yield new context_1.Context(target);
-            yield ctx.withKeyInfo(keyInfo, expire);
-            ctx.withThread(thread);
-            const grpc = new api_1.BucketsGrpcClient(ctx);
-            const roots = yield api_1.bucketsList(grpc);
-            const existing = roots.find((bucket) => bucket.name === name);
-            const remove = core.getInput('remove') || '';
-            if (remove === 'true') {
-                if (existing) {
-                    yield api_1.bucketsRemove(grpc, existing.key);
-                    core.setOutput('success', 'true');
-                }
-                else {
-                    core.setFailed('Bucket not found');
-                }
-                // success
-                return;
-            }
-            let bucketKey = '';
+        const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447';
+        const response = new Map();
+        if (!key || key === '' || !secret || secret === '') {
+            throw Error('Invalid credentials');
+        }
+        const keyInfo = {
+            key,
+            secret
+        };
+        const expire = new Date(Date.now() + 1000 * 600); // 10min expiration
+        const ctx = yield new context_1.Context(target);
+        yield ctx.withKeyInfo(keyInfo, expire);
+        ctx.withThread(thread);
+        const grpc = new api_1.BucketsGrpcClient(ctx);
+        const roots = yield api_1.bucketsList(grpc);
+        const existing = roots.find((bucket) => bucket.name === name);
+        if (remove === 'true') {
             if (existing) {
-                bucketKey = existing.key;
+                yield api_1.bucketsRemove(grpc, existing.key);
+                response.set('success', 'true');
+                return response;
             }
             else {
-                const created = yield api_1.bucketsInit(grpc, name);
-                if (!created.root) {
-                    core.setFailed('Failed to create bucket');
-                    return;
-                }
-                bucketKey = created.root.key;
+                throw Error('Bucket not found');
             }
-            const pattern = core.getInput('pattern') || '**/*';
-            const dir = core.getInput('path');
-            const home = core.getInput('home') || './';
-            const pathTree = yield getTree(grpc, bucketKey, '');
-            const cwd = path_1.default.join(home, dir);
-            const options = {
-                cwd,
-                nodir: true
+        }
+        let bucketKey = '';
+        if (existing) {
+            bucketKey = existing.key;
+        }
+        else {
+            const created = yield api_1.bucketsCreate(grpc, name);
+            if (!created.root) {
+                throw Error('Failed to create bucket');
+            }
+            bucketKey = created.root.key;
+        }
+        const pathTree = yield getTree(grpc, bucketKey, '');
+        const cwd = path_1.default.join(home, dir);
+        const options = {
+            cwd,
+            nodir: true
+        };
+        const files = yield globDir(pattern, options);
+        if (files.length === 0) {
+            throw Error(`No files found: ${dir}`);
+        }
+        let raw;
+        for (const file of files) {
+            pathTree.remove(`/${file}`);
+            const filePath = `${cwd}/${file}`;
+            const buffer = yield readFile(filePath);
+            const content = chunkBuffer(buffer);
+            const upload = {
+                path: `/${file}`,
+                content
             };
-            const files = yield globDir(pattern, options);
-            if (files.length === 0) {
-                core.setFailed(`No files found: ${dir}`);
-                return;
-            }
-            let raw;
-            for (const file of files) {
-                pathTree.remove(`/${file}`);
-                const filePath = `${cwd}/${file}`;
-                const buffer = yield readFile(filePath);
-                const content = chunkBuffer(buffer);
-                const upload = {
-                    path: `/${file}`,
-                    content
-                };
-                raw = yield api_1.bucketsPushPath(grpc, bucketKey, `/${file}`, upload);
-            }
-            for (const orphan of pathTree.getDeletes()) {
-                console.log(orphan);
-                yield api_1.bucketsRemovePath(grpc, bucketKey, orphan);
-            }
-            const links = yield api_1.bucketsLinks(grpc, bucketKey);
-            const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
-            core.setOutput('ipfs', ipfs);
-            core.setOutput('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`);
-            const ipnsData = links.ipns.split('/');
-            const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : '';
-            core.setOutput('ipns', ipns);
-            core.setOutput('ipnsUrl', `${links.ipns}`);
-            core.setOutput('www', `${links.www}`);
-            core.setOutput('hub', `${links.url}`);
-            core.setOutput('key', `${bucketKey}`);
+            raw = yield api_1.bucketsPushPath(grpc, bucketKey, `/${file}`, upload);
+        }
+        for (const orphan of pathTree.getDeletes()) {
+            console.log(orphan);
+            yield api_1.bucketsRemovePath(grpc, bucketKey, orphan);
+        }
+        const links = yield api_1.bucketsLinks(grpc, bucketKey);
+        const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
+        response.set('ipfs', ipfs);
+        response.set('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`);
+        const ipnsData = links.ipns.split('/');
+        const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : '';
+        response.set('ipns', ipns);
+        response.set('ipnsUrl', `${links.ipns}`);
+        response.set('www', `${links.www}`);
+        response.set('hub', `${links.url}`);
+        response.set('key', `${bucketKey}`);
+        return response;
+    });
+}
+exports.execute = execute;
+function run() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const api = core.getInput('api');
+        const key = core.getInput('key').trim();
+        const secret = core.getInput('secret').trim();
+        const thread = core.getInput('thread');
+        const bucketName = core.getInput('bucket');
+        const remove = core.getInput('remove') || '';
+        const pattern = core.getInput('pattern') || '**/*';
+        const dir = core.getInput('path');
+        const home = core.getInput('home') || './';
+        try {
+            const result = yield execute(api, key, secret, thread, bucketName, remove, pattern, dir, home);
+            result.forEach((value, key) => core.setOutput(key, value));
         }
         catch (error) {
             core.setFailed(error.message);
@@ -14362,6 +15650,7 @@ class Receiver extends Writable {
    * @param {Buffer} chunk The chunk of data to write
    * @param {String} encoding The character encoding of `chunk`
    * @param {Function} cb Callback
+   * @private
    */
   _write(chunk, encoding, cb) {
     if (this._opcode === 0x08 && this._state == GET_INFO) return cb();
@@ -14830,6 +16119,56 @@ if (typeof Object.create === 'function') {
       ctor.prototype = new TempCtor()
       ctor.prototype.constructor = ctor
     }
+  }
+}
+
+
+/***/ }),
+
+/***/ 323:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+const BufferList = __webpack_require__(670)
+
+module.exports = (size, options) => {
+  if (typeof size === 'object') {
+    options = size
+    size = options.size
+  } else {
+    options = options || {}
+  }
+
+  if (!size) throw new Error('block size is required')
+
+  return source => {
+    return (async function * () {
+      let buffer = new BufferList()
+      let started = false
+
+      for await (const chunk of source) {
+        started = true
+        buffer = buffer.append(chunk)
+
+        while (buffer.length >= size) {
+          if (buffer.length === size) {
+            yield buffer
+            buffer = new BufferList()
+            break
+          }
+
+          yield buffer.shallowSlice(0, size)
+          buffer = buffer.shallowSlice(size)
+        }
+      }
+
+      if (started && buffer.length) {
+        if (options.noPad) {
+          yield buffer
+        } else {
+          yield buffer.append(Buffer.alloc(size - buffer.length))
+        }
+      }
+    })()
   }
 }
 
@@ -16489,10 +17828,11 @@ const multibase_1 = __importDefault(__webpack_require__(939));
  * @param {Date} date - An optional future Date to use as signature message. Once `date` has passed, this
  * authorization signature and message will expire. Defaults to one minute from `Date.now`.
  */
-function createAPISig(secret, date = new Date(Date.now() + 1000 * 60)) {
+function createAPISig(secret, date = new Date(Date.now() + 1000 * 60 * 30) // Default to 30 minutes
+) {
     return __awaiter(this, void 0, void 0, function* () {
         const sec = multibase_1.default.decode(secret);
-        const msg = (date !== null && date !== void 0 ? date : new Date()).toISOString();
+        const msg = date.toISOString();
         const hash = new fast_sha256_1.HMAC(sec);
         const mac = hash.update(Buffer.from(msg)).digest();
         const sig = multibase_1.default.encode("base32", Buffer.from(mac)).toString();
@@ -16526,7 +17866,7 @@ exports.createAPISig = createAPISig;
  * @param {Date} date - An optional future Date to use as signature message. Default 1 minute from now.
  * @param {string} token - An optional user API token.
  */
-function createUserAuth(key, secret, date = new Date(Date.now() + 1000 * 60), token) {
+function createUserAuth(key, secret, date, token) {
     return __awaiter(this, void 0, void 0, function* () {
         const partial = yield createAPISig(secret, date);
         return Object.assign(Object.assign({}, partial), { key,
@@ -16586,7 +17926,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Context = exports.defaultHost = void 0;
 const grpc_web_1 = __webpack_require__(837);
 const security_1 = __webpack_require__(411);
-exports.defaultHost = "https://api.textile.io:3447";
+exports.defaultHost = "https://webapi.hub.textile.io";
 /**
  * Context provides context management for gRPC credentials and config settings.
  * It is the default implementation for the ContextInterface interface.
@@ -19061,6 +20401,410 @@ module.exports = require("util");
 
 /***/ }),
 
+/***/ 670:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const { Buffer } = __webpack_require__(293)
+const symbol = Symbol.for('BufferList')
+
+function BufferList (buf) {
+  if (!(this instanceof BufferList)) {
+    return new BufferList(buf)
+  }
+
+  BufferList._init.call(this, buf)
+}
+
+BufferList._init = function _init (buf) {
+  Object.defineProperty(this, symbol, { value: true })
+
+  this._bufs = []
+  this.length = 0
+
+  if (buf) {
+    this.append(buf)
+  }
+}
+
+BufferList.prototype._new = function _new (buf) {
+  return new BufferList(buf)
+}
+
+BufferList.prototype._offset = function _offset (offset) {
+  if (offset === 0) {
+    return [0, 0]
+  }
+
+  let tot = 0
+
+  for (let i = 0; i < this._bufs.length; i++) {
+    const _t = tot + this._bufs[i].length
+    if (offset < _t || i === this._bufs.length - 1) {
+      return [i, offset - tot]
+    }
+    tot = _t
+  }
+}
+
+BufferList.prototype._reverseOffset = function (blOffset) {
+  const bufferId = blOffset[0]
+  let offset = blOffset[1]
+
+  for (let i = 0; i < bufferId; i++) {
+    offset += this._bufs[i].length
+  }
+
+  return offset
+}
+
+BufferList.prototype.get = function get (index) {
+  if (index > this.length || index < 0) {
+    return undefined
+  }
+
+  const offset = this._offset(index)
+
+  return this._bufs[offset[0]][offset[1]]
+}
+
+BufferList.prototype.slice = function slice (start, end) {
+  if (typeof start === 'number' && start < 0) {
+    start += this.length
+  }
+
+  if (typeof end === 'number' && end < 0) {
+    end += this.length
+  }
+
+  return this.copy(null, 0, start, end)
+}
+
+BufferList.prototype.copy = function copy (dst, dstStart, srcStart, srcEnd) {
+  if (typeof srcStart !== 'number' || srcStart < 0) {
+    srcStart = 0
+  }
+
+  if (typeof srcEnd !== 'number' || srcEnd > this.length) {
+    srcEnd = this.length
+  }
+
+  if (srcStart >= this.length) {
+    return dst || Buffer.alloc(0)
+  }
+
+  if (srcEnd <= 0) {
+    return dst || Buffer.alloc(0)
+  }
+
+  const copy = !!dst
+  const off = this._offset(srcStart)
+  const len = srcEnd - srcStart
+  let bytes = len
+  let bufoff = (copy && dstStart) || 0
+  let start = off[1]
+
+  // copy/slice everything
+  if (srcStart === 0 && srcEnd === this.length) {
+    if (!copy) {
+      // slice, but full concat if multiple buffers
+      return this._bufs.length === 1
+        ? this._bufs[0]
+        : Buffer.concat(this._bufs, this.length)
+    }
+
+    // copy, need to copy individual buffers
+    for (let i = 0; i < this._bufs.length; i++) {
+      this._bufs[i].copy(dst, bufoff)
+      bufoff += this._bufs[i].length
+    }
+
+    return dst
+  }
+
+  // easy, cheap case where it's a subset of one of the buffers
+  if (bytes <= this._bufs[off[0]].length - start) {
+    return copy
+      ? this._bufs[off[0]].copy(dst, dstStart, start, start + bytes)
+      : this._bufs[off[0]].slice(start, start + bytes)
+  }
+
+  if (!copy) {
+    // a slice, we need something to copy in to
+    dst = Buffer.allocUnsafe(len)
+  }
+
+  for (let i = off[0]; i < this._bufs.length; i++) {
+    const l = this._bufs[i].length - start
+
+    if (bytes > l) {
+      this._bufs[i].copy(dst, bufoff, start)
+      bufoff += l
+    } else {
+      this._bufs[i].copy(dst, bufoff, start, start + bytes)
+      bufoff += l
+      break
+    }
+
+    bytes -= l
+
+    if (start) {
+      start = 0
+    }
+  }
+
+  // safeguard so that we don't return uninitialized memory
+  if (dst.length > bufoff) return dst.slice(0, bufoff)
+
+  return dst
+}
+
+BufferList.prototype.shallowSlice = function shallowSlice (start, end) {
+  start = start || 0
+  end = typeof end !== 'number' ? this.length : end
+
+  if (start < 0) {
+    start += this.length
+  }
+
+  if (end < 0) {
+    end += this.length
+  }
+
+  if (start === end) {
+    return this._new()
+  }
+
+  const startOffset = this._offset(start)
+  const endOffset = this._offset(end)
+  const buffers = this._bufs.slice(startOffset[0], endOffset[0] + 1)
+
+  if (endOffset[1] === 0) {
+    buffers.pop()
+  } else {
+    buffers[buffers.length - 1] = buffers[buffers.length - 1].slice(0, endOffset[1])
+  }
+
+  if (startOffset[1] !== 0) {
+    buffers[0] = buffers[0].slice(startOffset[1])
+  }
+
+  return this._new(buffers)
+}
+
+BufferList.prototype.toString = function toString (encoding, start, end) {
+  return this.slice(start, end).toString(encoding)
+}
+
+BufferList.prototype.consume = function consume (bytes) {
+  // first, normalize the argument, in accordance with how Buffer does it
+  bytes = Math.trunc(bytes)
+  // do nothing if not a positive number
+  if (Number.isNaN(bytes) || bytes <= 0) return this
+
+  while (this._bufs.length) {
+    if (bytes >= this._bufs[0].length) {
+      bytes -= this._bufs[0].length
+      this.length -= this._bufs[0].length
+      this._bufs.shift()
+    } else {
+      this._bufs[0] = this._bufs[0].slice(bytes)
+      this.length -= bytes
+      break
+    }
+  }
+
+  return this
+}
+
+BufferList.prototype.duplicate = function duplicate () {
+  const copy = this._new()
+
+  for (let i = 0; i < this._bufs.length; i++) {
+    copy.append(this._bufs[i])
+  }
+
+  return copy
+}
+
+BufferList.prototype.append = function append (buf) {
+  if (buf == null) {
+    return this
+  }
+
+  if (buf.buffer) {
+    // append a view of the underlying ArrayBuffer
+    this._appendBuffer(Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength))
+  } else if (Array.isArray(buf)) {
+    for (let i = 0; i < buf.length; i++) {
+      this.append(buf[i])
+    }
+  } else if (this._isBufferList(buf)) {
+    // unwrap argument into individual BufferLists
+    for (let i = 0; i < buf._bufs.length; i++) {
+      this.append(buf._bufs[i])
+    }
+  } else {
+    // coerce number arguments to strings, since Buffer(number) does
+    // uninitialized memory allocation
+    if (typeof buf === 'number') {
+      buf = buf.toString()
+    }
+
+    this._appendBuffer(Buffer.from(buf))
+  }
+
+  return this
+}
+
+BufferList.prototype._appendBuffer = function appendBuffer (buf) {
+  this._bufs.push(buf)
+  this.length += buf.length
+}
+
+BufferList.prototype.indexOf = function (search, offset, encoding) {
+  if (encoding === undefined && typeof offset === 'string') {
+    encoding = offset
+    offset = undefined
+  }
+
+  if (typeof search === 'function' || Array.isArray(search)) {
+    throw new TypeError('The "value" argument must be one of type string, Buffer, BufferList, or Uint8Array.')
+  } else if (typeof search === 'number') {
+    search = Buffer.from([search])
+  } else if (typeof search === 'string') {
+    search = Buffer.from(search, encoding)
+  } else if (this._isBufferList(search)) {
+    search = search.slice()
+  } else if (Array.isArray(search.buffer)) {
+    search = Buffer.from(search.buffer, search.byteOffset, search.byteLength)
+  } else if (!Buffer.isBuffer(search)) {
+    search = Buffer.from(search)
+  }
+
+  offset = Number(offset || 0)
+
+  if (isNaN(offset)) {
+    offset = 0
+  }
+
+  if (offset < 0) {
+    offset = this.length + offset
+  }
+
+  if (offset < 0) {
+    offset = 0
+  }
+
+  if (search.length === 0) {
+    return offset > this.length ? this.length : offset
+  }
+
+  const blOffset = this._offset(offset)
+  let blIndex = blOffset[0] // index of which internal buffer we're working on
+  let buffOffset = blOffset[1] // offset of the internal buffer we're working on
+
+  // scan over each buffer
+  for (; blIndex < this._bufs.length; blIndex++) {
+    const buff = this._bufs[blIndex]
+
+    while (buffOffset < buff.length) {
+      const availableWindow = buff.length - buffOffset
+
+      if (availableWindow >= search.length) {
+        const nativeSearchResult = buff.indexOf(search, buffOffset)
+
+        if (nativeSearchResult !== -1) {
+          return this._reverseOffset([blIndex, nativeSearchResult])
+        }
+
+        buffOffset = buff.length - search.length + 1 // end of native search window
+      } else {
+        const revOffset = this._reverseOffset([blIndex, buffOffset])
+
+        if (this._match(revOffset, search)) {
+          return revOffset
+        }
+
+        buffOffset++
+      }
+    }
+
+    buffOffset = 0
+  }
+
+  return -1
+}
+
+BufferList.prototype._match = function (offset, search) {
+  if (this.length - offset < search.length) {
+    return false
+  }
+
+  for (let searchOffset = 0; searchOffset < search.length; searchOffset++) {
+    if (this.get(offset + searchOffset) !== search[searchOffset]) {
+      return false
+    }
+  }
+  return true
+}
+
+;(function () {
+  const methods = {
+    readDoubleBE: 8,
+    readDoubleLE: 8,
+    readFloatBE: 4,
+    readFloatLE: 4,
+    readInt32BE: 4,
+    readInt32LE: 4,
+    readUInt32BE: 4,
+    readUInt32LE: 4,
+    readInt16BE: 2,
+    readInt16LE: 2,
+    readUInt16BE: 2,
+    readUInt16LE: 2,
+    readInt8: 1,
+    readUInt8: 1,
+    readIntBE: null,
+    readIntLE: null,
+    readUIntBE: null,
+    readUIntLE: null
+  }
+
+  for (const m in methods) {
+    (function (m) {
+      if (methods[m] === null) {
+        BufferList.prototype[m] = function (offset, byteLength) {
+          return this.slice(offset, offset + byteLength)[m](0, byteLength)
+        }
+      } else {
+        BufferList.prototype[m] = function (offset) {
+          return this.slice(offset, offset + methods[m])[m](0)
+        }
+      }
+    }(m))
+  }
+}())
+
+// Used internally by the class and also as an indicator of this object being
+// a `BufferList`. It's not possible to use `instanceof BufferList` in a browser
+// environment because there could be multiple different copies of the
+// BufferList class and some `BufferList`s might be `BufferList`s.
+BufferList.prototype._isBufferList = function _isBufferList (b) {
+  return b instanceof BufferList || BufferList.isBufferList(b)
+}
+
+BufferList.isBufferList = function isBufferList (b) {
+  return b != null && b[symbol]
+}
+
+module.exports = BufferList
+
+
+/***/ }),
+
 /***/ 674:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -19592,7 +21336,7 @@ module.exports = require("url");
 /***/ 837:
 /***/ (function(__unusedmodule, exports) {
 
-!function(e,t){for(var n in t)e[n]=t[n]}(exports,function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:r})},n.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},n.t=function(e,t){if(1&t&&(e=n(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var o in e)n.d(r,o,function(t){return e[t]}.bind(null,o));return r},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=11)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(4);t.Metadata=r.BrowserHeaders},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.debug=function(){for(var e=[],t=0;t<arguments.length;t++)e[t]=arguments[t];console.debug?console.debug.apply(null,e):console.log.apply(null,e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=null;t.default=function(e){null===r?(r=[e],setTimeout(function(){!function e(){if(r){var t=r;r=null;for(var n=0;n<t.length;n++)try{t[n]()}catch(s){null===r&&(r=[],setTimeout(function(){e()},0));for(var o=t.length-1;o>n;o--)r.unshift(t[o]);throw s}}}()},0)):r.push(e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0),o=n(9),s=n(10),i=n(1),a=n(2),u=n(5),d=n(15);t.client=function(e,t){return new c(e,t)};var c=function(){function e(e,t){this.started=!1,this.sentFirstMessage=!1,this.completed=!1,this.closed=!1,this.finishedSending=!1,this.onHeadersCallbacks=[],this.onMessageCallbacks=[],this.onEndCallbacks=[],this.parser=new o.ChunkParser,this.methodDefinition=e,this.props=t,this.createTransport()}return e.prototype.createTransport=function(){var e=this.props.host+"/"+this.methodDefinition.service.serviceName+"/"+this.methodDefinition.methodName,t={methodDefinition:this.methodDefinition,debug:this.props.debug||!1,url:e,onHeaders:this.onTransportHeaders.bind(this),onChunk:this.onTransportChunk.bind(this),onEnd:this.onTransportEnd.bind(this)};this.props.transport?this.transport=this.props.transport(t):this.transport=u.makeDefaultTransport(t)},e.prototype.onTransportHeaders=function(e,t){if(this.props.debug&&i.debug("onHeaders",e,t),this.closed)this.props.debug&&i.debug("grpc.onHeaders received after request was closed - ignoring");else if(0===t);else{this.responseHeaders=e,this.props.debug&&i.debug("onHeaders.responseHeaders",JSON.stringify(this.responseHeaders,null,2));var n=p(e);this.props.debug&&i.debug("onHeaders.gRPCStatus",n);var r=n&&n>=0?n:s.httpStatusToCode(t);this.props.debug&&i.debug("onHeaders.code",r);var o=e.get("grpc-message")||[];if(this.props.debug&&i.debug("onHeaders.gRPCMessage",o),this.rawOnHeaders(e),r!==s.Code.OK){var a=this.decodeGRPCStatus(o[0]);this.rawOnError(r,a,e)}}},e.prototype.onTransportChunk=function(e){var t=this;if(this.closed)this.props.debug&&i.debug("grpc.onChunk received after request was closed - ignoring");else{var n=[];try{n=this.parser.parse(e)}catch(e){return this.props.debug&&i.debug("onChunk.parsing error",e,e.message),void this.rawOnError(s.Code.Internal,"parsing error: "+e.message)}n.forEach(function(e){if(e.chunkType===o.ChunkType.MESSAGE){var n=t.methodDefinition.responseType.deserializeBinary(e.data);t.rawOnMessage(n)}else e.chunkType===o.ChunkType.TRAILERS&&(t.responseHeaders?(t.responseTrailers=new r.Metadata(e.trailers),t.props.debug&&i.debug("onChunk.trailers",t.responseTrailers)):(t.responseHeaders=new r.Metadata(e.trailers),t.rawOnHeaders(t.responseHeaders)))})}},e.prototype.onTransportEnd=function(){if(this.props.debug&&i.debug("grpc.onEnd"),this.closed)this.props.debug&&i.debug("grpc.onEnd received after request was closed - ignoring");else if(void 0!==this.responseTrailers){var e=p(this.responseTrailers);if(null!==e){var t=this.responseTrailers.get("grpc-message"),n=this.decodeGRPCStatus(t[0]);this.rawOnEnd(e,n,this.responseTrailers)}else this.rawOnError(s.Code.Internal,"Response closed without grpc-status (Trailers provided)")}else{if(void 0===this.responseHeaders)return void this.rawOnError(s.Code.Unknown,"Response closed without headers");var r=p(this.responseHeaders),o=this.responseHeaders.get("grpc-message");if(this.props.debug&&i.debug("grpc.headers only response ",r,o),null===r)return void this.rawOnEnd(s.Code.Unknown,"Response closed without grpc-status (Headers only)",this.responseHeaders);var a=this.decodeGRPCStatus(o[0]);this.rawOnEnd(r,a,this.responseHeaders)}},e.prototype.decodeGRPCStatus=function(e){if(!e)return"";try{return decodeURIComponent(e)}catch(t){return e}},e.prototype.rawOnEnd=function(e,t,n){var r=this;this.props.debug&&i.debug("rawOnEnd",e,t,n),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(o){a.default(function(){r.closed||o(e,t,n)})}))},e.prototype.rawOnHeaders=function(e){this.props.debug&&i.debug("rawOnHeaders",e),this.completed||this.onHeadersCallbacks.forEach(function(t){a.default(function(){t(e)})})},e.prototype.rawOnError=function(e,t,n){var o=this;void 0===n&&(n=new r.Metadata),this.props.debug&&i.debug("rawOnError",e,t),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(r){a.default(function(){o.closed||r(e,t,n)})}))},e.prototype.rawOnMessage=function(e){var t=this;this.props.debug&&i.debug("rawOnMessage",e.toObject()),this.completed||this.closed||this.onMessageCallbacks.forEach(function(n){a.default(function(){t.closed||n(e)})})},e.prototype.onHeaders=function(e){this.onHeadersCallbacks.push(e)},e.prototype.onMessage=function(e){this.onMessageCallbacks.push(e)},e.prototype.onEnd=function(e){this.onEndCallbacks.push(e)},e.prototype.start=function(e){if(this.started)throw new Error("Client already started - cannot .start()");this.started=!0;var t=new r.Metadata(e||{});t.set("content-type","application/grpc-web+proto"),t.set("x-grpc-web","1"),this.transport.start(t)},e.prototype.send=function(e){if(!this.started)throw new Error("Client not started - .start() must be called before .send()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .send()");if(!this.methodDefinition.requestStream&&this.sentFirstMessage)throw new Error("Message already sent for non-client-streaming method - cannot .send()");this.sentFirstMessage=!0;var t=d.frameRequest(e);this.transport.sendMessage(t)},e.prototype.finishSend=function(){if(!this.started)throw new Error("Client not started - .finishSend() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .finishSend()");this.finishedSending=!0,this.transport.finishSend()},e.prototype.close=function(){if(!this.started)throw new Error("Client not started - .start() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .close()");this.closed=!0,this.props.debug&&i.debug("request.abort aborting request"),this.transport.cancel()},e}();function p(e){var t=e.get("grpc-status")||[];if(t.length>0)try{var n=t[0];return parseInt(n,10)}catch(e){return null}return null}},function(e,t,n){var r;r=function(){return function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.i=function(e){return e},n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{configurable:!1,enumerable:!0,get:r})},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=1)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(3);var o=function(){function e(e,t){void 0===e&&(e={}),void 0===t&&(t={splitValues:!1});var n,o=this;if(this.headersMap={},e)if("undefined"!=typeof Headers&&e instanceof Headers)r.getHeaderKeys(e).forEach(function(n){r.getHeaderValues(e,n).forEach(function(e){t.splitValues?o.append(n,r.splitHeaderValue(e)):o.append(n,e)})});else if("object"==typeof(n=e)&&"object"==typeof n.headersMap&&"function"==typeof n.forEach)e.forEach(function(e,t){o.append(e,t)});else if("undefined"!=typeof Map&&e instanceof Map){e.forEach(function(e,t){o.append(t,e)})}else"string"==typeof e?this.appendFromString(e):"object"==typeof e&&Object.getOwnPropertyNames(e).forEach(function(t){var n=e[t];Array.isArray(n)?n.forEach(function(e){o.append(t,e)}):o.append(t,n)})}return e.prototype.appendFromString=function(e){for(var t=e.split("\r\n"),n=0;n<t.length;n++){var r=t[n],o=r.indexOf(":");if(o>0){var s=r.substring(0,o).trim(),i=r.substring(o+1).trim();this.append(s,i)}}},e.prototype.delete=function(e,t){var n=r.normalizeName(e);if(void 0===t)delete this.headersMap[n];else{var o=this.headersMap[n];if(o){var s=o.indexOf(t);s>=0&&o.splice(s,1),0===o.length&&delete this.headersMap[n]}}},e.prototype.append=function(e,t){var n=this,o=r.normalizeName(e);Array.isArray(this.headersMap[o])||(this.headersMap[o]=[]),Array.isArray(t)?t.forEach(function(e){n.headersMap[o].push(r.normalizeValue(e))}):this.headersMap[o].push(r.normalizeValue(t))},e.prototype.set=function(e,t){var n=r.normalizeName(e);if(Array.isArray(t)){var o=[];t.forEach(function(e){o.push(r.normalizeValue(e))}),this.headersMap[n]=o}else this.headersMap[n]=[r.normalizeValue(t)]},e.prototype.has=function(e,t){var n=this.headersMap[r.normalizeName(e)];if(!Array.isArray(n))return!1;if(void 0!==t){var o=r.normalizeValue(t);return n.indexOf(o)>=0}return!0},e.prototype.get=function(e){var t=this.headersMap[r.normalizeName(e)];return void 0!==t?t.concat():[]},e.prototype.forEach=function(e){var t=this;Object.getOwnPropertyNames(this.headersMap).forEach(function(n){e(n,t.headersMap[n])},this)},e.prototype.toHeaders=function(){if("undefined"!=typeof Headers){var e=new Headers;return this.forEach(function(t,n){n.forEach(function(n){e.append(t,n)})}),e}throw new Error("Headers class is not defined")},e}();t.BrowserHeaders=o},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0);t.BrowserHeaders=r.BrowserHeaders},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.iterateHeaders=function(e,t){for(var n=e[Symbol.iterator](),r=n.next();!r.done;)t(r.value[0]),r=n.next()},t.iterateHeadersKeys=function(e,t){for(var n=e.keys(),r=n.next();!r.done;)t(r.value),r=n.next()}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(2);function o(e){return e}t.normalizeName=function(e){if("string"!=typeof e&&(e=String(e)),/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(e))throw new TypeError("Invalid character in header field name");return e.toLowerCase()},t.normalizeValue=function(e){return"string"!=typeof e&&(e=String(e)),e},t.getHeaderValues=function(e,t){var n=o(e);if(n instanceof Headers&&n.getAll)return n.getAll(t);var r=n.get(t);return r&&"string"==typeof r?[r]:r},t.getHeaderKeys=function(e){var t=o(e),n={},s=[];return t.keys?r.iterateHeadersKeys(t,function(e){n[e]||(n[e]=!0,s.push(e))}):t.forEach?t.forEach(function(e,t){n[t]||(n[t]=!0,s.push(t))}):r.iterateHeaders(t,function(e){var t=e[0];n[t]||(n[t]=!0,s.push(t))}),s},t.splitHeaderValue=function(e){var t=[];return e.split(", ").forEach(function(e){e.split(",").forEach(function(e){t.push(e)})}),t}}])},e.exports=r()},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(6),o=function(e){return r.CrossBrowserHttpTransport({withCredentials:!1})(e)};t.setDefaultTransportFactory=function(e){o=e},t.makeDefaultTransport=function(e){return o(e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(7),o=n(8);t.CrossBrowserHttpTransport=function(e){if(r.detectFetchSupport()){var t={credentials:e.withCredentials?"include":"same-origin"};return r.FetchReadableStreamTransport(t)}return o.XhrTransport({withCredentials:e.withCredentials})}},function(e,t,n){"use strict";var r=this&&this.__assign||function(){return(r=Object.assign||function(e){for(var t,n=1,r=arguments.length;n<r;n++)for(var o in t=arguments[n])Object.prototype.hasOwnProperty.call(t,o)&&(e[o]=t[o]);return e}).apply(this,arguments)};Object.defineProperty(t,"__esModule",{value:!0});var o=n(0),s=n(1),i=n(2);t.FetchReadableStreamTransport=function(e){return function(t){return function(e,t){return e.debug&&s.debug("fetchRequest",e),new a(e,t)}(t,e)}};var a=function(){function e(e,t){this.cancelled=!1,this.controller=self.AbortController&&new AbortController,this.options=e,this.init=t}return e.prototype.pump=function(e,t){var n=this;if(this.reader=e,this.cancelled)return this.options.debug&&s.debug("Fetch.pump.cancel at first pump"),void this.reader.cancel();this.reader.read().then(function(e){if(e.done)return i.default(function(){n.options.onEnd()}),t;i.default(function(){n.options.onChunk(e.value)}),n.pump(n.reader,t)}).catch(function(e){n.cancelled?n.options.debug&&s.debug("Fetch.catch - request cancelled"):(n.cancelled=!0,n.options.debug&&s.debug("Fetch.catch",e.message),i.default(function(){n.options.onEnd(e)}))})},e.prototype.send=function(e){var t=this;fetch(this.options.url,r({},this.init,{headers:this.metadata.toHeaders(),method:"POST",body:e,signal:this.controller&&this.controller.signal})).then(function(e){if(t.options.debug&&s.debug("Fetch.response",e),i.default(function(){t.options.onHeaders(new o.Metadata(e.headers),e.status)}),!e.body)return e;t.pump(e.body.getReader(),e)}).catch(function(e){t.cancelled?t.options.debug&&s.debug("Fetch.catch - request cancelled"):(t.cancelled=!0,t.options.debug&&s.debug("Fetch.catch",e.message),i.default(function(){t.options.onEnd(e)}))})},e.prototype.sendMessage=function(e){this.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){this.metadata=e},e.prototype.cancel=function(){this.cancelled?this.options.debug&&s.debug("Fetch.abort.cancel already cancelled"):(this.cancelled=!0,this.reader?(this.options.debug&&s.debug("Fetch.abort.cancel"),this.reader.cancel()):this.options.debug&&s.debug("Fetch.abort.cancel before reader"),this.controller&&this.controller.abort())},e}();t.detectFetchSupport=function(){return"undefined"!=typeof Response&&Response.prototype.hasOwnProperty("body")&&"function"==typeof Headers}},function(e,t,n){"use strict";var r,o=this&&this.__extends||(r=function(e,t){return(r=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(e,t){e.__proto__=t}||function(e,t){for(var n in t)t.hasOwnProperty(n)&&(e[n]=t[n])})(e,t)},function(e,t){function n(){this.constructor=e}r(e,t),e.prototype=null===t?Object.create(t):(n.prototype=t.prototype,new n)});Object.defineProperty(t,"__esModule",{value:!0});var s=n(0),i=n(1),a=n(2),u=n(12);t.XhrTransport=function(e){return function(t){if(u.detectMozXHRSupport())return new c(t,e);if(u.detectXHROverrideMimeTypeSupport())return new d(t,e);throw new Error("This environment's XHR implementation cannot support binary transfer.")}};var d=function(){function e(e,t){this.options=e,this.init=t}return e.prototype.onProgressEvent=function(){var e=this;this.options.debug&&i.debug("XHR.onProgressEvent.length: ",this.xhr.response.length);var t=this.xhr.response.substr(this.index);this.index=this.xhr.response.length;var n=f(t);a.default(function(){e.options.onChunk(n)})},e.prototype.onLoadEvent=function(){var e=this;this.options.debug&&i.debug("XHR.onLoadEvent"),a.default(function(){e.options.onEnd()})},e.prototype.onStateChange=function(){var e=this;this.options.debug&&i.debug("XHR.onStateChange",this.xhr.readyState),this.xhr.readyState===XMLHttpRequest.HEADERS_RECEIVED&&a.default(function(){e.options.onHeaders(new s.Metadata(e.xhr.getAllResponseHeaders()),e.xhr.status)})},e.prototype.sendMessage=function(e){this.xhr.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){var t=this;this.metadata=e;var n=new XMLHttpRequest;this.xhr=n,n.open("POST",this.options.url),this.configureXhr(),this.metadata.forEach(function(e,t){n.setRequestHeader(e,t.join(", "))}),n.withCredentials=Boolean(this.init.withCredentials),n.addEventListener("readystatechange",this.onStateChange.bind(this)),n.addEventListener("progress",this.onProgressEvent.bind(this)),n.addEventListener("loadend",this.onLoadEvent.bind(this)),n.addEventListener("error",function(e){t.options.debug&&i.debug("XHR.error",e),a.default(function(){t.options.onEnd(e.error)})})},e.prototype.configureXhr=function(){this.xhr.responseType="text",this.xhr.overrideMimeType("text/plain; charset=x-user-defined")},e.prototype.cancel=function(){this.options.debug&&i.debug("XHR.abort"),this.xhr.abort()},e}();t.XHR=d;var c=function(e){function t(){return null!==e&&e.apply(this,arguments)||this}return o(t,e),t.prototype.configureXhr=function(){this.options.debug&&i.debug("MozXHR.configureXhr: setting responseType to 'moz-chunked-arraybuffer'"),this.xhr.responseType="moz-chunked-arraybuffer"},t.prototype.onProgressEvent=function(){var e=this,t=this.xhr.response;this.options.debug&&i.debug("MozXHR.onProgressEvent: ",new Uint8Array(t)),a.default(function(){e.options.onChunk(new Uint8Array(t))})},t}(d);function p(e,t){var n=e.charCodeAt(t);if(n>=55296&&n<=56319){var r=e.charCodeAt(t+1);r>=56320&&r<=57343&&(n=65536+(n-55296<<10)+(r-56320))}return n}function f(e){for(var t=new Uint8Array(e.length),n=0,r=0;r<e.length;r++){var o=String.prototype.codePointAt?e.codePointAt(r):p(e,r);t[n++]=255&o}return t}t.MozChunkedArrayBufferXHR=c,t.stringToArrayBuffer=f},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r,o=n(0),s=function(e){return 9===e||10===e||13===e};function i(e){return s(e)||e>=32&&e<=126}function a(e){for(var t=0;t!==e.length;++t)if(!i(e[t]))throw new Error("Metadata is not valid (printable) ASCII");return String.fromCharCode.apply(String,Array.prototype.slice.call(e))}function u(e){return 128==(128&e.getUint8(0))}function d(e){return e.getUint32(1,!1)}function c(e,t,n){return e.byteLength-t>=n}function p(e,t,n){if(e.slice)return e.slice(t,n);var r=e.length;void 0!==n&&(r=n);for(var o=new Uint8Array(r-t),s=0,i=t;i<r;i++)o[s++]=e[i];return o}t.decodeASCII=a,t.encodeASCII=function(e){for(var t=new Uint8Array(e.length),n=0;n!==e.length;++n){var r=e.charCodeAt(n);if(!i(r))throw new Error("Metadata contains invalid ASCII");t[n]=r}return t},function(e){e[e.MESSAGE=1]="MESSAGE",e[e.TRAILERS=2]="TRAILERS"}(r=t.ChunkType||(t.ChunkType={}));var f=function(){function e(){this.buffer=null,this.position=0}return e.prototype.parse=function(e,t){if(0===e.length&&t)return[];var n,s=[];if(null==this.buffer)this.buffer=e,this.position=0;else if(this.position===this.buffer.byteLength)this.buffer=e,this.position=0;else{var i=this.buffer.byteLength-this.position,f=new Uint8Array(i+e.byteLength),h=p(this.buffer,this.position);f.set(h,0);var l=new Uint8Array(e);f.set(l,i),this.buffer=f,this.position=0}for(;;){if(!c(this.buffer,this.position,5))return s;var g=p(this.buffer,this.position,this.position+5),b=new DataView(g.buffer,g.byteOffset,g.byteLength),y=d(b);if(!c(this.buffer,this.position,5+y))return s;var v=p(this.buffer,this.position+5,this.position+5+y);if(this.position+=5+y,u(b))return s.push({chunkType:r.TRAILERS,trailers:(n=v,new o.Metadata(a(n)))}),s;s.push({chunkType:r.MESSAGE,data:v})}},e}();t.ChunkParser=f},function(e,t,n){"use strict";var r;Object.defineProperty(t,"__esModule",{value:!0}),function(e){e[e.OK=0]="OK",e[e.Canceled=1]="Canceled",e[e.Unknown=2]="Unknown",e[e.InvalidArgument=3]="InvalidArgument",e[e.DeadlineExceeded=4]="DeadlineExceeded",e[e.NotFound=5]="NotFound",e[e.AlreadyExists=6]="AlreadyExists",e[e.PermissionDenied=7]="PermissionDenied",e[e.ResourceExhausted=8]="ResourceExhausted",e[e.FailedPrecondition=9]="FailedPrecondition",e[e.Aborted=10]="Aborted",e[e.OutOfRange=11]="OutOfRange",e[e.Unimplemented=12]="Unimplemented",e[e.Internal=13]="Internal",e[e.Unavailable=14]="Unavailable",e[e.DataLoss=15]="DataLoss",e[e.Unauthenticated=16]="Unauthenticated"}(r=t.Code||(t.Code={})),t.httpStatusToCode=function(e){switch(e){case 0:return r.Internal;case 200:return r.OK;case 400:return r.InvalidArgument;case 401:return r.Unauthenticated;case 403:return r.PermissionDenied;case 404:return r.NotFound;case 409:return r.Aborted;case 412:return r.FailedPrecondition;case 429:return r.ResourceExhausted;case 499:return r.Canceled;case 500:return r.Unknown;case 501:return r.Unimplemented;case 503:return r.Unavailable;case 504:return r.DeadlineExceeded;default:return r.Unknown}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(4),o=n(5),s=n(7),i=n(13),a=n(8),u=n(6),d=n(10),c=n(14),p=n(16),f=n(3);!function(e){e.setDefaultTransport=o.setDefaultTransportFactory,e.CrossBrowserHttpTransport=u.CrossBrowserHttpTransport,e.FetchReadableStreamTransport=s.FetchReadableStreamTransport,e.XhrTransport=a.XhrTransport,e.WebsocketTransport=i.WebsocketTransport,e.Code=d.Code,e.Metadata=r.BrowserHeaders,e.client=function(e,t){return f.client(e,t)},e.invoke=c.invoke,e.unary=p.unary}(t.grpc||(t.grpc={}))},function(e,t,n){"use strict";var r;function o(){if(void 0!==r)return r;if(XMLHttpRequest){r=new XMLHttpRequest;try{r.open("GET","https://localhost")}catch(e){}}return r}function s(e){var t=o();if(!t)return!1;try{return t.responseType=e,t.responseType===e}catch(e){}return!1}Object.defineProperty(t,"__esModule",{value:!0}),t.xhrSupportsResponseType=s,t.detectMozXHRSupport=function(){return"undefined"!=typeof XMLHttpRequest&&s("moz-chunked-arraybuffer")},t.detectXHROverrideMimeTypeSupport=function(){return"undefined"!=typeof XMLHttpRequest&&XMLHttpRequest.prototype.hasOwnProperty("overrideMimeType")}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r,o=n(1),s=n(2),i=n(9);!function(e){e[e.FINISH_SEND=1]="FINISH_SEND"}(r||(r={}));var a=new Uint8Array([1]);t.WebsocketTransport=function(){return function(e){return function(e){e.debug&&o.debug("websocketRequest",e);var t,n=function(e){if("https://"===e.substr(0,8))return"wss://"+e.substr(8);if("http://"===e.substr(0,7))return"ws://"+e.substr(7);throw new Error("Websocket transport constructed with non-https:// or http:// host.")}(e.url),u=[];function d(e){if(e===r.FINISH_SEND)t.send(a);else{var n=e,o=new Int8Array(n.byteLength+1);o.set(new Uint8Array([0])),o.set(n,1),t.send(o)}}return{sendMessage:function(e){t&&t.readyState!==t.CONNECTING?d(e):u.push(e)},finishSend:function(){t&&t.readyState!==t.CONNECTING?d(r.FINISH_SEND):u.push(r.FINISH_SEND)},start:function(r){(t=new WebSocket(n,["grpc-websockets"])).binaryType="arraybuffer",t.onopen=function(){var n;e.debug&&o.debug("websocketRequest.onopen"),t.send((n="",r.forEach(function(e,t){n+=e+": "+t.join(", ")+"\r\n"}),i.encodeASCII(n))),u.forEach(function(e){d(e)})},t.onclose=function(t){e.debug&&o.debug("websocketRequest.onclose",t),s.default(function(){e.onEnd()})},t.onerror=function(t){e.debug&&o.debug("websocketRequest.onerror",t)},t.onmessage=function(t){s.default(function(){e.onChunk(new Uint8Array(t.data))})}},cancel:function(){e.debug&&o.debug("websocket.abort"),s.default(function(){t.close()})}}}(e)}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(3);t.invoke=function(e,t){if(e.requestStream)throw new Error(".invoke cannot be used with client-streaming methods. Use .client instead.");var n=r.client(e,{host:t.host,transport:t.transport,debug:t.debug});return t.onHeaders&&n.onHeaders(t.onHeaders),t.onMessage&&n.onMessage(t.onMessage),t.onEnd&&n.onEnd(t.onEnd),n.start(t.metadata),n.send(t.request),n.finishSend(),{close:function(){n.close()}}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.frameRequest=function(e){var t=e.serializeBinary(),n=new ArrayBuffer(t.byteLength+5);return new DataView(n,1,4).setUint32(0,t.length,!1),new Uint8Array(n,5).set(t),new Uint8Array(n)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0),o=n(3);t.unary=function(e,t){if(e.responseStream)throw new Error(".unary cannot be used with server-streaming methods. Use .invoke or .client instead.");if(e.requestStream)throw new Error(".unary cannot be used with client-streaming methods. Use .client instead.");var n=null,s=null,i=o.client(e,{host:t.host,transport:t.transport,debug:t.debug});return i.onHeaders(function(e){n=e}),i.onMessage(function(e){s=e}),i.onEnd(function(e,o,i){t.onEnd({status:e,statusMessage:o,headers:n||new r.Metadata,message:s,trailers:i})}),i.start(t.metadata),i.send(t.request),i.finishSend(),{close:function(){i.close()}}}}]));
+!function(e,t){for(var r in t)e[r]=t[r]}(exports,function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};return e[n].call(o.exports,o,o.exports,r),o.l=!0,o.exports}return r.m=e,r.c=t,r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:n})},r.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},r.t=function(e,t){if(1&t&&(e=r(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var n=Object.create(null);if(r.r(n),Object.defineProperty(n,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var o in e)r.d(n,o,function(t){return e[t]}.bind(null,o));return n},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=10)}([function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3);t.Metadata=n.BrowserHeaders},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.debug=function(){for(var e=[],t=0;t<arguments.length;t++)e[t]=arguments[t];console.debug?console.debug.apply(null,e):console.log.apply(null,e)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0),o=r(8),s=r(9),i=r(1),a=r(4),u=r(14);t.client=function(e,t){return new d(e,t)};var d=function(){function e(e,t){this.started=!1,this.sentFirstMessage=!1,this.completed=!1,this.closed=!1,this.finishedSending=!1,this.onHeadersCallbacks=[],this.onMessageCallbacks=[],this.onEndCallbacks=[],this.parser=new o.ChunkParser,this.methodDefinition=e,this.props=t,this.createTransport()}return e.prototype.createTransport=function(){var e=this.props.host+"/"+this.methodDefinition.service.serviceName+"/"+this.methodDefinition.methodName,t={methodDefinition:this.methodDefinition,debug:this.props.debug||!1,url:e,onHeaders:this.onTransportHeaders.bind(this),onChunk:this.onTransportChunk.bind(this),onEnd:this.onTransportEnd.bind(this)};this.props.transport?this.transport=this.props.transport(t):this.transport=a.makeDefaultTransport(t)},e.prototype.onTransportHeaders=function(e,t){if(this.props.debug&&i.debug("onHeaders",e,t),this.closed)this.props.debug&&i.debug("grpc.onHeaders received after request was closed - ignoring");else if(0===t);else{this.responseHeaders=e,this.props.debug&&i.debug("onHeaders.responseHeaders",JSON.stringify(this.responseHeaders,null,2));var r=c(e);this.props.debug&&i.debug("onHeaders.gRPCStatus",r);var n=r&&r>=0?r:s.httpStatusToCode(t);this.props.debug&&i.debug("onHeaders.code",n);var o=e.get("grpc-message")||[];if(this.props.debug&&i.debug("onHeaders.gRPCMessage",o),this.rawOnHeaders(e),n!==s.Code.OK){var a=this.decodeGRPCStatus(o[0]);this.rawOnError(n,a,e)}}},e.prototype.onTransportChunk=function(e){var t=this;if(this.closed)this.props.debug&&i.debug("grpc.onChunk received after request was closed - ignoring");else{var r=[];try{r=this.parser.parse(e)}catch(e){return this.props.debug&&i.debug("onChunk.parsing error",e,e.message),void this.rawOnError(s.Code.Internal,"parsing error: "+e.message)}r.forEach(function(e){if(e.chunkType===o.ChunkType.MESSAGE){var r=t.methodDefinition.responseType.deserializeBinary(e.data);t.rawOnMessage(r)}else e.chunkType===o.ChunkType.TRAILERS&&(t.responseHeaders?(t.responseTrailers=new n.Metadata(e.trailers),t.props.debug&&i.debug("onChunk.trailers",t.responseTrailers)):(t.responseHeaders=new n.Metadata(e.trailers),t.rawOnHeaders(t.responseHeaders)))})}},e.prototype.onTransportEnd=function(){if(this.props.debug&&i.debug("grpc.onEnd"),this.closed)this.props.debug&&i.debug("grpc.onEnd received after request was closed - ignoring");else if(void 0!==this.responseTrailers){var e=c(this.responseTrailers);if(null!==e){var t=this.responseTrailers.get("grpc-message"),r=this.decodeGRPCStatus(t[0]);this.rawOnEnd(e,r,this.responseTrailers)}else this.rawOnError(s.Code.Internal,"Response closed without grpc-status (Trailers provided)")}else{if(void 0===this.responseHeaders)return void this.rawOnError(s.Code.Unknown,"Response closed without headers");var n=c(this.responseHeaders),o=this.responseHeaders.get("grpc-message");if(this.props.debug&&i.debug("grpc.headers only response ",n,o),null===n)return void this.rawOnEnd(s.Code.Unknown,"Response closed without grpc-status (Headers only)",this.responseHeaders);var a=this.decodeGRPCStatus(o[0]);this.rawOnEnd(n,a,this.responseHeaders)}},e.prototype.decodeGRPCStatus=function(e){if(!e)return"";try{return decodeURIComponent(e)}catch(t){return e}},e.prototype.rawOnEnd=function(e,t,r){var n=this;this.props.debug&&i.debug("rawOnEnd",e,t,r),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(o){if(!n.closed)try{o(e,t,r)}catch(e){setTimeout(function(){throw e})}}))},e.prototype.rawOnHeaders=function(e){this.props.debug&&i.debug("rawOnHeaders",e),this.completed||this.onHeadersCallbacks.forEach(function(t){try{t(e)}catch(e){setTimeout(function(){throw e})}})},e.prototype.rawOnError=function(e,t,r){var o=this;void 0===r&&(r=new n.Metadata),this.props.debug&&i.debug("rawOnError",e,t),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(n){if(!o.closed)try{n(e,t,r)}catch(e){setTimeout(function(){throw e})}}))},e.prototype.rawOnMessage=function(e){var t=this;this.props.debug&&i.debug("rawOnMessage",e.toObject()),this.completed||this.closed||this.onMessageCallbacks.forEach(function(r){if(!t.closed)try{r(e)}catch(e){setTimeout(function(){throw e})}})},e.prototype.onHeaders=function(e){this.onHeadersCallbacks.push(e)},e.prototype.onMessage=function(e){this.onMessageCallbacks.push(e)},e.prototype.onEnd=function(e){this.onEndCallbacks.push(e)},e.prototype.start=function(e){if(this.started)throw new Error("Client already started - cannot .start()");this.started=!0;var t=new n.Metadata(e||{});t.set("content-type","application/grpc-web+proto"),t.set("x-grpc-web","1"),this.transport.start(t)},e.prototype.send=function(e){if(!this.started)throw new Error("Client not started - .start() must be called before .send()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .send()");if(!this.methodDefinition.requestStream&&this.sentFirstMessage)throw new Error("Message already sent for non-client-streaming method - cannot .send()");this.sentFirstMessage=!0;var t=u.frameRequest(e);this.transport.sendMessage(t)},e.prototype.finishSend=function(){if(!this.started)throw new Error("Client not started - .finishSend() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .finishSend()");this.finishedSending=!0,this.transport.finishSend()},e.prototype.close=function(){if(!this.started)throw new Error("Client not started - .start() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .close()");this.closed=!0,this.props.debug&&i.debug("request.abort aborting request"),this.transport.cancel()},e}();function c(e){var t=e.get("grpc-status")||[];if(t.length>0)try{var r=t[0];return parseInt(r,10)}catch(e){return null}return null}},function(e,t,r){var n;n=function(){return function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};return e[n].call(o.exports,o,o.exports,r),o.l=!0,o.exports}return r.m=e,r.c=t,r.i=function(e){return e},r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{configurable:!1,enumerable:!0,get:n})},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=1)}([function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3);var o=function(){function e(e,t){void 0===e&&(e={}),void 0===t&&(t={splitValues:!1});var r,o=this;if(this.headersMap={},e)if("undefined"!=typeof Headers&&e instanceof Headers)n.getHeaderKeys(e).forEach(function(r){n.getHeaderValues(e,r).forEach(function(e){t.splitValues?o.append(r,n.splitHeaderValue(e)):o.append(r,e)})});else if("object"==typeof(r=e)&&"object"==typeof r.headersMap&&"function"==typeof r.forEach)e.forEach(function(e,t){o.append(e,t)});else if("undefined"!=typeof Map&&e instanceof Map){e.forEach(function(e,t){o.append(t,e)})}else"string"==typeof e?this.appendFromString(e):"object"==typeof e&&Object.getOwnPropertyNames(e).forEach(function(t){var r=e[t];Array.isArray(r)?r.forEach(function(e){o.append(t,e)}):o.append(t,r)})}return e.prototype.appendFromString=function(e){for(var t=e.split("\r\n"),r=0;r<t.length;r++){var n=t[r],o=n.indexOf(":");if(o>0){var s=n.substring(0,o).trim(),i=n.substring(o+1).trim();this.append(s,i)}}},e.prototype.delete=function(e,t){var r=n.normalizeName(e);if(void 0===t)delete this.headersMap[r];else{var o=this.headersMap[r];if(o){var s=o.indexOf(t);s>=0&&o.splice(s,1),0===o.length&&delete this.headersMap[r]}}},e.prototype.append=function(e,t){var r=this,o=n.normalizeName(e);Array.isArray(this.headersMap[o])||(this.headersMap[o]=[]),Array.isArray(t)?t.forEach(function(e){r.headersMap[o].push(n.normalizeValue(e))}):this.headersMap[o].push(n.normalizeValue(t))},e.prototype.set=function(e,t){var r=n.normalizeName(e);if(Array.isArray(t)){var o=[];t.forEach(function(e){o.push(n.normalizeValue(e))}),this.headersMap[r]=o}else this.headersMap[r]=[n.normalizeValue(t)]},e.prototype.has=function(e,t){var r=this.headersMap[n.normalizeName(e)];if(!Array.isArray(r))return!1;if(void 0!==t){var o=n.normalizeValue(t);return r.indexOf(o)>=0}return!0},e.prototype.get=function(e){var t=this.headersMap[n.normalizeName(e)];return void 0!==t?t.concat():[]},e.prototype.forEach=function(e){var t=this;Object.getOwnPropertyNames(this.headersMap).forEach(function(r){e(r,t.headersMap[r])},this)},e.prototype.toHeaders=function(){if("undefined"!=typeof Headers){var e=new Headers;return this.forEach(function(t,r){r.forEach(function(r){e.append(t,r)})}),e}throw new Error("Headers class is not defined")},e}();t.BrowserHeaders=o},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0);t.BrowserHeaders=n.BrowserHeaders},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.iterateHeaders=function(e,t){for(var r=e[Symbol.iterator](),n=r.next();!n.done;)t(n.value[0]),n=r.next()},t.iterateHeadersKeys=function(e,t){for(var r=e.keys(),n=r.next();!n.done;)t(n.value),n=r.next()}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(2);function o(e){return e}t.normalizeName=function(e){if("string"!=typeof e&&(e=String(e)),/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(e))throw new TypeError("Invalid character in header field name");return e.toLowerCase()},t.normalizeValue=function(e){return"string"!=typeof e&&(e=String(e)),e},t.getHeaderValues=function(e,t){var r=o(e);if(r instanceof Headers&&r.getAll)return r.getAll(t);var n=r.get(t);return n&&"string"==typeof n?[n]:n},t.getHeaderKeys=function(e){var t=o(e),r={},s=[];return t.keys?n.iterateHeadersKeys(t,function(e){r[e]||(r[e]=!0,s.push(e))}):t.forEach?t.forEach(function(e,t){r[t]||(r[t]=!0,s.push(t))}):n.iterateHeaders(t,function(e){var t=e[0];r[t]||(r[t]=!0,s.push(t))}),s},t.splitHeaderValue=function(e){var t=[];return e.split(", ").forEach(function(e){e.split(",").forEach(function(e){t.push(e)})}),t}}])},e.exports=n()},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(5),o=function(e){return n.CrossBrowserHttpTransport({withCredentials:!1})(e)};t.setDefaultTransportFactory=function(e){o=e},t.makeDefaultTransport=function(e){return o(e)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(6),o=r(7);t.CrossBrowserHttpTransport=function(e){if(n.detectFetchSupport()){var t={credentials:e.withCredentials?"include":"same-origin"};return n.FetchReadableStreamTransport(t)}return o.XhrTransport({withCredentials:e.withCredentials})}},function(e,t,r){"use strict";var n=this&&this.__assign||function(){return(n=Object.assign||function(e){for(var t,r=1,n=arguments.length;r<n;r++)for(var o in t=arguments[r])Object.prototype.hasOwnProperty.call(t,o)&&(e[o]=t[o]);return e}).apply(this,arguments)};Object.defineProperty(t,"__esModule",{value:!0});var o=r(0),s=r(1);t.FetchReadableStreamTransport=function(e){return function(t){return function(e,t){return e.debug&&s.debug("fetchRequest",e),new i(e,t)}(t,e)}};var i=function(){function e(e,t){this.cancelled=!1,this.controller=self.AbortController&&new AbortController,this.options=e,this.init=t}return e.prototype.pump=function(e,t){var r=this;if(this.reader=e,this.cancelled)return this.options.debug&&s.debug("Fetch.pump.cancel at first pump"),void this.reader.cancel();this.reader.read().then(function(e){if(e.done)return r.options.onEnd(),t;r.options.onChunk(e.value),r.pump(r.reader,t)}).catch(function(e){r.cancelled?r.options.debug&&s.debug("Fetch.catch - request cancelled"):(r.cancelled=!0,r.options.debug&&s.debug("Fetch.catch",e.message),r.options.onEnd(e))})},e.prototype.send=function(e){var t=this;fetch(this.options.url,n({},this.init,{headers:this.metadata.toHeaders(),method:"POST",body:e,signal:this.controller&&this.controller.signal})).then(function(e){if(t.options.debug&&s.debug("Fetch.response",e),t.options.onHeaders(new o.Metadata(e.headers),e.status),!e.body)return e;t.pump(e.body.getReader(),e)}).catch(function(e){t.cancelled?t.options.debug&&s.debug("Fetch.catch - request cancelled"):(t.cancelled=!0,t.options.debug&&s.debug("Fetch.catch",e.message),t.options.onEnd(e))})},e.prototype.sendMessage=function(e){this.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){this.metadata=e},e.prototype.cancel=function(){this.cancelled?this.options.debug&&s.debug("Fetch.abort.cancel already cancelled"):(this.cancelled=!0,this.reader?(this.options.debug&&s.debug("Fetch.abort.cancel"),this.reader.cancel()):this.options.debug&&s.debug("Fetch.abort.cancel before reader"),this.controller&&this.controller.abort())},e}();t.detectFetchSupport=function(){return"undefined"!=typeof Response&&Response.prototype.hasOwnProperty("body")&&"function"==typeof Headers}},function(e,t,r){"use strict";var n,o=this&&this.__extends||(n=function(e,t){return(n=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(e,t){e.__proto__=t}||function(e,t){for(var r in t)t.hasOwnProperty(r)&&(e[r]=t[r])})(e,t)},function(e,t){function r(){this.constructor=e}n(e,t),e.prototype=null===t?Object.create(t):(r.prototype=t.prototype,new r)});Object.defineProperty(t,"__esModule",{value:!0});var s=r(0),i=r(1),a=r(11);t.XhrTransport=function(e){return function(t){if(a.detectMozXHRSupport())return new d(t,e);if(a.detectXHROverrideMimeTypeSupport())return new u(t,e);throw new Error("This environment's XHR implementation cannot support binary transfer.")}};var u=function(){function e(e,t){this.options=e,this.init=t}return e.prototype.onProgressEvent=function(){this.options.debug&&i.debug("XHR.onProgressEvent.length: ",this.xhr.response.length);var e=this.xhr.response.substr(this.index);this.index=this.xhr.response.length;var t=p(e);this.options.onChunk(t)},e.prototype.onLoadEvent=function(){this.options.debug&&i.debug("XHR.onLoadEvent"),this.options.onEnd()},e.prototype.onStateChange=function(){this.options.debug&&i.debug("XHR.onStateChange",this.xhr.readyState),this.xhr.readyState===XMLHttpRequest.HEADERS_RECEIVED&&this.options.onHeaders(new s.Metadata(this.xhr.getAllResponseHeaders()),this.xhr.status)},e.prototype.sendMessage=function(e){this.xhr.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){var t=this;this.metadata=e;var r=new XMLHttpRequest;this.xhr=r,r.open("POST",this.options.url),this.configureXhr(),this.metadata.forEach(function(e,t){r.setRequestHeader(e,t.join(", "))}),r.withCredentials=Boolean(this.init.withCredentials),r.addEventListener("readystatechange",this.onStateChange.bind(this)),r.addEventListener("progress",this.onProgressEvent.bind(this)),r.addEventListener("loadend",this.onLoadEvent.bind(this)),r.addEventListener("error",function(e){t.options.debug&&i.debug("XHR.error",e),t.options.onEnd(e.error)})},e.prototype.configureXhr=function(){this.xhr.responseType="text",this.xhr.overrideMimeType("text/plain; charset=x-user-defined")},e.prototype.cancel=function(){this.options.debug&&i.debug("XHR.abort"),this.xhr.abort()},e}();t.XHR=u;var d=function(e){function t(){return null!==e&&e.apply(this,arguments)||this}return o(t,e),t.prototype.configureXhr=function(){this.options.debug&&i.debug("MozXHR.configureXhr: setting responseType to 'moz-chunked-arraybuffer'"),this.xhr.responseType="moz-chunked-arraybuffer"},t.prototype.onProgressEvent=function(){var e=this.xhr.response;this.options.debug&&i.debug("MozXHR.onProgressEvent: ",new Uint8Array(e)),this.options.onChunk(new Uint8Array(e))},t}(u);function c(e,t){var r=e.charCodeAt(t);if(r>=55296&&r<=56319){var n=e.charCodeAt(t+1);n>=56320&&n<=57343&&(r=65536+(r-55296<<10)+(n-56320))}return r}function p(e){for(var t=new Uint8Array(e.length),r=0,n=0;n<e.length;n++){var o=String.prototype.codePointAt?e.codePointAt(n):c(e,n);t[r++]=255&o}return t}t.MozChunkedArrayBufferXHR=d,t.stringToArrayBuffer=p},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n,o=r(0),s=function(e){return 9===e||10===e||13===e};function i(e){return s(e)||e>=32&&e<=126}function a(e){for(var t=0;t!==e.length;++t)if(!i(e[t]))throw new Error("Metadata is not valid (printable) ASCII");return String.fromCharCode.apply(String,Array.prototype.slice.call(e))}function u(e){return 128==(128&e.getUint8(0))}function d(e){return e.getUint32(1,!1)}function c(e,t,r){return e.byteLength-t>=r}function p(e,t,r){if(e.slice)return e.slice(t,r);var n=e.length;void 0!==r&&(n=r);for(var o=new Uint8Array(n-t),s=0,i=t;i<n;i++)o[s++]=e[i];return o}t.decodeASCII=a,t.encodeASCII=function(e){for(var t=new Uint8Array(e.length),r=0;r!==e.length;++r){var n=e.charCodeAt(r);if(!i(n))throw new Error("Metadata contains invalid ASCII");t[r]=n}return t},function(e){e[e.MESSAGE=1]="MESSAGE",e[e.TRAILERS=2]="TRAILERS"}(n=t.ChunkType||(t.ChunkType={}));var h=function(){function e(){this.buffer=null,this.position=0}return e.prototype.parse=function(e,t){if(0===e.length&&t)return[];var r,s=[];if(null==this.buffer)this.buffer=e,this.position=0;else if(this.position===this.buffer.byteLength)this.buffer=e,this.position=0;else{var i=this.buffer.byteLength-this.position,h=new Uint8Array(i+e.byteLength),f=p(this.buffer,this.position);h.set(f,0);var l=new Uint8Array(e);h.set(l,i),this.buffer=h,this.position=0}for(;;){if(!c(this.buffer,this.position,5))return s;var g=p(this.buffer,this.position,this.position+5),b=new DataView(g.buffer,g.byteOffset,g.byteLength),y=d(b);if(!c(this.buffer,this.position,5+y))return s;var v=p(this.buffer,this.position+5,this.position+5+y);if(this.position+=5+y,u(b))return s.push({chunkType:n.TRAILERS,trailers:(r=v,new o.Metadata(a(r)))}),s;s.push({chunkType:n.MESSAGE,data:v})}},e}();t.ChunkParser=h},function(e,t,r){"use strict";var n;Object.defineProperty(t,"__esModule",{value:!0}),function(e){e[e.OK=0]="OK",e[e.Canceled=1]="Canceled",e[e.Unknown=2]="Unknown",e[e.InvalidArgument=3]="InvalidArgument",e[e.DeadlineExceeded=4]="DeadlineExceeded",e[e.NotFound=5]="NotFound",e[e.AlreadyExists=6]="AlreadyExists",e[e.PermissionDenied=7]="PermissionDenied",e[e.ResourceExhausted=8]="ResourceExhausted",e[e.FailedPrecondition=9]="FailedPrecondition",e[e.Aborted=10]="Aborted",e[e.OutOfRange=11]="OutOfRange",e[e.Unimplemented=12]="Unimplemented",e[e.Internal=13]="Internal",e[e.Unavailable=14]="Unavailable",e[e.DataLoss=15]="DataLoss",e[e.Unauthenticated=16]="Unauthenticated"}(n=t.Code||(t.Code={})),t.httpStatusToCode=function(e){switch(e){case 0:return n.Internal;case 200:return n.OK;case 400:return n.InvalidArgument;case 401:return n.Unauthenticated;case 403:return n.PermissionDenied;case 404:return n.NotFound;case 409:return n.Aborted;case 412:return n.FailedPrecondition;case 429:return n.ResourceExhausted;case 499:return n.Canceled;case 500:return n.Unknown;case 501:return n.Unimplemented;case 503:return n.Unavailable;case 504:return n.DeadlineExceeded;default:return n.Unknown}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3),o=r(4),s=r(6),i=r(12),a=r(7),u=r(5),d=r(9),c=r(13),p=r(15),h=r(2);!function(e){e.setDefaultTransport=o.setDefaultTransportFactory,e.CrossBrowserHttpTransport=u.CrossBrowserHttpTransport,e.FetchReadableStreamTransport=s.FetchReadableStreamTransport,e.XhrTransport=a.XhrTransport,e.WebsocketTransport=i.WebsocketTransport,e.Code=d.Code,e.Metadata=n.BrowserHeaders,e.client=function(e,t){return h.client(e,t)},e.invoke=c.invoke,e.unary=p.unary}(t.grpc||(t.grpc={}))},function(e,t,r){"use strict";var n;function o(){if(void 0!==n)return n;if(XMLHttpRequest){n=new XMLHttpRequest;try{n.open("GET","https://localhost")}catch(e){}}return n}function s(e){var t=o();if(!t)return!1;try{return t.responseType=e,t.responseType===e}catch(e){}return!1}Object.defineProperty(t,"__esModule",{value:!0}),t.xhrSupportsResponseType=s,t.detectMozXHRSupport=function(){return"undefined"!=typeof XMLHttpRequest&&s("moz-chunked-arraybuffer")},t.detectXHROverrideMimeTypeSupport=function(){return"undefined"!=typeof XMLHttpRequest&&XMLHttpRequest.prototype.hasOwnProperty("overrideMimeType")}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n,o=r(1),s=r(8);!function(e){e[e.FINISH_SEND=1]="FINISH_SEND"}(n||(n={}));var i=new Uint8Array([1]);t.WebsocketTransport=function(){return function(e){return function(e){e.debug&&o.debug("websocketRequest",e);var t,r=function(e){if("https://"===e.substr(0,8))return"wss://"+e.substr(8);if("http://"===e.substr(0,7))return"ws://"+e.substr(7);throw new Error("Websocket transport constructed with non-https:// or http:// host.")}(e.url),a=[];function u(e){if(e===n.FINISH_SEND)t.send(i);else{var r=e,o=new Int8Array(r.byteLength+1);o.set(new Uint8Array([0])),o.set(r,1),t.send(o)}}return{sendMessage:function(e){t&&t.readyState!==t.CONNECTING?u(e):a.push(e)},finishSend:function(){t&&t.readyState!==t.CONNECTING?u(n.FINISH_SEND):a.push(n.FINISH_SEND)},start:function(n){(t=new WebSocket(r,["grpc-websockets"])).binaryType="arraybuffer",t.onopen=function(){var r;e.debug&&o.debug("websocketRequest.onopen"),t.send((r="",n.forEach(function(e,t){r+=e+": "+t.join(", ")+"\r\n"}),s.encodeASCII(r))),a.forEach(function(e){u(e)})},t.onclose=function(t){e.debug&&o.debug("websocketRequest.onclose",t),e.onEnd()},t.onerror=function(t){e.debug&&o.debug("websocketRequest.onerror",t)},t.onmessage=function(t){e.onChunk(new Uint8Array(t.data))}},cancel:function(){e.debug&&o.debug("websocket.abort"),t.close()}}}(e)}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(2);t.invoke=function(e,t){if(e.requestStream)throw new Error(".invoke cannot be used with client-streaming methods. Use .client instead.");var r=n.client(e,{host:t.host,transport:t.transport,debug:t.debug});return t.onHeaders&&r.onHeaders(t.onHeaders),t.onMessage&&r.onMessage(t.onMessage),t.onEnd&&r.onEnd(t.onEnd),r.start(t.metadata),r.send(t.request),r.finishSend(),{close:function(){r.close()}}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.frameRequest=function(e){var t=e.serializeBinary(),r=new ArrayBuffer(t.byteLength+5);return new DataView(r,1,4).setUint32(0,t.length,!1),new Uint8Array(r,5).set(t),new Uint8Array(r)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0),o=r(2);t.unary=function(e,t){if(e.responseStream)throw new Error(".unary cannot be used with server-streaming methods. Use .invoke or .client instead.");if(e.requestStream)throw new Error(".unary cannot be used with client-streaming methods. Use .client instead.");var r=null,s=null,i=o.client(e,{host:t.host,transport:t.transport,debug:t.debug});return i.onHeaders(function(e){r=e}),i.onMessage(function(e){s=e}),i.onEnd(function(e,o,i){t.onEnd({status:e,statusMessage:o,headers:r||new n.Metadata,message:s,trailers:i})}),i.start(t.metadata),i.send(t.request),i.finishSend(),{close:function(){i.close()}}}}]));
 
 /***/ }),
 
@@ -20289,7 +22033,7 @@ function createWebSocketStream(ws, options) {
     duplex.push(null);
   });
 
-  duplex._destroy = function(err, callback) {
+  duplex._destroy = function (err, callback) {
     if (ws.readyState === ws.CLOSED) {
       callback(err);
       process.nextTick(emitClose, duplex);
@@ -20310,7 +22054,7 @@ function createWebSocketStream(ws, options) {
     ws.terminate();
   };
 
-  duplex._final = function(callback) {
+  duplex._final = function (callback) {
     if (ws.readyState === ws.CONNECTING) {
       ws.once('open', function open() {
         duplex._final(callback);
@@ -20338,14 +22082,14 @@ function createWebSocketStream(ws, options) {
     }
   };
 
-  duplex._read = function() {
+  duplex._read = function () {
     if (ws.readyState === ws.OPEN && !resumeOnReceiverDrain) {
       resumeOnReceiverDrain = true;
       if (!ws._receiver._writableState.needDrain) ws._socket.resume();
     }
   };
 
-  duplex._write = function(chunk, encoding, callback) {
+  duplex._write = function (chunk, encoding, callback) {
     if (ws.readyState === ws.CONNECTING) {
       ws.once('open', function open() {
         duplex._write(chunk, encoding, callback);

@@ -11,7 +11,7 @@ import {
   bucketsList,
   bucketsLinks,
   bucketsRemove,
-  bucketsInit,
+  bucketsCreate,
   bucketsPushPath,
   bucketsListPath,
   bucketsRemovePath
@@ -110,9 +110,9 @@ async function getNextNode(
   const files: Array<string> = []
   const dirs: Array<string> = []
   if (tree.item) {
-    for (const obj of tree.item.itemsList) {
+    for (const obj of tree.item.items) {
       if (obj.name === '.textileseed') continue
-      if (obj.isdir) {
+      if (obj.isDir) {
         dirs.push(`${path}/${obj.name}`)
       } else {
         files.push(`${path}/${obj.name}`)
@@ -145,106 +145,135 @@ async function getTree(
   return new BucketTree(folders, leafs)
 }
 
-async function run(): Promise<void> {
-  try {
-    const api = core.getInput('api')
-    const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
+export type RunOutput = Map<string, string>
 
-    const key: string = core.getInput('key').trim()
-    const secret: string = core.getInput('secret').trim()
-    if (!key || key === '' || !secret || secret === '') {
-      core.setFailed('Invalid credentials')
-      return
-    }
+export async function execute(
+  api: string,
+  key: string,
+  secret: string,
+  thread: string,
+  name: string,
+  remove: string,
+  pattern: string,
+  dir: string,
+  home: string
+): Promise<RunOutput> {
+  const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
 
-    const keyInfo = {
-      key,
-      secret
-    }
-    const thread: string = core.getInput('thread')
-    const name: string = core.getInput('bucket')
+  const response: RunOutput = new Map()
 
-    const expire: Date = new Date(Date.now() + 1000 * 600) // 10min expiration
-    const ctx = await new Context(target)
-    await ctx.withKeyInfo(keyInfo, expire)
-    ctx.withThread(thread)
-    const grpc = new BucketsGrpcClient(ctx)
+  if (!key || key === '' || !secret || secret === '') {
+    throw Error('Invalid credentials')
+  }
 
-    const roots = await bucketsList(grpc)
-    const existing = roots.find((bucket: any) => bucket.name === name)
+  const keyInfo = {
+    key,
+    secret
+  }
 
-    const remove: string = core.getInput('remove') || ''
-    if (remove === 'true') {
-      if (existing) {
-        await bucketsRemove(grpc, existing.key)
-        core.setOutput('success', 'true')
-      } else {
-        core.setFailed('Bucket not found')
-      }
-      // success
-      return
-    }
+  const expire: Date = new Date(Date.now() + 1000 * 600) // 10min expiration
+  const ctx = await new Context(target)
+  await ctx.withKeyInfo(keyInfo, expire)
+  ctx.withThread(thread)
+  const grpc = new BucketsGrpcClient(ctx)
 
-    let bucketKey = ''
+  const roots = await bucketsList(grpc)
+  const existing = roots.find((bucket: any) => bucket.name === name)
+
+  if (remove === 'true') {
     if (existing) {
-      bucketKey = existing.key
+      await bucketsRemove(grpc, existing.key)
+      response.set('success', 'true')
+      return response
     } else {
-      const created = await bucketsInit(grpc, name)
-      if (!created.root) {
-        core.setFailed('Failed to create bucket')
-        return
-      }
-      bucketKey = created.root.key
+      throw Error('Bucket not found')
     }
+  }
 
-    const pattern = core.getInput('pattern') || '**/*'
-    const dir = core.getInput('path')
-    const home = core.getInput('home') || './'
-
-    const pathTree = await getTree(grpc, bucketKey, '')
-
-    const cwd = path.join(home, dir)
-    const options = {
-      cwd,
-      nodir: true
+  let bucketKey = ''
+  if (existing) {
+    bucketKey = existing.key
+  } else {
+    const created = await bucketsCreate(grpc, name)
+    if (!created.root) {
+      throw Error('Failed to create bucket')
     }
-    const files = await globDir(pattern, options)
-    if (files.length === 0) {
-      core.setFailed(`No files found: ${dir}`)
-      return
+    bucketKey = created.root.key
+  }
+
+  const pathTree = await getTree(grpc, bucketKey, '')
+
+  const cwd = path.join(home, dir)
+  const options = {
+    cwd,
+    nodir: true
+  }
+  const files = await globDir(pattern, options)
+  if (files.length === 0) {
+    throw Error(`No files found: ${dir}`)
+  }
+  let raw
+  for (const file of files) {
+    pathTree.remove(`/${file}`)
+    const filePath = `${cwd}/${file}`
+    const buffer = await readFile(filePath)
+    const content = chunkBuffer(buffer)
+    const upload = {
+      path: `/${file}`,
+      content
     }
-    let raw
-    for (const file of files) {
-      pathTree.remove(`/${file}`)
-      const filePath = `${cwd}/${file}`
-      const buffer = await readFile(filePath)
-      const content = chunkBuffer(buffer)
-      const upload = {
-        path: `/${file}`,
-        content
-      }
-      raw = await bucketsPushPath(grpc, bucketKey, `/${file}`, upload)
-    }
+    raw = await bucketsPushPath(grpc, bucketKey, `/${file}`, upload)
+  }
 
-    for (const orphan of pathTree.getDeletes()) {
-      console.log(orphan)
-      await bucketsRemovePath(grpc, bucketKey, orphan)
-    }
+  for (const orphan of pathTree.getDeletes()) {
+    console.log(orphan)
+    await bucketsRemovePath(grpc, bucketKey, orphan)
+  }
 
-    const links = await bucketsLinks(grpc, bucketKey)
+  const links = await bucketsLinks(grpc, bucketKey)
 
-    const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
-    core.setOutput('ipfs', ipfs)
-    core.setOutput('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`)
+  const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
+  response.set('ipfs', ipfs)
+  response.set('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`)
 
-    const ipnsData = links.ipns.split('/')
-    const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : ''
-    core.setOutput('ipns', ipns)
+  const ipnsData = links.ipns.split('/')
+  const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : ''
+  response.set('ipns', ipns)
 
-    core.setOutput('ipnsUrl', `${links.ipns}`)
-    core.setOutput('www', `${links.www}`)
-    core.setOutput('hub', `${links.url}`)
-    core.setOutput('key', `${bucketKey}`)
+  response.set('ipnsUrl', `${links.ipns}`)
+  response.set('www', `${links.www}`)
+  response.set('hub', `${links.url}`)
+  response.set('key', `${bucketKey}`)
+  return response
+}
+
+async function run(): Promise<void> {
+  const api = core.getInput('api')
+  const key: string = core.getInput('key').trim()
+  const secret: string = core.getInput('secret').trim()
+
+  const thread: string = core.getInput('thread')
+  const bucketName: string = core.getInput('bucket')
+
+  const remove: string = core.getInput('remove') || ''
+
+  const pattern = core.getInput('pattern') || '**/*'
+  const dir = core.getInput('path')
+  const home = core.getInput('home') || './'
+
+  try {
+    const result = await execute(
+      api,
+      key,
+      secret,
+      thread,
+      bucketName,
+      remove,
+      pattern,
+      dir,
+      home
+    )
+    result.forEach((value, key) => core.setOutput(key, value))
   } catch (error) {
     core.setFailed(error.message)
   }
