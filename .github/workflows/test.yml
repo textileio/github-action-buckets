@@ -80,10 +80,10 @@ jobs:
       id: new
       uses: ./
       with: 
-        key: ${{ secrets.ACCOUNT_KEY }}
-        secret: ${{ secrets.ACCOUNT_SECRET }}
+        key: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
+        secret: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
         bucket: 'newbucket'
-        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        thread: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
         path: 'website'
     - name: new bucket link
       run: echo "link ${{ steps.new.outputs.ipnsUrl }}"
@@ -91,10 +91,10 @@ jobs:
       id: remove
       uses: ./
       with: 
-        key: ${{ secrets.ACCOUNT_KEY }}
-        secret: ${{ secrets.ACCOUNT_SECRET }}
+        key: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
+        secret: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
         bucket: 'newbucket'
-        thread: 'bafky45bowefya4lprbkvzzvmmjmqr56hu6qn6wpolbjil7p25goycwy'
+        thread: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
         remove: 'true'
     - name: success
       run: echo "bucket remove ${{ steps.remove.outputs.success }}"
