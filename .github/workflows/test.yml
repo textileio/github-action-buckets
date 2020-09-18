@@ -24,9 +24,10 @@ jobs:
         INPUT_THREAD: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
         INPUT_PATH: 'website'
         INPUT_PATTERN: '**/*'
-  
-  test: # make sure the action works on a clean machine without building
+  jest:
+    name: Test
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'skip-ci')"
     services:
       textile:
         image: textile/textile:latest
@@ -54,6 +55,23 @@ jobs:
           - "4001:4001"
           - "127.0.0.1:5001:5001"
           - "8080:8080"
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+
+    - name: Setup
+      uses: actions/setup-node@v1
+      with:
+        node-version: 12
+
+    - name: Install
+      run: npm install
+
+    - name: Run tests
+      run: |
+        npm run test
+  test: # make sure the action works on a clean machine without building
+    runs-on: ubuntu-latest
     steps:
     - name: checkout
       uses: actions/checkout@v2
