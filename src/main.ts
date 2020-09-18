@@ -163,10 +163,19 @@ export async function execute(
   const expire: Date = new Date(Date.now() + 1000 * 600) // 10min expiration
   const ctx = await new Context(target)
   await ctx.withKeyInfo(keyInfo, expire)
+
+  if (thread.trim() === '') {
+    throw Error('Existing thread required')
+  }
+
   ctx.withThread(thread)
   const grpc = new BucketsGrpcClient(ctx)
 
   const roots = await bucketsList(grpc)
+  if (name.trim() === '') {
+    throw Error('Every bucket needs a name')
+  }
+
   const existing = roots.find((bucket: any) => bucket.name === name)
 
   if (remove === 'true') {
@@ -237,17 +246,15 @@ export async function execute(
 }
 
 async function run(): Promise<void> {
-  const api = core.getInput('api')
-  const key: string = core.getInput('key').trim()
-  const secret: string = core.getInput('secret').trim()
-
-  const thread: string = core.getInput('thread')
-  const bucketName: string = core.getInput('bucket')
-
-  const remove: string = core.getInput('remove') || ''
+  const api = core.getInput('api') || ''
+  const key: string = core.getInput('key') || ''
+  const secret: string = core.getInput('secret') || ''
+  const thread: string = core.getInput('thread') || ''
+  const bucketName: string = core.getInput('bucket') || ''
+  const remove: string = core.getInput('remove') || 'false'
 
   const pattern = core.getInput('pattern') || '**/*'
-  const dir = core.getInput('path')
+  const dir = core.getInput('path') || ''
   const home = core.getInput('home') || './'
 
   try {

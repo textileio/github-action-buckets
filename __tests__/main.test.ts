@@ -11,7 +11,7 @@ import { APIServiceClient, ServiceError } from '@textile/hub-grpc/hub_pb_service
 import { execute } from '../src/main'
 import { Buckets } from '@textile/buckets'
 
-dotenv.config()
+// dotenv.config()
 
 // Settings for localhost development and testing
 const addrApiurl = 'http://127.0.0.1:3007'
@@ -47,19 +47,20 @@ test('test raw runs', async () => {
 
 test('test core runs', () => {
   const ip = path.join(__dirname, '..', 'lib', 'main.js')
-  const env = {
-    api: addrApiurl,
-    key,
-    secret,
-    thread: testThread,
-    name: 'test',
-    remove: 'false',
-    pattern: '*/**',
-    dir: 'website',
-    home: './',
+  const input = {
+    INPUT_API: addrApiurl,
+    INPUT_KEY: key,
+    INPUT_SECRET: secret,
+    INPUT_THREAD: testThread,
+    INPUT_BUCKET: 'test',
+    INPUT_REMOVE: 'false',
+    INPUT_PATTERN: '*/**',
+    INPUT_PATH: 'website',
+    INPUT_HOME: './',
   }
+  console.log({ ...process.env, ...input })
   const options: cp.ExecSyncOptions = {
-    env,
+    env: { ...process.env, ...input },
   }
   try {
     const res = cp.execSync(`node ${ip}`, options).toString()

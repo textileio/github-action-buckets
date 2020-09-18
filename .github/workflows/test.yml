@@ -8,22 +8,6 @@ on:
       - master
 
 jobs:
-  build: # make sure build/ci work properly
-    runs-on: ubuntu-latest
-    steps:
-    - name: checkout
-      uses: actions/checkout@v1
-    - name: test
-      run: |
-        npm install
-        npm run all
-      env:
-        INPUT_KEY: ${{ secrets.TEXTILE_ORG_ACCOUNT_KEY }}
-        INPUT_SECRET: ${{ secrets.TEXTILE_ORG_ACCOUNT_SECRET }}
-        INPUT_BUCKET: 'actions'
-        INPUT_THREAD: ${{ secrets.TEXTILE_ORG_BUCKET_THREAD }}
-        INPUT_PATH: 'website'
-        INPUT_PATTERN: '**/*'
   jest:
     name: jest
     runs-on: ubuntu-latest

@@ -13961,9 +13961,15 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
         const expire = new Date(Date.now() + 1000 * 600); // 10min expiration
         const ctx = yield new context_1.Context(target);
         yield ctx.withKeyInfo(keyInfo, expire);
+        if (thread.trim() === '') {
+            throw Error('Existing thread required');
+        }
         ctx.withThread(thread);
         const grpc = new api_1.BucketsGrpcClient(ctx);
         const roots = yield api_1.bucketsList(grpc);
+        if (name.trim() === '') {
+            throw Error('Every bucket needs a name');
+        }
         const existing = roots.find((bucket) => bucket.name === name);
         if (remove === 'true') {
             if (existing) {
@@ -14029,14 +14035,14 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
 exports.execute = execute;
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        const api = core.getInput('api');
-        const key = core.getInput('key').trim();
-        const secret = core.getInput('secret').trim();
-        const thread = core.getInput('thread');
-        const bucketName = core.getInput('bucket');
-        const remove = core.getInput('remove') || '';
+        const api = core.getInput('api') || '';
+        const key = core.getInput('key') || '';
+        const secret = core.getInput('secret') || '';
+        const thread = core.getInput('thread') || '';
+        const bucketName = core.getInput('bucket') || '';
+        const remove = core.getInput('remove') || 'false';
         const pattern = core.getInput('pattern') || '**/*';
-        const dir = core.getInput('path');
+        const dir = core.getInput('path') || '';
         const home = core.getInput('home') || './';
         try {
             const result = yield execute(api, key, secret, thread, bucketName, remove, pattern, dir, home);
