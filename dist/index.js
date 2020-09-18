@@ -13890,14 +13890,14 @@ class BucketTree {
                     folderDeletions.push(look);
                 }
             }
-            folderDeletions.forEach(drop => this.removeFolder(drop));
+            folderDeletions.forEach((drop) => this.removeFolder(drop));
             const fileDeleteions = [];
             for (const look of this.leafs) {
                 if (look.startsWith(`${folder}/`)) {
                     fileDeleteions.push(look);
                 }
             }
-            fileDeleteions.forEach(drop => this.removeLeaf(drop));
+            fileDeleteions.forEach((drop) => this.removeLeaf(drop));
             if (reindex) {
                 sorted = this.folders.sort((a, b) => a.length - b.length);
                 dirCount = this.folders.length;
@@ -13956,7 +13956,7 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
         }
         const keyInfo = {
             key,
-            secret
+            secret,
         };
         const expire = new Date(Date.now() + 1000 * 600); // 10min expiration
         const ctx = yield new context_1.Context(target);
@@ -13990,7 +13990,7 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
         const cwd = path_1.default.join(home, dir);
         const options = {
             cwd,
-            nodir: true
+            nodir: true,
         };
         const files = yield globDir(pattern, options);
         if (files.length === 0) {
@@ -14004,7 +14004,7 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
             const content = chunkBuffer(buffer);
             const upload = {
                 path: `/${file}`,
-                content
+                content,
             };
             raw = yield api_1.bucketsPushPath(grpc, bucketKey, `/${file}`, upload);
         }

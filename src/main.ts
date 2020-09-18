@@ -14,9 +14,9 @@ import {
   bucketsCreate,
   bucketsPushPath,
   bucketsListPath,
-  bucketsRemovePath
+  bucketsRemovePath,
 } from '@textile/buckets/dist/api'
-import {Context} from '@textile/context'
+import { Context } from '@textile/context'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -37,10 +37,7 @@ interface NextNode {
   dirs: Array<string>
 }
 class BucketTree {
-  constructor(
-    public folders: Array<string> = [],
-    public leafs: Array<string> = []
-  ) {}
+  constructor(public folders: Array<string> = [], public leafs: Array<string> = []) {}
 
   private removeFolder(folder: string) {
     const knownIndex = this.folders.indexOf(folder)
@@ -84,14 +81,14 @@ class BucketTree {
           folderDeletions.push(look)
         }
       }
-      folderDeletions.forEach(drop => this.removeFolder(drop))
+      folderDeletions.forEach((drop) => this.removeFolder(drop))
       const fileDeleteions = []
       for (const look of this.leafs) {
         if (look.startsWith(`${folder}/`)) {
           fileDeleteions.push(look)
         }
       }
-      fileDeleteions.forEach(drop => this.removeLeaf(drop))
+      fileDeleteions.forEach((drop) => this.removeLeaf(drop))
       if (reindex) {
         sorted = this.folders.sort((a, b) => a.length - b.length)
         dirCount = this.folders.length
@@ -101,11 +98,7 @@ class BucketTree {
   }
 }
 
-async function getNextNode(
-  grpc: BucketsGrpcClient,
-  bucketKey: string,
-  path: string
-): Promise<NextNode> {
+async function getNextNode(grpc: BucketsGrpcClient, bucketKey: string, path: string): Promise<NextNode> {
   const tree = await bucketsListPath(grpc, bucketKey, path)
   const files: Array<string> = []
   const dirs: Array<string> = []
@@ -119,25 +112,21 @@ async function getNextNode(
       }
     }
   }
-  return {files, dirs}
+  return { files, dirs }
 }
 
-async function getTree(
-  grpc: BucketsGrpcClient,
-  bucketKey: string,
-  path = '/'
-): Promise<BucketTree> {
+async function getTree(grpc: BucketsGrpcClient, bucketKey: string, path = '/'): Promise<BucketTree> {
   const leafs: Array<string> = []
   const folders: Array<string> = []
   const nodes: Array<string> = []
-  const {files, dirs} = await getNextNode(grpc, bucketKey, path)
+  const { files, dirs } = await getNextNode(grpc, bucketKey, path)
   leafs.push(...files)
   folders.push(...dirs)
   nodes.push(...dirs)
   while (nodes.length > 0) {
     const dir = nodes.pop()
     if (!dir) continue
-    const {files, dirs} = await getNextNode(grpc, bucketKey, dir)
+    const { files, dirs } = await getNextNode(grpc, bucketKey, dir)
     leafs.push(...files)
     folders.push(...dirs)
     nodes.push(...dirs)
@@ -156,7 +145,7 @@ export async function execute(
   remove: string,
   pattern: string,
   dir: string,
-  home: string
+  home: string,
 ): Promise<RunOutput> {
   const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
 
@@ -168,7 +157,7 @@ export async function execute(
 
   const keyInfo = {
     key,
-    secret
+    secret,
   }
 
   const expire: Date = new Date(Date.now() + 1000 * 600) // 10min expiration
@@ -206,7 +195,7 @@ export async function execute(
   const cwd = path.join(home, dir)
   const options = {
     cwd,
-    nodir: true
+    nodir: true,
   }
   const files = await globDir(pattern, options)
   if (files.length === 0) {
@@ -220,7 +209,7 @@ export async function execute(
     const content = chunkBuffer(buffer)
     const upload = {
       path: `/${file}`,
-      content
+      content,
     }
     raw = await bucketsPushPath(grpc, bucketKey, `/${file}`, upload)
   }
@@ -262,17 +251,7 @@ async function run(): Promise<void> {
   const home = core.getInput('home') || './'
 
   try {
-    const result = await execute(
-      api,
-      key,
-      secret,
-      thread,
-      bucketName,
-      remove,
-      pattern,
-      dir,
-      home
-    )
+    const result = await execute(api, key, secret, thread, bucketName, remove, pattern, dir, home)
     result.forEach((value, key) => core.setOutput(key, value))
   } catch (error) {
     core.setFailed(error.message)
