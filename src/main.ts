@@ -7,7 +7,6 @@ import util from 'util'
 import glob from 'glob'
 import * as core from '@actions/core'
 import {
-  BucketsGrpcClient,
   bucketsList,
   bucketsLinks,
   bucketsRemove,
@@ -17,6 +16,7 @@ import {
   bucketsRemovePath,
 } from '@textile/buckets/dist/api'
 import { Context } from '@textile/context'
+import { GrpcConnection } from '@textile/grpc-connection'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -98,8 +98,8 @@ class BucketTree {
   }
 }
 
-async function getNextNode(grpc: BucketsGrpcClient, bucketKey: string, path: string): Promise<NextNode> {
-  const tree = await bucketsListPath(grpc, bucketKey, path)
+async function getNextNode(connection: GrpcConnection, bucketKey: string, path: string): Promise<NextNode> {
+  const tree = await bucketsListPath(connection, bucketKey, path)
   const files: Array<string> = []
   const dirs: Array<string> = []
   if (tree.item) {
@@ -115,18 +115,18 @@ async function getNextNode(grpc: BucketsGrpcClient, bucketKey: string, path: str
   return { files, dirs }
 }
 
-async function getTree(grpc: BucketsGrpcClient, bucketKey: string, path = '/'): Promise<BucketTree> {
+async function getTree(connection: GrpcConnection, bucketKey: string, path = '/'): Promise<BucketTree> {
   const leafs: Array<string> = []
   const folders: Array<string> = []
   const nodes: Array<string> = []
-  const { files, dirs } = await getNextNode(grpc, bucketKey, path)
+  const { files, dirs } = await getNextNode(connection, bucketKey, path)
   leafs.push(...files)
   folders.push(...dirs)
   nodes.push(...dirs)
   while (nodes.length > 0) {
     const dir = nodes.pop()
     if (!dir) continue
-    const { files, dirs } = await getNextNode(grpc, bucketKey, dir)
+    const { files, dirs } = await getNextNode(connection, bucketKey, dir)
     leafs.push(...files)
     folders.push(...dirs)
     nodes.push(...dirs)
@@ -147,7 +147,7 @@ export async function execute(
   dir: string,
   home: string,
 ): Promise<RunOutput> {
-  const target = api.trim() != '' ? api.trim() : 'https://api.textile.io:3447'
+  const target = api.trim() != '' ? api.trim() : undefined
 
   const response: RunOutput = new Map()
 
@@ -169,18 +169,17 @@ export async function execute(
   }
 
   ctx.withThread(thread)
-  const grpc = new BucketsGrpcClient(ctx)
+  const connection = new GrpcConnection(ctx)
 
-  const roots = await bucketsList(grpc)
   if (name.trim() === '') {
     throw Error('Every bucket needs a name')
   }
 
+  const roots = await bucketsList(connection)
   const existing = roots.find((bucket: any) => bucket.name === name)
-
   if (remove === 'true') {
     if (existing) {
-      await bucketsRemove(grpc, existing.key)
+      await bucketsRemove(connection, existing.key)
       response.set('success', 'true')
       return response
     } else {
@@ -192,14 +191,14 @@ export async function execute(
   if (existing) {
     bucketKey = existing.key
   } else {
-    const created = await bucketsCreate(grpc, name)
+    const created = await bucketsCreate(connection, name)
     if (!created.root) {
       throw Error('Failed to create bucket')
     }
     bucketKey = created.root.key
   }
 
-  const pathTree = await getTree(grpc, bucketKey, '')
+  const pathTree = await getTree(connection, bucketKey, '')
 
   const cwd = path.join(home, dir)
   const options = {
@@ -220,15 +219,14 @@ export async function execute(
       path: `/${file}`,
       content,
     }
-    raw = await bucketsPushPath(grpc, bucketKey, `/${file}`, upload)
+    raw = await bucketsPushPath(connection, bucketKey, `/${file}`, upload)
   }
 
   for (const orphan of pathTree.getDeletes()) {
-    console.log(orphan)
-    await bucketsRemovePath(grpc, bucketKey, orphan)
+    await bucketsRemovePath(connection, bucketKey, orphan)
   }
 
-  const links = await bucketsLinks(grpc, bucketKey)
+  const links = await bucketsLinks(connection, bucketKey)
 
   const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
   response.set('ipfs', ipfs)

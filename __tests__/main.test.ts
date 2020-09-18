@@ -3,7 +3,6 @@ import * as process from 'process'
 import * as cp from 'child_process'
 import delay from 'delay'
 import * as path from 'path'
-import dotenv from 'dotenv'
 import { Context, ContextInterface } from '@textile/context'
 import * as pb from '@textile/hub-grpc/hub_pb'
 import { WebsocketTransport } from '@textile/grpc-transport'
@@ -11,7 +10,7 @@ import { APIServiceClient, ServiceError } from '@textile/hub-grpc/hub_pb_service
 import { execute } from '../src/main'
 import { Buckets } from '@textile/buckets'
 
-// dotenv.config()
+jest.setTimeout(20000)
 
 // Settings for localhost development and testing
 const addrApiurl = 'http://127.0.0.1:3007'
@@ -20,8 +19,6 @@ const sessionSecret = 'hubsession'
 let key = ''
 let secret = ''
 let testThread = ''
-
-// const { env } = process
 
 beforeAll(async () => {
   const ctx = new Context(addrApiurl)
@@ -58,13 +55,11 @@ test('test core runs', () => {
     INPUT_PATH: 'website',
     INPUT_HOME: './',
   }
-  console.log({ ...process.env, ...input })
   const options: cp.ExecSyncOptions = {
     env: { ...process.env, ...input },
   }
   try {
     const res = cp.execSync(`node ${ip}`, options).toString()
-    console.log(res)
     throw new Error('okay')
   } catch (error) {
     expect(error.message).toEqual('okay')
