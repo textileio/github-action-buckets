@@ -30,7 +30,7 @@
   "dependencies": {
     "@actions/core": "^1.2.0",
     "@improbable-eng/grpc-web": "^0.13.0",
-    "@textile/buckets": "^0.8.1",
+    "@textile/buckets": "^1.0.0",
     "@textile/context": "^0.6.8",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
