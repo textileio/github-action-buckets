@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@textile/hub-grpc": "2.0.0",
-    "@textile/grpc-transport": "^0.0.3",
+    "@textile/grpc-transport": "^0.0.6",
     "@textile/grpc-connection": "^0.1.2",
     "@types/glob": "^7.1.1",
     "@types/jest": "^25.2.3",
