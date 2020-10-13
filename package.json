@@ -30,16 +30,16 @@
   "dependencies": {
     "@actions/core": "^1.2.0",
     "@improbable-eng/grpc-web": "^0.13.0",
-    "@textile/buckets": "^0.8.1",
-    "@textile/context": "^0.6.8",
+    "@textile/buckets": "^1.1.1",
+    "@textile/context": "^0.8.0",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
     "ws": "^7.3.0"
   },
   "devDependencies": {
-    "@textile/hub-grpc": "2.0.0",
-    "@textile/grpc-transport": "^0.0.3",
-    "@textile/grpc-connection": "^0.1.2",
+    "@textile/hub-grpc": "2.1.1",
+    "@textile/grpc-transport": "^0.0.6",
+    "@textile/grpc-connection": "^0.1.5",
     "@types/glob": "^7.1.1",
     "@types/jest": "^25.2.3",
     "@types/node": "^12.7.12",

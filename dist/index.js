@@ -42,6 +42,8 @@ module.exports =
 /******/ 		// Load entry module and return exports
 /******/ 		return __webpack_require__(198);
 /******/ 	};
+/******/ 	// initialize runtime
+/******/ 	runtime(__webpack_require__);
 /******/
 /******/ 	// run startup
 /******/ 	return startup();
@@ -510,7 +512,7 @@ module.exports = require("tls");
 
 const { Buffer } = __webpack_require__(293)
 const multibase = __webpack_require__(939)
-const varint = __webpack_require__(507)
+const varint = __webpack_require__(844)
 const { names } = __webpack_require__(610)
 
 const codes = {}
@@ -1654,6 +1656,129 @@ module.exports = eval("require")("bufferutil");
 
 /***/ }),
 
+/***/ 34:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WebsocketTransport = void 0;
+// Copyright improbable-eng Apache License 2.0
+// https://github.com/improbable-eng/grpc-web/blob/master/client/grpc-web/src/transports/websocket/websocket.ts
+const isomorphic_ws_1 = __importDefault(__webpack_require__(723));
+const loglevel_1 = __importDefault(__webpack_require__(104));
+const { debug } = loglevel_1.default.getLogger('grpc-transport');
+const isAllowedControlChars = (char) => char === 0x9 || char === 0xa || char === 0xd;
+function isValidHeaderAscii(val) {
+    return isAllowedControlChars(val) || (val >= 0x20 && val <= 0x7e);
+}
+function encodeASCII(input) {
+    const encoded = new Uint8Array(input.length);
+    for (let i = 0; i !== input.length; ++i) {
+        const charCode = input.charCodeAt(i);
+        if (!isValidHeaderAscii(charCode)) {
+            throw new Error('Metadata contains invalid ASCII');
+        }
+        encoded[i] = charCode;
+    }
+    return encoded;
+}
+var WebsocketSignal;
+(function (WebsocketSignal) {
+    WebsocketSignal[WebsocketSignal["FINISH_SEND"] = 1] = "FINISH_SEND";
+})(WebsocketSignal || (WebsocketSignal = {}));
+const finishSendFrame = new Uint8Array([1]);
+function constructWebSocketAddress(url) {
+    if (url.substr(0, 8) === 'https://') {
+        return `wss://${url.substr(8)}`;
+    }
+    else if (url.substr(0, 7) === 'http://') {
+        return `ws://${url.substr(7)}`;
+    }
+    throw new Error('Websocket transport constructed with non-https:// or http:// host.');
+}
+function headersToBytes(headers) {
+    let asString = '';
+    headers.forEach((key, values) => {
+        asString += `${key}: ${values.join(', ')}\r\n`;
+    });
+    return encodeASCII(asString);
+}
+function websocketRequest(options) {
+    options.debug && debug('websocketRequest', options);
+    const webSocketAddress = constructWebSocketAddress(options.url);
+    const sendQueue = [];
+    let ws;
+    function sendToWebsocket(toSend) {
+        if (toSend === WebsocketSignal.FINISH_SEND) {
+            ws.send(finishSendFrame);
+        }
+        else {
+            const byteArray = toSend;
+            const c = new Int8Array(byteArray.byteLength + 1);
+            c.set(new Uint8Array([0]));
+            c.set(byteArray, 1);
+            ws.send(c);
+        }
+    }
+    return {
+        sendMessage: (msgBytes) => {
+            if (!ws || ws.readyState === ws.CONNECTING) {
+                sendQueue.push(msgBytes);
+            }
+            else {
+                sendToWebsocket(msgBytes);
+            }
+        },
+        finishSend: () => {
+            if (!ws || ws.readyState === ws.CONNECTING) {
+                sendQueue.push(WebsocketSignal.FINISH_SEND);
+            }
+            else {
+                sendToWebsocket(WebsocketSignal.FINISH_SEND);
+            }
+        },
+        start: (metadata) => {
+            ws = new isomorphic_ws_1.default(webSocketAddress, ['grpc-websockets']);
+            ws.binaryType = 'arraybuffer';
+            ws.onopen = function () {
+                options.debug && debug('websocketRequest.onopen');
+                ws.send(headersToBytes(metadata));
+                // send any messages that were passed to sendMessage before the connection was ready
+                sendQueue.forEach((toSend) => {
+                    sendToWebsocket(toSend);
+                });
+            };
+            ws.onclose = function (closeEvent) {
+                options.debug && debug('websocketRequest.onclose', closeEvent);
+                options.onEnd();
+            };
+            ws.onerror = function (error) {
+                options.debug && debug('websocketRequest.onerror', error);
+            };
+            ws.onmessage = function (e) {
+                options.onChunk(new Uint8Array(e.data));
+            };
+        },
+        cancel: () => {
+            options.debug && debug('websocket.abort');
+            ws.close();
+        },
+    };
+}
+function WebsocketTransport() {
+    return (opts) => {
+        return websocketRequest(opts);
+    };
+}
+exports.WebsocketTransport = WebsocketTransport;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 49:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -1703,22 +1828,243 @@ function onceStrict (fn) {
 
 /***/ }),
 
-/***/ 66:
-/***/ (function(module, __unusedexports, __webpack_require__) {
+/***/ 57:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
 
-
-const table = __webpack_require__(923)
-
-// map for codecConstant -> code
-const constants = {}
-
-for (const [name, code] of Object.entries(table)) {
-  constants[name.toUpperCase().replace(/-/g, '_')] = code
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Context = exports.defaultHost = void 0;
+const grpc_web_1 = __webpack_require__(837);
+const security_1 = __webpack_require__(411);
+exports.defaultHost = "https://webapi.hub.textile.io";
+/**
+ * Context provides context management for gRPC credentials and config settings.
+ * It is the default implementation for the ContextInterface interface.
+ */
+class Context {
+    /**
+     * Construct a new Context object.
+     * @param host The remote gRPC host. This input exists to comply with the Config interface.
+     */
+    constructor(host = exports.defaultHost) {
+        // Internal context variables
+        this._context = {};
+        this._context["host"] = host;
+    }
+    static fromUserAuth(auth, host = exports.defaultHost) {
+        const ctx = new Context(host);
+        const { key, token } = auth, sig = __rest(auth, ["key", "token"]);
+        return ctx.withAPIKey(key).withAPISig(sig).withToken(token);
+    }
+    static fromUserAuthCallback(authCallback, host = exports.defaultHost) {
+        const ctx = new Context(host);
+        // @todo: Should we now callback right away?
+        ctx.authCallback = authCallback;
+        return ctx;
+    }
+    get host() {
+        return this._context["host"];
+    }
+    // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+    set(key, value) {
+        this._context[key] = value;
+        return this;
+    }
+    get(key) {
+        return this._context[key];
+    }
+    withSession(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-session"] = value;
+        return this;
+    }
+    withThread(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-thread"] = value.toString();
+        return this;
+    }
+    withThreadName(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-thread-name"] = value;
+        return this;
+    }
+    withOrg(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-org"] = value;
+        return this;
+    }
+    withToken(value) {
+        if (value === undefined)
+            return this;
+        this._context["authorization"] = `bearer ${value}`;
+        return this;
+    }
+    withAPIKey(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-api-key"] = value;
+        return this;
+    }
+    withAPISig(value) {
+        if (value === undefined)
+            return this;
+        const { sig, msg } = value;
+        this._context["x-textile-api-sig-msg"] = msg;
+        this._context["x-textile-api-sig"] = sig;
+        return this;
+    }
+    withKeyInfo(key, date) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (key === undefined)
+                return this;
+            // Enables the use of insecure / non-signing keys
+            if (!key.secret)
+                return this.withAPIKey(key.key);
+            const sig = yield security_1.createAPISig(key.secret, date);
+            return this.withAPIKey(key.key).withAPISig(sig);
+        });
+    }
+    withContext(value) {
+        if (value === undefined)
+            return this;
+        // Spread to copy rather than reference
+        this._context = value.toJSON();
+        return this;
+    }
+    /**
+     * Returns true if this Context contains an api sig msg, and that msg has expired, or if
+     * it does _not_ have an api sig msg, but it _does_ have an auth callback.
+     */
+    get isExpired() {
+        const msg = this.get("x-textile-api-sig-msg");
+        const notAuthed = msg === undefined && this.authCallback !== undefined;
+        const isExpired = msg !== undefined && new Date(msg) <= new Date();
+        return isExpired || notAuthed;
+    }
+    /**
+     * Refresh user auth with provided callback.
+     * If callback is not specified, attempts to use existing callback specified at initialization.
+     */
+    refreshUserAuth(authCallback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // If we have a new one, use it...
+            if (authCallback !== undefined) {
+                this.authCallback = authCallback;
+            }
+            // If we still don't have a callback, throw...
+            if (this.authCallback === undefined) {
+                throw new Error("Missing authCallback. See Context.fromUserAuthCallback for details.");
+            }
+            // Now do the renewal and return self...
+            const _a = yield this.authCallback(), { key, token } = _a, sig = __rest(_a, ["key", "token"]);
+            return this.withAPIKey(key).withAPISig(sig).withToken(token);
+        });
+    }
+    /**
+     * Convert Context to plain JSON object.
+     * @throws If this Context has expired.
+     * @see toMetadata for an alternative for gRPC clients that supports auto-renewal.
+     */
+    toJSON() {
+        const json = __rest(this._context
+        // If we're expired, throw...
+        , []);
+        // If we're expired, throw...
+        if (this.isExpired) {
+            throw security_1.expirationError;
+        }
+        return json;
+    }
+    /**
+     * Convert Context to grpc Metadata object.
+     * Will automatically call the auth callback if available.
+     * @param ctx Additional context object that will be merged with this prior to conversion.
+     * @see toJSON for an alternative that returns a plain object, and throws when expired.
+     */
+    toMetadata(ctx) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const context = new Context();
+            if (this.isExpired && this.authCallback !== undefined) {
+                const _a = yield this.authCallback(), { key, token } = _a, sig = __rest(_a, ["key", "token"]);
+                // We do want to mutate this here because we want to update our auth sig
+                this.withAPIKey(key).withAPISig(sig).withToken(token);
+            }
+            // We merge this context and ctx with the empty context so as to avoid mutating this with ctx
+            return new grpc_web_1.grpc.Metadata(context.withContext(this).withContext(ctx).toJSON());
+        });
+    }
+    /**
+     * Import various ContextInterface API properties from JSON.
+     * @param json The JSON object.
+     * @param host Optional host string.
+     */
+    static fromJSON(json, host = exports.defaultHost) {
+        const newContext = Object.assign({}, json);
+        newContext["host"] = host;
+        const ctx = new Context();
+        ctx._context = newContext;
+        return ctx;
+    }
 }
+exports.Context = Context;
+//# sourceMappingURL=index.js.map
 
-module.exports = Object.freeze(constants)
+/***/ }),
+
+/***/ 79:
+/***/ (function(module) {
+
+module.exports = encode
+
+var MSB = 0x80
+  , REST = 0x7F
+  , MSBALL = ~REST
+  , INT = Math.pow(2, 31)
+
+function encode(num, out, offset) {
+  out = out || []
+  offset = offset || 0
+  var oldOffset = offset
+
+  while(num >= INT) {
+    out[offset++] = (num & 0xFF) | MSB
+    num /= 128
+  }
+  while(num & MSBALL) {
+    out[offset++] = (num & 0xFF) | MSB
+    num >>>= 7
+  }
+  out[offset] = num | 0
+  
+  encode.bytes = offset - oldOffset + 1
+  
+  return out
+}
 
 
 /***/ }),
@@ -2677,10 +3023,12 @@ var jspb = __webpack_require__(188);
 var goog = jspb;
 var global = Function('return this')();
 
+goog.exportSymbol('proto.api.buckets.pb.ArchiveConfig', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoResponse.Archive', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveInfoResponse.Archive.Deal', null, global);
+goog.exportSymbol('proto.api.buckets.pb.ArchiveRenew', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveStatusRequest', null, global);
@@ -2690,6 +3038,8 @@ goog.exportSymbol('proto.api.buckets.pb.ArchiveWatchRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ArchiveWatchResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.CreateRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.CreateResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.DefaultArchiveConfigRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.DefaultArchiveConfigResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.LinksRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.LinksResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.ListIpfsPathRequest', null, global);
@@ -2722,6 +3072,8 @@ goog.exportSymbol('proto.api.buckets.pb.RemoveResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.Root', null, global);
 goog.exportSymbol('proto.api.buckets.pb.RootRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.RootResponse', null, global);
+goog.exportSymbol('proto.api.buckets.pb.SetDefaultArchiveConfigRequest', null, global);
+goog.exportSymbol('proto.api.buckets.pb.SetDefaultArchiveConfigResponse', null, global);
 goog.exportSymbol('proto.api.buckets.pb.SetPathRequest', null, global);
 goog.exportSymbol('proto.api.buckets.pb.SetPathResponse', null, global);
 /**
@@ -3416,6 +3768,132 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.api.buckets.pb.PullPathAccessRolesResponse.displayName = 'proto.api.buckets.pb.PullPathAccessRolesResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveConfig = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.api.buckets.pb.ArchiveConfig.repeatedFields_, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveConfig, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveConfig.displayName = 'proto.api.buckets.pb.ArchiveConfig';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.ArchiveRenew = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.ArchiveRenew, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.ArchiveRenew.displayName = 'proto.api.buckets.pb.ArchiveRenew';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.DefaultArchiveConfigRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.DefaultArchiveConfigRequest.displayName = 'proto.api.buckets.pb.DefaultArchiveConfigRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.DefaultArchiveConfigResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.DefaultArchiveConfigResponse.displayName = 'proto.api.buckets.pb.DefaultArchiveConfigResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.SetDefaultArchiveConfigRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.SetDefaultArchiveConfigRequest.displayName = 'proto.api.buckets.pb.SetDefaultArchiveConfigRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.buckets.pb.SetDefaultArchiveConfigResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.buckets.pb.SetDefaultArchiveConfigResponse.displayName = 'proto.api.buckets.pb.SetDefaultArchiveConfigResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -5231,7 +5709,8 @@ proto.api.buckets.pb.LinksRequest.prototype.toObject = function(opt_includeInsta
  */
 proto.api.buckets.pb.LinksRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    key: jspb.Message.getFieldWithDefault(msg, 1, "")
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    path: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -5272,6 +5751,10 @@ proto.api.buckets.pb.LinksRequest.deserializeBinaryFromReader = function(msg, re
       var value = /** @type {string} */ (reader.readString());
       msg.setKey(value);
       break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setPath(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -5308,6 +5791,13 @@ proto.api.buckets.pb.LinksRequest.serializeBinaryToWriter = function(message, wr
       f
     );
   }
+  f = message.getPath();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
 };
 
 
@@ -5326,6 +5816,24 @@ proto.api.buckets.pb.LinksRequest.prototype.getKey = function() {
  */
 proto.api.buckets.pb.LinksRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string path = 2;
+ * @return {string}
+ */
+proto.api.buckets.pb.LinksRequest.prototype.getPath = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.LinksRequest} returns this
+ */
+proto.api.buckets.pb.LinksRequest.prototype.setPath = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
 };
 
 
@@ -9537,6 +10045,1214 @@ proto.api.buckets.pb.PullPathAccessRolesResponse.prototype.clearRolesMap = funct
 
 
 
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.api.buckets.pb.ArchiveConfig.repeatedFields_ = [3,4,5];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveConfig.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.ArchiveConfig} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveConfig.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    repFactor: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    dealMinDuration: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    excludedMinersList: (f = jspb.Message.getRepeatedField(msg, 3)) == null ? undefined : f,
+    trustedMinersList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
+    countryCodesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
+    renew: (f = msg.getRenew()) && proto.api.buckets.pb.ArchiveRenew.toObject(includeInstance, f),
+    addr: jspb.Message.getFieldWithDefault(msg, 7, ""),
+    maxPrice: jspb.Message.getFieldWithDefault(msg, 8, 0),
+    fastRetrieval: jspb.Message.getBooleanFieldWithDefault(msg, 9, false),
+    dealStartOffset: jspb.Message.getFieldWithDefault(msg, 10, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.ArchiveConfig}
+ */
+proto.api.buckets.pb.ArchiveConfig.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.ArchiveConfig;
+  return proto.api.buckets.pb.ArchiveConfig.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.ArchiveConfig} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.ArchiveConfig}
+ */
+proto.api.buckets.pb.ArchiveConfig.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setRepFactor(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setDealMinDuration(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addExcludedMiners(value);
+      break;
+    case 4:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addTrustedMiners(value);
+      break;
+    case 5:
+      var value = /** @type {string} */ (reader.readString());
+      msg.addCountryCodes(value);
+      break;
+    case 6:
+      var value = new proto.api.buckets.pb.ArchiveRenew;
+      reader.readMessage(value,proto.api.buckets.pb.ArchiveRenew.deserializeBinaryFromReader);
+      msg.setRenew(value);
+      break;
+    case 7:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setAddr(value);
+      break;
+    case 8:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxPrice(value);
+      break;
+    case 9:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setFastRetrieval(value);
+      break;
+    case 10:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setDealStartOffset(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.ArchiveConfig.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.ArchiveConfig} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveConfig.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getRepFactor();
+  if (f !== 0) {
+    writer.writeInt32(
+      1,
+      f
+    );
+  }
+  f = message.getDealMinDuration();
+  if (f !== 0) {
+    writer.writeInt64(
+      2,
+      f
+    );
+  }
+  f = message.getExcludedMinersList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      3,
+      f
+    );
+  }
+  f = message.getTrustedMinersList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      4,
+      f
+    );
+  }
+  f = message.getCountryCodesList();
+  if (f.length > 0) {
+    writer.writeRepeatedString(
+      5,
+      f
+    );
+  }
+  f = message.getRenew();
+  if (f != null) {
+    writer.writeMessage(
+      6,
+      f,
+      proto.api.buckets.pb.ArchiveRenew.serializeBinaryToWriter
+    );
+  }
+  f = message.getAddr();
+  if (f.length > 0) {
+    writer.writeString(
+      7,
+      f
+    );
+  }
+  f = message.getMaxPrice();
+  if (f !== 0) {
+    writer.writeUint64(
+      8,
+      f
+    );
+  }
+  f = message.getFastRetrieval();
+  if (f) {
+    writer.writeBool(
+      9,
+      f
+    );
+  }
+  f = message.getDealStartOffset();
+  if (f !== 0) {
+    writer.writeInt64(
+      10,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional int32 rep_factor = 1;
+ * @return {number}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getRepFactor = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setRepFactor = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
+};
+
+
+/**
+ * optional int64 deal_min_duration = 2;
+ * @return {number}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getDealMinDuration = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setDealMinDuration = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * repeated string excluded_miners = 3;
+ * @return {!Array<string>}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getExcludedMinersList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 3));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setExcludedMinersList = function(value) {
+  return jspb.Message.setField(this, 3, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.addExcludedMiners = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 3, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.clearExcludedMinersList = function() {
+  return this.setExcludedMinersList([]);
+};
+
+
+/**
+ * repeated string trusted_miners = 4;
+ * @return {!Array<string>}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getTrustedMinersList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 4));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setTrustedMinersList = function(value) {
+  return jspb.Message.setField(this, 4, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.addTrustedMiners = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 4, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.clearTrustedMinersList = function() {
+  return this.setTrustedMinersList([]);
+};
+
+
+/**
+ * repeated string country_codes = 5;
+ * @return {!Array<string>}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getCountryCodesList = function() {
+  return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 5));
+};
+
+
+/**
+ * @param {!Array<string>} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setCountryCodesList = function(value) {
+  return jspb.Message.setField(this, 5, value || []);
+};
+
+
+/**
+ * @param {string} value
+ * @param {number=} opt_index
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.addCountryCodes = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 5, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.clearCountryCodesList = function() {
+  return this.setCountryCodesList([]);
+};
+
+
+/**
+ * optional ArchiveRenew renew = 6;
+ * @return {?proto.api.buckets.pb.ArchiveRenew}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getRenew = function() {
+  return /** @type{?proto.api.buckets.pb.ArchiveRenew} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.ArchiveRenew, 6));
+};
+
+
+/**
+ * @param {?proto.api.buckets.pb.ArchiveRenew|undefined} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+*/
+proto.api.buckets.pb.ArchiveConfig.prototype.setRenew = function(value) {
+  return jspb.Message.setWrapperField(this, 6, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.clearRenew = function() {
+  return this.setRenew(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.hasRenew = function() {
+  return jspb.Message.getField(this, 6) != null;
+};
+
+
+/**
+ * optional string addr = 7;
+ * @return {string}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getAddr = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setAddr = function(value) {
+  return jspb.Message.setProto3StringField(this, 7, value);
+};
+
+
+/**
+ * optional uint64 max_price = 8;
+ * @return {number}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getMaxPrice = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 8, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setMaxPrice = function(value) {
+  return jspb.Message.setProto3IntField(this, 8, value);
+};
+
+
+/**
+ * optional bool fast_retrieval = 9;
+ * @return {boolean}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getFastRetrieval = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 9, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setFastRetrieval = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 9, value);
+};
+
+
+/**
+ * optional int64 deal_start_offset = 10;
+ * @return {number}
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.getDealStartOffset = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 10, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.ArchiveConfig} returns this
+ */
+proto.api.buckets.pb.ArchiveConfig.prototype.setDealStartOffset = function(value) {
+  return jspb.Message.setProto3IntField(this, 10, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.ArchiveRenew.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.ArchiveRenew.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.ArchiveRenew} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveRenew.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    enabled: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    threshold: jspb.Message.getFieldWithDefault(msg, 2, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.ArchiveRenew}
+ */
+proto.api.buckets.pb.ArchiveRenew.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.ArchiveRenew;
+  return proto.api.buckets.pb.ArchiveRenew.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.ArchiveRenew} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.ArchiveRenew}
+ */
+proto.api.buckets.pb.ArchiveRenew.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setEnabled(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setThreshold(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.ArchiveRenew.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.ArchiveRenew.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.ArchiveRenew} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.ArchiveRenew.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getEnabled();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+  f = message.getThreshold();
+  if (f !== 0) {
+    writer.writeInt32(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool enabled = 1;
+ * @return {boolean}
+ */
+proto.api.buckets.pb.ArchiveRenew.prototype.getEnabled = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.api.buckets.pb.ArchiveRenew} returns this
+ */
+proto.api.buckets.pb.ArchiveRenew.prototype.setEnabled = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+/**
+ * optional int32 threshold = 2;
+ * @return {number}
+ */
+proto.api.buckets.pb.ArchiveRenew.prototype.getThreshold = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.api.buckets.pb.ArchiveRenew} returns this
+ */
+proto.api.buckets.pb.ArchiveRenew.prototype.setThreshold = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.DefaultArchiveConfigRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.DefaultArchiveConfigRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigRequest}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.DefaultArchiveConfigRequest;
+  return proto.api.buckets.pb.DefaultArchiveConfigRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.DefaultArchiveConfigRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigRequest}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.DefaultArchiveConfigRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.DefaultArchiveConfigRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigRequest} returns this
+ */
+proto.api.buckets.pb.DefaultArchiveConfigRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.DefaultArchiveConfigResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.DefaultArchiveConfigResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    archiveConfig: (f = msg.getArchiveConfig()) && proto.api.buckets.pb.ArchiveConfig.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigResponse}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.DefaultArchiveConfigResponse;
+  return proto.api.buckets.pb.DefaultArchiveConfigResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.DefaultArchiveConfigResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigResponse}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.api.buckets.pb.ArchiveConfig;
+      reader.readMessage(value,proto.api.buckets.pb.ArchiveConfig.deserializeBinaryFromReader);
+      msg.setArchiveConfig(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.DefaultArchiveConfigResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.DefaultArchiveConfigResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getArchiveConfig();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.api.buckets.pb.ArchiveConfig.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional ArchiveConfig archive_config = 1;
+ * @return {?proto.api.buckets.pb.ArchiveConfig}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.prototype.getArchiveConfig = function() {
+  return /** @type{?proto.api.buckets.pb.ArchiveConfig} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.ArchiveConfig, 1));
+};
+
+
+/**
+ * @param {?proto.api.buckets.pb.ArchiveConfig|undefined} value
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigResponse} returns this
+*/
+proto.api.buckets.pb.DefaultArchiveConfigResponse.prototype.setArchiveConfig = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.buckets.pb.DefaultArchiveConfigResponse} returns this
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.prototype.clearArchiveConfig = function() {
+  return this.setArchiveConfig(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.buckets.pb.DefaultArchiveConfigResponse.prototype.hasArchiveConfig = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.SetDefaultArchiveConfigRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    archiveConfig: (f = msg.getArchiveConfig()) && proto.api.buckets.pb.ArchiveConfig.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.SetDefaultArchiveConfigRequest;
+  return proto.api.buckets.pb.SetDefaultArchiveConfigRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    case 2:
+      var value = new proto.api.buckets.pb.ArchiveConfig;
+      reader.readMessage(value,proto.api.buckets.pb.ArchiveConfig.deserializeBinaryFromReader);
+      msg.setArchiveConfig(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.SetDefaultArchiveConfigRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getArchiveConfig();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.api.buckets.pb.ArchiveConfig.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest} returns this
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional ArchiveConfig archive_config = 2;
+ * @return {?proto.api.buckets.pb.ArchiveConfig}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.getArchiveConfig = function() {
+  return /** @type{?proto.api.buckets.pb.ArchiveConfig} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.ArchiveConfig, 2));
+};
+
+
+/**
+ * @param {?proto.api.buckets.pb.ArchiveConfig|undefined} value
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest} returns this
+*/
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.setArchiveConfig = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigRequest} returns this
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.clearArchiveConfig = function() {
+  return this.setArchiveConfig(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigRequest.prototype.hasArchiveConfig = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.buckets.pb.SetDefaultArchiveConfigResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.buckets.pb.SetDefaultArchiveConfigResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigResponse}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.buckets.pb.SetDefaultArchiveConfigResponse;
+  return proto.api.buckets.pb.SetDefaultArchiveConfigResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.buckets.pb.SetDefaultArchiveConfigResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.buckets.pb.SetDefaultArchiveConfigResponse}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.buckets.pb.SetDefaultArchiveConfigResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.buckets.pb.SetDefaultArchiveConfigResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.buckets.pb.SetDefaultArchiveConfigResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -9568,7 +11284,8 @@ proto.api.buckets.pb.ArchiveRequest.prototype.toObject = function(opt_includeIns
  */
 proto.api.buckets.pb.ArchiveRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    key: jspb.Message.getFieldWithDefault(msg, 1, "")
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    archiveConfig: (f = msg.getArchiveConfig()) && proto.api.buckets.pb.ArchiveConfig.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -9609,6 +11326,11 @@ proto.api.buckets.pb.ArchiveRequest.deserializeBinaryFromReader = function(msg, 
       var value = /** @type {string} */ (reader.readString());
       msg.setKey(value);
       break;
+    case 2:
+      var value = new proto.api.buckets.pb.ArchiveConfig;
+      reader.readMessage(value,proto.api.buckets.pb.ArchiveConfig.deserializeBinaryFromReader);
+      msg.setArchiveConfig(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -9645,6 +11367,14 @@ proto.api.buckets.pb.ArchiveRequest.serializeBinaryToWriter = function(message, 
       f
     );
   }
+  f = message.getArchiveConfig();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.api.buckets.pb.ArchiveConfig.serializeBinaryToWriter
+    );
+  }
 };
 
 
@@ -9663,6 +11393,43 @@ proto.api.buckets.pb.ArchiveRequest.prototype.getKey = function() {
  */
 proto.api.buckets.pb.ArchiveRequest.prototype.setKey = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional ArchiveConfig archive_config = 2;
+ * @return {?proto.api.buckets.pb.ArchiveConfig}
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.getArchiveConfig = function() {
+  return /** @type{?proto.api.buckets.pb.ArchiveConfig} */ (
+    jspb.Message.getWrapperField(this, proto.api.buckets.pb.ArchiveConfig, 2));
+};
+
+
+/**
+ * @param {?proto.api.buckets.pb.ArchiveConfig|undefined} value
+ * @return {!proto.api.buckets.pb.ArchiveRequest} returns this
+*/
+proto.api.buckets.pb.ArchiveRequest.prototype.setArchiveConfig = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.buckets.pb.ArchiveRequest} returns this
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.clearArchiveConfig = function() {
+  return this.setArchiveConfig(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.buckets.pb.ArchiveRequest.prototype.hasArchiveConfig = function() {
+  return jspb.Message.getField(this, 2) != null;
 };
 
 
@@ -11685,6 +13452,26 @@ exports.realpath = function realpath(p, cache, cb) {
 
 /***/ }),
 
+/***/ 121:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const baseTable = __webpack_require__(822)
+
+// map for hexString -> codecName
+const nameTable = new Map()
+
+for (const encodingName in baseTable) {
+  const code = baseTable[encodingName]
+  nameTable.set(code, encodingName)
+}
+
+module.exports = Object.freeze(nameTable)
+
+
+/***/ }),
+
 /***/ 126:
 /***/ (function(module) {
 
@@ -11906,6 +13693,24 @@ APIService.PullPathAccessRoles = {
   responseStream: false,
   requestType: buckets_pb.PullPathAccessRolesRequest,
   responseType: buckets_pb.PullPathAccessRolesResponse
+};
+
+APIService.DefaultArchiveConfig = {
+  methodName: "DefaultArchiveConfig",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: buckets_pb.DefaultArchiveConfigRequest,
+  responseType: buckets_pb.DefaultArchiveConfigResponse
+};
+
+APIService.SetDefaultArchiveConfig = {
+  methodName: "SetDefaultArchiveConfig",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: buckets_pb.SetDefaultArchiveConfigRequest,
+  responseType: buckets_pb.SetDefaultArchiveConfigResponse
 };
 
 APIService.Archive = {
@@ -12415,6 +14220,68 @@ APIServiceClient.prototype.pullPathAccessRoles = function pullPathAccessRoles(re
   };
 };
 
+APIServiceClient.prototype.defaultArchiveConfig = function defaultArchiveConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.DefaultArchiveConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.setDefaultArchiveConfig = function setDefaultArchiveConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.SetDefaultArchiveConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
 APIServiceClient.prototype.archive = function archive(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
@@ -12650,20 +14517,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.StatusCode = exports.PathAccessRole = void 0;
+exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchiveInfo = exports.bucketsArchiveStatus = exports.bucketsArchive = exports.bucketsSetDefaultArchiveConfig = exports.bucketsDefaultArchiveConfig = exports.bucketsPullPathAccessRoles = exports.bucketsPushPathAccessRoles = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.StatusCode = exports.PathAccessRole = exports.AbortError = void 0;
 const grpc_web_1 = __webpack_require__(837);
 const buckets_pb_1 = __webpack_require__(97);
 const buckets_pb_service_1 = __webpack_require__(148);
-const context_1 = __webpack_require__(421);
-const grpc_transport_1 = __webpack_require__(647);
+const context_1 = __webpack_require__(57);
+const grpc_transport_1 = __webpack_require__(34);
 const cids_1 = __importDefault(__webpack_require__(437));
-const event_iterator_1 = __webpack_require__(266);
+const event_iterator_1 = __webpack_require__(554);
 const loglevel_1 = __importDefault(__webpack_require__(104));
 const next_tick_1 = __importDefault(__webpack_require__(126));
 const normalize_1 = __webpack_require__(678);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const block = __webpack_require__(323);
 const logger = loglevel_1.default.getLogger('buckets-api');
+exports.AbortError = new Error('aborted');
 var PathAccessRole;
 (function (PathAccessRole) {
     PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_UNSPECIFIED"] = 0] = "PATH_ACCESS_ROLE_UNSPECIFIED";
@@ -12671,6 +14539,46 @@ var PathAccessRole;
     PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_WRITER"] = 2] = "PATH_ACCESS_ROLE_WRITER";
     PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_ADMIN"] = 3] = "PATH_ACCESS_ROLE_ADMIN";
 })(PathAccessRole = exports.PathAccessRole || (exports.PathAccessRole = {}));
+const fromProtoArchiveConfig = (protoConfig) => {
+    const config = {
+        addr: protoConfig.getAddr(),
+        countryCodes: protoConfig.getCountryCodesList(),
+        dealMinDuration: protoConfig.getDealMinDuration(),
+        dealStartOffset: protoConfig.getDealStartOffset(),
+        excludedMiners: protoConfig.getExcludedMinersList(),
+        fastRetrieval: protoConfig.getFastRetrieval(),
+        maxPrice: protoConfig.getMaxPrice(),
+        repFactor: protoConfig.getRepFactor(),
+        trustedMiners: protoConfig.getTrustedMinersList(),
+    };
+    const renew = protoConfig.getRenew();
+    if (renew) {
+        config.renew = {
+            enabled: renew.getEnabled(),
+            threshold: renew.getThreshold(),
+        };
+    }
+    return config;
+};
+const toProtoArchiveConfig = (config) => {
+    const protoConfig = new buckets_pb_1.ArchiveConfig();
+    protoConfig.setAddr(config.addr);
+    protoConfig.setCountryCodesList(config.countryCodes);
+    protoConfig.setDealMinDuration(config.dealMinDuration);
+    protoConfig.setDealStartOffset(config.dealStartOffset);
+    protoConfig.setExcludedMinersList(config.excludedMiners);
+    protoConfig.setFastRetrieval(config.fastRetrieval);
+    protoConfig.setMaxPrice(config.maxPrice);
+    protoConfig.setRepFactor(config.repFactor);
+    protoConfig.setTrustedMinersList(config.trustedMiners);
+    if (config.renew) {
+        const renew = new buckets_pb_1.ArchiveRenew();
+        renew.setEnabled(config.renew.enabled);
+        renew.setThreshold(config.renew.threshold);
+        protoConfig.setRenew(renew);
+    }
+    return protoConfig;
+};
 /**
  * Archive status codes
  */
@@ -12732,6 +14640,7 @@ const convertPathItemNullable = (item) => {
  * @public
  * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
  * @param isPrivate encrypt the bucket contents (default `false`)
+ * @param cid (optional) Bootstrap the bucket with a UnixFS Cid from the IPFS network
  * @example
  * Creates a Bucket called "app-name-files"
  * ```typescript
@@ -12744,11 +14653,14 @@ const convertPathItemNullable = (item) => {
  *
  * @internal
  */
-function bucketsCreate(api, name, isPrivate = false, ctx) {
+function bucketsCreate(api, name, isPrivate = false, cid, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('create request');
         const req = new buckets_pb_1.CreateRequest();
         req.setName(name);
+        if (cid) {
+            req.setBootstrapCid(cid);
+        }
         req.setPrivate(isPrivate);
         const res = yield api.unary(buckets_pb_service_1.APIService.Create, req, ctx);
         const links = res.getLinks();
@@ -12798,11 +14710,12 @@ exports.bucketsRoot = bucketsRoot;
  *
  * @internal
  */
-function bucketsLinks(api, key, ctx) {
+function bucketsLinks(api, key, path, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('link request');
         const req = new buckets_pb_1.LinksRequest();
         req.setKey(key);
+        req.setPath(path);
         const res = yield api.unary(buckets_pb_service_1.APIService.Links, req, ctx);
         return res.toObject();
     });
@@ -12876,7 +14789,7 @@ exports.bucketsListIpfsPath = bucketsListIpfsPath;
  * @param key Unique (IPNS compatible) identifier key for a bucket.
  * @param path A file/object (sub)-path within a bucket.
  * @param input The input file/stream/object.
- * @param opts Options to control response stream. Currently only supports a progress function.
+ * @param opts Options to control response stream.
  * @remarks
  * This will return the resolved path and the bucket's new root path.
  * @example
@@ -12896,21 +14809,34 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
             var e_1, _a;
-            // Only process the first  input if there are more than one
+            var _b, _c, _d, _e;
+            // Only process the first input if there are more than one
             const source = (yield normalize_1.normaliseInput(input).next()).value;
             const client = grpc_web_1.grpc.client(buckets_pb_service_1.APIService.PushPath, {
                 host: api.serviceHost,
                 transport: api.rpcOptions.transport,
                 debug: api.rpcOptions.debug,
             });
+            // Send a close event to the bucket api upon abort
+            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
+                opts.signal.addEventListener('abort', () => {
+                    client.close();
+                    return reject(exports.AbortError);
+                });
+            }
             client.onMessage((message) => {
-                var _a, _b, _c;
+                var _a, _b, _c, _d;
+                // Let's just make sure we haven't aborted this outside this function
+                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
+                    client.close();
+                    return reject(exports.AbortError);
+                }
                 if (message.hasError()) {
                     // Reject on first error
-                    reject(new Error(message.getError()));
+                    return reject(new Error(message.getError()));
                 }
                 else if (message.hasEvent()) {
-                    const event = (_a = message.getEvent()) === null || _a === void 0 ? void 0 : _a.toObject();
+                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
                     if (event === null || event === void 0 ? void 0 : event.path) {
                         // @todo: Is there an standard library/tool for this step in JS?
                         const pth = event.path.startsWith('/ipfs/') ? event.path.split('/ipfs/')[1] : event.path;
@@ -12922,40 +14848,62 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                                 root: cid,
                                 remainder: '',
                             },
-                            root: (_c = (_b = event.root) === null || _b === void 0 ? void 0 : _b.path) !== null && _c !== void 0 ? _c : '',
+                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
                         };
-                        resolve(res);
+                        return resolve(res);
                     }
                     else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
                         opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
                     }
                 }
                 else {
-                    reject(new Error('Invalid reply'));
+                    return reject(new Error('Invalid reply'));
                 }
             });
-            client.onEnd((code) => {
-                if (code === grpc_web_1.grpc.Code.OK) {
-                    resolve();
+            client.onEnd((code, msg) => {
+                if (code !== grpc_web_1.grpc.Code.OK) {
+                    const message = msg ? msg : code.toString();
+                    return reject(new Error(message));
                 }
                 else {
-                    reject(new Error(code.toString()));
+                    return resolve();
                 }
             });
             if (source) {
                 const head = new buckets_pb_1.PushPathRequest.Header();
                 head.setPath(source.path || path);
                 head.setKey(key);
+                // Setting root here ensures pushes will error if root is out of date
+                let root = '';
+                if (opts === null || opts === void 0 ? void 0 : opts.root) {
+                    // If we explicitly received a root argument, use that
+                    root = typeof opts.root === 'string' ? opts.root : opts.root.path;
+                }
+                else {
+                    // Otherwise, make a call to list path to get the latest known root
+                    const head = yield bucketsListPath(api, key, '', ctx);
+                    root = (_c = (_b = head.root) === null || _b === void 0 ? void 0 : _b.path) !== null && _c !== void 0 ? _c : ''; // Shouldn't ever be undefined here
+                }
+                head.setRoot(root);
                 const req = new buckets_pb_1.PushPathRequest();
                 req.setHeader(head);
                 const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+                // Let's just make sure we haven't aborted this outside this function
+                if ((_d = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _d === void 0 ? void 0 : _d.aborted) {
+                    return reject(exports.AbortError);
+                }
                 client.start(metadata);
                 client.send(req);
                 if (source.content) {
-                    const process = yield block({ size: 4096, noPad: true });
+                    const process = yield block({ size: 32768, noPad: true });
                     try {
-                        for (var _b = __asyncValues(process(source.content)), _c; _c = yield _b.next(), !_c.done;) {
-                            const chunk = _c.value;
+                        for (var _f = __asyncValues(process(source.content)), _g; _g = yield _f.next(), !_g.done;) {
+                            const chunk = _g.value;
+                            // Let's just make sure we haven't aborted this outside this function
+                            if ((_e = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _e === void 0 ? void 0 : _e.aborted) {
+                                client.close();
+                                return reject(exports.AbortError);
+                            }
                             const buf = chunk.slice();
                             const part = new buckets_pb_1.PushPathRequest();
                             part.setChunk(buf);
@@ -12965,12 +14913,13 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                     catch (e_1_1) { e_1 = { error: e_1_1 }; }
                     finally {
                         try {
-                            if (_c && !_c.done && (_a = _b.return)) yield _a.call(_b);
+                            if (_g && !_g.done && (_a = _f.return)) yield _a.call(_f);
                         }
                         finally { if (e_1) throw e_1.error; }
                     }
-                    client.finishSend();
                 }
+                // We only need to finish send here if we actually started
+                client.finishSend();
             }
         }));
     });
@@ -13113,16 +15062,77 @@ function bucketsRemovePath(api, key, path, root, ctx) {
     });
 }
 exports.bucketsRemovePath = bucketsRemovePath;
+function bucketsPushPathAccessRoles(api, key, path, roles, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new buckets_pb_1.PushPathAccessRolesRequest();
+        req.setKey(key);
+        req.setPath(path);
+        roles.forEach((value, key) => req.getRolesMap().set(key, value));
+        yield api.unary(buckets_pb_service_1.APIService.PushPathAccessRoles, req, ctx);
+        return;
+    });
+}
+exports.bucketsPushPathAccessRoles = bucketsPushPathAccessRoles;
+function bucketsPullPathAccessRoles(api, key, path = '/', ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new buckets_pb_1.PullPathAccessRolesRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const response = yield api.unary(buckets_pb_service_1.APIService.PullPathAccessRoles, req, ctx);
+        const roles = response.getRolesMap();
+        const typedRoles = new Map();
+        roles.forEach((entry, key) => typedRoles.set(key, entry));
+        return typedRoles;
+    });
+}
+exports.bucketsPullPathAccessRoles = bucketsPullPathAccessRoles;
+/**
+ * @internal
+ */
+function bucketsDefaultArchiveConfig(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('default archive config request');
+        const req = new buckets_pb_1.DefaultArchiveConfigRequest();
+        req.setKey(key);
+        const res = yield api.unary(buckets_pb_service_1.APIService.DefaultArchiveConfig, req, ctx);
+        const config = res.getArchiveConfig();
+        if (!config) {
+            throw new Error('no archive config returned');
+        }
+        return fromProtoArchiveConfig(config);
+    });
+}
+exports.bucketsDefaultArchiveConfig = bucketsDefaultArchiveConfig;
+/**
+ * @internal
+ */
+function bucketsSetDefaultArchiveConfig(api, key, config, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('set default archive config request');
+        const req = new buckets_pb_1.SetDefaultArchiveConfigRequest();
+        req.setKey(key);
+        req.setArchiveConfig(toProtoArchiveConfig(config));
+        yield api.unary(buckets_pb_service_1.APIService.SetDefaultArchiveConfig, req, ctx);
+        return;
+    });
+}
+exports.bucketsSetDefaultArchiveConfig = bucketsSetDefaultArchiveConfig;
 /**
  * archive creates a Filecoin bucket archive via Powergate.
  * @internal
  * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param options Options that control the behavior of the bucket archive
  */
-function bucketsArchive(api, key, ctx) {
+function bucketsArchive(api, key, options, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('archive request');
         const req = new buckets_pb_1.ArchiveRequest();
         req.setKey(key);
+        if (options === null || options === void 0 ? void 0 : options.archiveConfig) {
+            req.setArchiveConfig(toProtoArchiveConfig(options.archiveConfig));
+        }
         yield api.unary(buckets_pb_service_1.APIService.Archive, req, ctx);
         return;
     });
@@ -14018,7 +16028,7 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
         for (const orphan of pathTree.getDeletes()) {
             yield api_1.bucketsRemovePath(connection, bucketKey, orphan);
         }
-        const links = yield api_1.bucketsLinks(connection, bucketKey);
+        const links = yield api_1.bucketsLinks(connection, bucketKey, '/');
         const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
         response.set('ipfs', ipfs);
         response.set('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`);
@@ -14058,34 +16068,22 @@ run();
 
 /***/ }),
 
-/***/ 199:
-/***/ (function(module) {
+/***/ 209:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
 
 
-var N1 = Math.pow(2,  7)
-var N2 = Math.pow(2, 14)
-var N3 = Math.pow(2, 21)
-var N4 = Math.pow(2, 28)
-var N5 = Math.pow(2, 35)
-var N6 = Math.pow(2, 42)
-var N7 = Math.pow(2, 49)
-var N8 = Math.pow(2, 56)
-var N9 = Math.pow(2, 63)
+const table = __webpack_require__(822)
 
-module.exports = function (value) {
-  return (
-    value < N1 ? 1
-  : value < N2 ? 2
-  : value < N3 ? 3
-  : value < N4 ? 4
-  : value < N5 ? 5
-  : value < N6 ? 6
-  : value < N7 ? 7
-  : value < N8 ? 8
-  : value < N9 ? 9
-  :              10
-  )
+// map for codecConstant -> code
+const constants = {}
+
+for (const [name, code] of Object.entries(table)) {
+  constants[name.toUpperCase().replace(/-/g, '_')] = code
 }
+
+module.exports = Object.freeze(constants)
 
 
 /***/ }),
@@ -14617,49 +16615,13 @@ GlobSync.prototype._makeAbs = function (f) {
 /***/ }),
 
 /***/ 266:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const event_iterator_1 = __webpack_require__(853);
-exports.EventIterator = event_iterator_1.EventIterator;
-function stream(evOptions) {
-    return new event_iterator_1.EventIterator(queue => {
-        this.addListener("data", queue.push);
-        this.addListener("end", queue.stop);
-        this.addListener("error", queue.fail);
-        queue.on("highWater", () => this.pause());
-        queue.on("lowWater", () => this.resume());
-        return () => {
-            this.removeListener("data", queue.push);
-            this.removeListener("end", queue.stop);
-            this.removeListener("error", queue.fail);
-            /* We are no longer interested in any data; attempt to close the stream. */
-            if (this.destroy) {
-                this.destroy();
-            }
-            else if (typeof this.close == "function") {
-                ;
-                this.close();
-            }
-        };
-    }, evOptions);
-}
-exports.stream = stream;
-exports.default = event_iterator_1.EventIterator;
-
-
-/***/ }),
-
-/***/ 276:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
 "use strict";
 
 
-const baseTable = __webpack_require__(923)
-const varintEncode = __webpack_require__(902).varintEncode
+const baseTable = __webpack_require__(822)
+const varintEncode = __webpack_require__(537).varintEncode
 
 // map for codecName -> codeVarintBuffer
 const varintTable = {}
@@ -15582,6 +17544,180 @@ function expand(str, isTop) {
 
 /***/ }),
 
+/***/ 308:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+function strs2ab (strs) {
+  // Adapted from https://stackoverflow.com/posts/11058858
+  const len = strs.reduce(function (total, str) {
+    return total + (str.length * 2)
+  }, 0)
+  const buf = new ArrayBuffer(len) // 2 bytes for each char
+  const bufView = new Uint16Array(buf)
+  let offset = 0
+  strs.forEach(function (str) {
+    for (var i = 0, strLen = str.length; i < strLen; i++) {
+      bufView[offset + i] = str.charCodeAt(i)
+    }
+    offset += str.length
+  })
+  return bufView
+}
+
+module.exports = function init (window) {
+  const seedrandom = __webpack_require__(863)
+  function execGlobal (name, value) {
+    return window[name](value)
+  }
+
+  let SyncRandomBytes
+  let seed
+  try {
+    SyncRandomBytes = execGlobal('require', 'react-native').NativeModules.SyncRandomBytes
+    if (SyncRandomBytes) {
+      seed = SyncRandomBytes.seed
+    }
+  } catch (_) {}
+
+  if (!seed && window && 'Expo' in window) {
+    seed = strs2ab([
+      window.Expo.Constants.installationId,
+      window.Expo.Constants.sessionId,
+      'performance' in window ? window.performance.now().toString(32) : (new Date()).toISOString(),
+      Math.random().toString(32)
+    ])
+  }
+
+  let prng = seedrandom(seed)
+  let early = false
+
+  if (!seed && SyncRandomBytes) {
+    early = true
+    SyncRandomBytes.randomBytes()
+      .then(seed => {
+        early = false
+        prng = seedrandom(seed)
+      })
+      .catch(function (err) {
+        early = false
+        console.log(`WARNING: can not collect seed data: ${err.message}`)
+      })
+  }
+
+  function randomFillUint32 (input) {
+    const len = input.length
+    if (len > 16384) { // 65536 by 4
+      throw new Error('QuotaExceeded')
+    }
+    for (let i = len - 1; i >= 0; i--) {
+      input[i] = prng.int32()
+    }
+    return input
+  }
+
+  function randomFillInt32 (input) {
+    const len = input.length
+    if (len > 16384) { // 65536 by 4
+      throw new Error('QuotaExceeded')
+    }
+    for (let i = len - 1; i >= 0; i--) {
+      input[i] = prng.int32() - 0x80000000
+    }
+    return input
+  }
+
+  function randomFillUint8 (input) {
+    if (input.length > 65536) {
+      throw new Error('QuotaExceeded')
+    }
+    const count = (input.length * 0.25 + 1) | 0
+    for (let i = count - 1, n = 0; i >= 0; i--) {
+      const value = prng.int32()
+      input[n++] = value & 0xff
+      input[n++] = (value >> 8) & 0xff
+      input[n++] = (value >> 16) & 0xff
+      input[n++] = (value >> 24) & 0xff
+    }
+    return input
+  }
+
+  function randomFillInt8 (input) {
+    if (input.length > 65536) {
+      throw new Error('QuotaExceeded')
+    }
+    const count = (input.length * 0.25 + 1) | 0
+    for (let i = count - 1, n = 0; i >= 0; i--) {
+      const value = prng.int32()
+      input[n++] = (value & 0xff) - 0x80
+      input[n++] = ((value >> 8) & 0xff) - 0x80
+      input[n++] = ((value >> 16) & 0xff) - 0x80
+      input[n++] = ((value >> 24) & 0xff) - 0x80
+    }
+    return input
+  }
+
+  function randomFillUint16 (input) {
+    if (input.length > 32767) {
+      throw new Error('QuotaExceeded')
+    }
+    const count = (input.length * 0.5 + 1) | 0
+    for (let i = count - 1, n = 0; i >= 0; i--) {
+      const value = prng.int32()
+      input[n++] = value & 0xffff
+      input[n++] = (value >> 16) & 0xffff
+    }
+    return input
+  }
+
+  function randomFillInt16 (input) {
+    if (input.length > 32767) {
+      throw new Error('QuotaExceeded')
+    }
+    const count = (input.length * 0.5 + 1) | 0
+    for (let i = count - 1, n = 0; i >= 0; i--) {
+      const value = prng.int32()
+      input[n++] = (value & 0xffff) - 0x8000
+      input[n++] = ((value >> 16) & 0xffff) - 0x8000
+    }
+    return input
+  }
+
+  return function getSeedRandomValues (input) {
+    if (early) {
+      early = false
+      console.log('WARNING: random data is requested before the seed is done')
+    }
+    if (input === null || input === undefined) {
+      throw new Error('invalid type')
+    }
+    if (input instanceof Uint8Array) {
+      return randomFillUint8(input)
+    }
+    if (input instanceof Uint32Array) {
+      return randomFillUint32(input)
+    }
+    if (input instanceof Uint16Array) {
+      return randomFillUint16(input)
+    }
+    if (input instanceof Int32Array) {
+      return randomFillInt32(input)
+    }
+    if (input instanceof Int16Array) {
+      return randomFillInt16(input)
+    }
+    if (input instanceof Int8Array) {
+      return randomFillInt8(input)
+    }
+    if (input instanceof Uint8ClampedArray) {
+      return randomFillUint8(input)
+    }
+    throw new Error('invalid type')
+  }
+}
+
+
+/***/ }),
+
 /***/ 312:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -16178,6 +18314,13 @@ module.exports = (size, options) => {
   }
 }
 
+
+/***/ }),
+
+/***/ 327:
+/***/ (function(__unusedmodule, exports) {
+
+!function(e,t){for(var r in t)e[r]=t[r]}(exports,function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};return e[n].call(o.exports,o,o.exports,r),o.l=!0,o.exports}return r.m=e,r.c=t,r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:n})},r.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},r.t=function(e,t){if(1&t&&(e=r(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var n=Object.create(null);if(r.r(n),Object.defineProperty(n,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var o in e)r.d(n,o,function(t){return e[t]}.bind(null,o));return n},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=10)}([function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3);t.Metadata=n.BrowserHeaders},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.debug=function(){for(var e=[],t=0;t<arguments.length;t++)e[t]=arguments[t];console.debug?console.debug.apply(null,e):console.log.apply(null,e)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0),o=r(8),s=r(9),i=r(1),a=r(4),u=r(14);t.client=function(e,t){return new d(e,t)};var d=function(){function e(e,t){this.started=!1,this.sentFirstMessage=!1,this.completed=!1,this.closed=!1,this.finishedSending=!1,this.onHeadersCallbacks=[],this.onMessageCallbacks=[],this.onEndCallbacks=[],this.parser=new o.ChunkParser,this.methodDefinition=e,this.props=t,this.createTransport()}return e.prototype.createTransport=function(){var e=this.props.host+"/"+this.methodDefinition.service.serviceName+"/"+this.methodDefinition.methodName,t={methodDefinition:this.methodDefinition,debug:this.props.debug||!1,url:e,onHeaders:this.onTransportHeaders.bind(this),onChunk:this.onTransportChunk.bind(this),onEnd:this.onTransportEnd.bind(this)};this.props.transport?this.transport=this.props.transport(t):this.transport=a.makeDefaultTransport(t)},e.prototype.onTransportHeaders=function(e,t){if(this.props.debug&&i.debug("onHeaders",e,t),this.closed)this.props.debug&&i.debug("grpc.onHeaders received after request was closed - ignoring");else if(0===t);else{this.responseHeaders=e,this.props.debug&&i.debug("onHeaders.responseHeaders",JSON.stringify(this.responseHeaders,null,2));var r=c(e);this.props.debug&&i.debug("onHeaders.gRPCStatus",r);var n=r&&r>=0?r:s.httpStatusToCode(t);this.props.debug&&i.debug("onHeaders.code",n);var o=e.get("grpc-message")||[];if(this.props.debug&&i.debug("onHeaders.gRPCMessage",o),this.rawOnHeaders(e),n!==s.Code.OK){var a=this.decodeGRPCStatus(o[0]);this.rawOnError(n,a,e)}}},e.prototype.onTransportChunk=function(e){var t=this;if(this.closed)this.props.debug&&i.debug("grpc.onChunk received after request was closed - ignoring");else{var r=[];try{r=this.parser.parse(e)}catch(e){return this.props.debug&&i.debug("onChunk.parsing error",e,e.message),void this.rawOnError(s.Code.Internal,"parsing error: "+e.message)}r.forEach(function(e){if(e.chunkType===o.ChunkType.MESSAGE){var r=t.methodDefinition.responseType.deserializeBinary(e.data);t.rawOnMessage(r)}else e.chunkType===o.ChunkType.TRAILERS&&(t.responseHeaders?(t.responseTrailers=new n.Metadata(e.trailers),t.props.debug&&i.debug("onChunk.trailers",t.responseTrailers)):(t.responseHeaders=new n.Metadata(e.trailers),t.rawOnHeaders(t.responseHeaders)))})}},e.prototype.onTransportEnd=function(){if(this.props.debug&&i.debug("grpc.onEnd"),this.closed)this.props.debug&&i.debug("grpc.onEnd received after request was closed - ignoring");else if(void 0!==this.responseTrailers){var e=c(this.responseTrailers);if(null!==e){var t=this.responseTrailers.get("grpc-message"),r=this.decodeGRPCStatus(t[0]);this.rawOnEnd(e,r,this.responseTrailers)}else this.rawOnError(s.Code.Internal,"Response closed without grpc-status (Trailers provided)")}else{if(void 0===this.responseHeaders)return void this.rawOnError(s.Code.Unknown,"Response closed without headers");var n=c(this.responseHeaders),o=this.responseHeaders.get("grpc-message");if(this.props.debug&&i.debug("grpc.headers only response ",n,o),null===n)return void this.rawOnEnd(s.Code.Unknown,"Response closed without grpc-status (Headers only)",this.responseHeaders);var a=this.decodeGRPCStatus(o[0]);this.rawOnEnd(n,a,this.responseHeaders)}},e.prototype.decodeGRPCStatus=function(e){if(!e)return"";try{return decodeURIComponent(e)}catch(t){return e}},e.prototype.rawOnEnd=function(e,t,r){var n=this;this.props.debug&&i.debug("rawOnEnd",e,t,r),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(o){if(!n.closed)try{o(e,t,r)}catch(e){setTimeout(function(){throw e})}}))},e.prototype.rawOnHeaders=function(e){this.props.debug&&i.debug("rawOnHeaders",e),this.completed||this.onHeadersCallbacks.forEach(function(t){try{t(e)}catch(e){setTimeout(function(){throw e})}})},e.prototype.rawOnError=function(e,t,r){var o=this;void 0===r&&(r=new n.Metadata),this.props.debug&&i.debug("rawOnError",e,t),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(n){if(!o.closed)try{n(e,t,r)}catch(e){setTimeout(function(){throw e})}}))},e.prototype.rawOnMessage=function(e){var t=this;this.props.debug&&i.debug("rawOnMessage",e.toObject()),this.completed||this.closed||this.onMessageCallbacks.forEach(function(r){if(!t.closed)try{r(e)}catch(e){setTimeout(function(){throw e})}})},e.prototype.onHeaders=function(e){this.onHeadersCallbacks.push(e)},e.prototype.onMessage=function(e){this.onMessageCallbacks.push(e)},e.prototype.onEnd=function(e){this.onEndCallbacks.push(e)},e.prototype.start=function(e){if(this.started)throw new Error("Client already started - cannot .start()");this.started=!0;var t=new n.Metadata(e||{});t.set("content-type","application/grpc-web+proto"),t.set("x-grpc-web","1"),this.transport.start(t)},e.prototype.send=function(e){if(!this.started)throw new Error("Client not started - .start() must be called before .send()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .send()");if(!this.methodDefinition.requestStream&&this.sentFirstMessage)throw new Error("Message already sent for non-client-streaming method - cannot .send()");this.sentFirstMessage=!0;var t=u.frameRequest(e);this.transport.sendMessage(t)},e.prototype.finishSend=function(){if(!this.started)throw new Error("Client not started - .finishSend() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .finishSend()");this.finishedSending=!0,this.transport.finishSend()},e.prototype.close=function(){if(!this.started)throw new Error("Client not started - .start() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .close()");this.closed=!0,this.props.debug&&i.debug("request.abort aborting request"),this.transport.cancel()},e}();function c(e){var t=e.get("grpc-status")||[];if(t.length>0)try{var r=t[0];return parseInt(r,10)}catch(e){return null}return null}},function(e,t,r){var n;n=function(){return function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};return e[n].call(o.exports,o,o.exports,r),o.l=!0,o.exports}return r.m=e,r.c=t,r.i=function(e){return e},r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{configurable:!1,enumerable:!0,get:n})},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=1)}([function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3);var o=function(){function e(e,t){void 0===e&&(e={}),void 0===t&&(t={splitValues:!1});var r,o=this;if(this.headersMap={},e)if("undefined"!=typeof Headers&&e instanceof Headers)n.getHeaderKeys(e).forEach(function(r){n.getHeaderValues(e,r).forEach(function(e){t.splitValues?o.append(r,n.splitHeaderValue(e)):o.append(r,e)})});else if("object"==typeof(r=e)&&"object"==typeof r.headersMap&&"function"==typeof r.forEach)e.forEach(function(e,t){o.append(e,t)});else if("undefined"!=typeof Map&&e instanceof Map){e.forEach(function(e,t){o.append(t,e)})}else"string"==typeof e?this.appendFromString(e):"object"==typeof e&&Object.getOwnPropertyNames(e).forEach(function(t){var r=e[t];Array.isArray(r)?r.forEach(function(e){o.append(t,e)}):o.append(t,r)})}return e.prototype.appendFromString=function(e){for(var t=e.split("\r\n"),r=0;r<t.length;r++){var n=t[r],o=n.indexOf(":");if(o>0){var s=n.substring(0,o).trim(),i=n.substring(o+1).trim();this.append(s,i)}}},e.prototype.delete=function(e,t){var r=n.normalizeName(e);if(void 0===t)delete this.headersMap[r];else{var o=this.headersMap[r];if(o){var s=o.indexOf(t);s>=0&&o.splice(s,1),0===o.length&&delete this.headersMap[r]}}},e.prototype.append=function(e,t){var r=this,o=n.normalizeName(e);Array.isArray(this.headersMap[o])||(this.headersMap[o]=[]),Array.isArray(t)?t.forEach(function(e){r.headersMap[o].push(n.normalizeValue(e))}):this.headersMap[o].push(n.normalizeValue(t))},e.prototype.set=function(e,t){var r=n.normalizeName(e);if(Array.isArray(t)){var o=[];t.forEach(function(e){o.push(n.normalizeValue(e))}),this.headersMap[r]=o}else this.headersMap[r]=[n.normalizeValue(t)]},e.prototype.has=function(e,t){var r=this.headersMap[n.normalizeName(e)];if(!Array.isArray(r))return!1;if(void 0!==t){var o=n.normalizeValue(t);return r.indexOf(o)>=0}return!0},e.prototype.get=function(e){var t=this.headersMap[n.normalizeName(e)];return void 0!==t?t.concat():[]},e.prototype.forEach=function(e){var t=this;Object.getOwnPropertyNames(this.headersMap).forEach(function(r){e(r,t.headersMap[r])},this)},e.prototype.toHeaders=function(){if("undefined"!=typeof Headers){var e=new Headers;return this.forEach(function(t,r){r.forEach(function(r){e.append(t,r)})}),e}throw new Error("Headers class is not defined")},e}();t.BrowserHeaders=o},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0);t.BrowserHeaders=n.BrowserHeaders},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.iterateHeaders=function(e,t){for(var r=e[Symbol.iterator](),n=r.next();!n.done;)t(n.value[0]),n=r.next()},t.iterateHeadersKeys=function(e,t){for(var r=e.keys(),n=r.next();!n.done;)t(n.value),n=r.next()}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(2);function o(e){return e}t.normalizeName=function(e){if("string"!=typeof e&&(e=String(e)),/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(e))throw new TypeError("Invalid character in header field name");return e.toLowerCase()},t.normalizeValue=function(e){return"string"!=typeof e&&(e=String(e)),e},t.getHeaderValues=function(e,t){var r=o(e);if(r instanceof Headers&&r.getAll)return r.getAll(t);var n=r.get(t);return n&&"string"==typeof n?[n]:n},t.getHeaderKeys=function(e){var t=o(e),r={},s=[];return t.keys?n.iterateHeadersKeys(t,function(e){r[e]||(r[e]=!0,s.push(e))}):t.forEach?t.forEach(function(e,t){r[t]||(r[t]=!0,s.push(t))}):n.iterateHeaders(t,function(e){var t=e[0];r[t]||(r[t]=!0,s.push(t))}),s},t.splitHeaderValue=function(e){var t=[];return e.split(", ").forEach(function(e){e.split(",").forEach(function(e){t.push(e)})}),t}}])},e.exports=n()},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(5),o=function(e){return n.CrossBrowserHttpTransport({withCredentials:!1})(e)};t.setDefaultTransportFactory=function(e){o=e},t.makeDefaultTransport=function(e){return o(e)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(6),o=r(7);t.CrossBrowserHttpTransport=function(e){if(n.detectFetchSupport()){var t={credentials:e.withCredentials?"include":"same-origin"};return n.FetchReadableStreamTransport(t)}return o.XhrTransport({withCredentials:e.withCredentials})}},function(e,t,r){"use strict";var n=this&&this.__assign||function(){return(n=Object.assign||function(e){for(var t,r=1,n=arguments.length;r<n;r++)for(var o in t=arguments[r])Object.prototype.hasOwnProperty.call(t,o)&&(e[o]=t[o]);return e}).apply(this,arguments)};Object.defineProperty(t,"__esModule",{value:!0});var o=r(0),s=r(1);t.FetchReadableStreamTransport=function(e){return function(t){return function(e,t){return e.debug&&s.debug("fetchRequest",e),new i(e,t)}(t,e)}};var i=function(){function e(e,t){this.cancelled=!1,this.controller=self.AbortController&&new AbortController,this.options=e,this.init=t}return e.prototype.pump=function(e,t){var r=this;if(this.reader=e,this.cancelled)return this.options.debug&&s.debug("Fetch.pump.cancel at first pump"),void this.reader.cancel();this.reader.read().then(function(e){if(e.done)return r.options.onEnd(),t;r.options.onChunk(e.value),r.pump(r.reader,t)}).catch(function(e){r.cancelled?r.options.debug&&s.debug("Fetch.catch - request cancelled"):(r.cancelled=!0,r.options.debug&&s.debug("Fetch.catch",e.message),r.options.onEnd(e))})},e.prototype.send=function(e){var t=this;fetch(this.options.url,n({},this.init,{headers:this.metadata.toHeaders(),method:"POST",body:e,signal:this.controller&&this.controller.signal})).then(function(e){if(t.options.debug&&s.debug("Fetch.response",e),t.options.onHeaders(new o.Metadata(e.headers),e.status),!e.body)return e;t.pump(e.body.getReader(),e)}).catch(function(e){t.cancelled?t.options.debug&&s.debug("Fetch.catch - request cancelled"):(t.cancelled=!0,t.options.debug&&s.debug("Fetch.catch",e.message),t.options.onEnd(e))})},e.prototype.sendMessage=function(e){this.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){this.metadata=e},e.prototype.cancel=function(){this.cancelled?this.options.debug&&s.debug("Fetch.abort.cancel already cancelled"):(this.cancelled=!0,this.reader?(this.options.debug&&s.debug("Fetch.abort.cancel"),this.reader.cancel()):this.options.debug&&s.debug("Fetch.abort.cancel before reader"),this.controller&&this.controller.abort())},e}();t.detectFetchSupport=function(){return"undefined"!=typeof Response&&Response.prototype.hasOwnProperty("body")&&"function"==typeof Headers}},function(e,t,r){"use strict";var n,o=this&&this.__extends||(n=function(e,t){return(n=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(e,t){e.__proto__=t}||function(e,t){for(var r in t)t.hasOwnProperty(r)&&(e[r]=t[r])})(e,t)},function(e,t){function r(){this.constructor=e}n(e,t),e.prototype=null===t?Object.create(t):(r.prototype=t.prototype,new r)});Object.defineProperty(t,"__esModule",{value:!0});var s=r(0),i=r(1),a=r(11);t.XhrTransport=function(e){return function(t){if(a.detectMozXHRSupport())return new d(t,e);if(a.detectXHROverrideMimeTypeSupport())return new u(t,e);throw new Error("This environment's XHR implementation cannot support binary transfer.")}};var u=function(){function e(e,t){this.options=e,this.init=t}return e.prototype.onProgressEvent=function(){this.options.debug&&i.debug("XHR.onProgressEvent.length: ",this.xhr.response.length);var e=this.xhr.response.substr(this.index);this.index=this.xhr.response.length;var t=p(e);this.options.onChunk(t)},e.prototype.onLoadEvent=function(){this.options.debug&&i.debug("XHR.onLoadEvent"),this.options.onEnd()},e.prototype.onStateChange=function(){this.options.debug&&i.debug("XHR.onStateChange",this.xhr.readyState),this.xhr.readyState===XMLHttpRequest.HEADERS_RECEIVED&&this.options.onHeaders(new s.Metadata(this.xhr.getAllResponseHeaders()),this.xhr.status)},e.prototype.sendMessage=function(e){this.xhr.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){var t=this;this.metadata=e;var r=new XMLHttpRequest;this.xhr=r,r.open("POST",this.options.url),this.configureXhr(),this.metadata.forEach(function(e,t){r.setRequestHeader(e,t.join(", "))}),r.withCredentials=Boolean(this.init.withCredentials),r.addEventListener("readystatechange",this.onStateChange.bind(this)),r.addEventListener("progress",this.onProgressEvent.bind(this)),r.addEventListener("loadend",this.onLoadEvent.bind(this)),r.addEventListener("error",function(e){t.options.debug&&i.debug("XHR.error",e),t.options.onEnd(e.error)})},e.prototype.configureXhr=function(){this.xhr.responseType="text",this.xhr.overrideMimeType("text/plain; charset=x-user-defined")},e.prototype.cancel=function(){this.options.debug&&i.debug("XHR.abort"),this.xhr.abort()},e}();t.XHR=u;var d=function(e){function t(){return null!==e&&e.apply(this,arguments)||this}return o(t,e),t.prototype.configureXhr=function(){this.options.debug&&i.debug("MozXHR.configureXhr: setting responseType to 'moz-chunked-arraybuffer'"),this.xhr.responseType="moz-chunked-arraybuffer"},t.prototype.onProgressEvent=function(){var e=this.xhr.response;this.options.debug&&i.debug("MozXHR.onProgressEvent: ",new Uint8Array(e)),this.options.onChunk(new Uint8Array(e))},t}(u);function c(e,t){var r=e.charCodeAt(t);if(r>=55296&&r<=56319){var n=e.charCodeAt(t+1);n>=56320&&n<=57343&&(r=65536+(r-55296<<10)+(n-56320))}return r}function p(e){for(var t=new Uint8Array(e.length),r=0,n=0;n<e.length;n++){var o=String.prototype.codePointAt?e.codePointAt(n):c(e,n);t[r++]=255&o}return t}t.MozChunkedArrayBufferXHR=d,t.stringToArrayBuffer=p},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n,o=r(0),s=function(e){return 9===e||10===e||13===e};function i(e){return s(e)||e>=32&&e<=126}function a(e){for(var t=0;t!==e.length;++t)if(!i(e[t]))throw new Error("Metadata is not valid (printable) ASCII");return String.fromCharCode.apply(String,Array.prototype.slice.call(e))}function u(e){return 128==(128&e.getUint8(0))}function d(e){return e.getUint32(1,!1)}function c(e,t,r){return e.byteLength-t>=r}function p(e,t,r){if(e.slice)return e.slice(t,r);var n=e.length;void 0!==r&&(n=r);for(var o=new Uint8Array(n-t),s=0,i=t;i<n;i++)o[s++]=e[i];return o}t.decodeASCII=a,t.encodeASCII=function(e){for(var t=new Uint8Array(e.length),r=0;r!==e.length;++r){var n=e.charCodeAt(r);if(!i(n))throw new Error("Metadata contains invalid ASCII");t[r]=n}return t},function(e){e[e.MESSAGE=1]="MESSAGE",e[e.TRAILERS=2]="TRAILERS"}(n=t.ChunkType||(t.ChunkType={}));var h=function(){function e(){this.buffer=null,this.position=0}return e.prototype.parse=function(e,t){if(0===e.length&&t)return[];var r,s=[];if(null==this.buffer)this.buffer=e,this.position=0;else if(this.position===this.buffer.byteLength)this.buffer=e,this.position=0;else{var i=this.buffer.byteLength-this.position,h=new Uint8Array(i+e.byteLength),f=p(this.buffer,this.position);h.set(f,0);var l=new Uint8Array(e);h.set(l,i),this.buffer=h,this.position=0}for(;;){if(!c(this.buffer,this.position,5))return s;var g=p(this.buffer,this.position,this.position+5),b=new DataView(g.buffer,g.byteOffset,g.byteLength),y=d(b);if(!c(this.buffer,this.position,5+y))return s;var v=p(this.buffer,this.position+5,this.position+5+y);if(this.position+=5+y,u(b))return s.push({chunkType:n.TRAILERS,trailers:(r=v,new o.Metadata(a(r)))}),s;s.push({chunkType:n.MESSAGE,data:v})}},e}();t.ChunkParser=h},function(e,t,r){"use strict";var n;Object.defineProperty(t,"__esModule",{value:!0}),function(e){e[e.OK=0]="OK",e[e.Canceled=1]="Canceled",e[e.Unknown=2]="Unknown",e[e.InvalidArgument=3]="InvalidArgument",e[e.DeadlineExceeded=4]="DeadlineExceeded",e[e.NotFound=5]="NotFound",e[e.AlreadyExists=6]="AlreadyExists",e[e.PermissionDenied=7]="PermissionDenied",e[e.ResourceExhausted=8]="ResourceExhausted",e[e.FailedPrecondition=9]="FailedPrecondition",e[e.Aborted=10]="Aborted",e[e.OutOfRange=11]="OutOfRange",e[e.Unimplemented=12]="Unimplemented",e[e.Internal=13]="Internal",e[e.Unavailable=14]="Unavailable",e[e.DataLoss=15]="DataLoss",e[e.Unauthenticated=16]="Unauthenticated"}(n=t.Code||(t.Code={})),t.httpStatusToCode=function(e){switch(e){case 0:return n.Internal;case 200:return n.OK;case 400:return n.InvalidArgument;case 401:return n.Unauthenticated;case 403:return n.PermissionDenied;case 404:return n.NotFound;case 409:return n.Aborted;case 412:return n.FailedPrecondition;case 429:return n.ResourceExhausted;case 499:return n.Canceled;case 500:return n.Unknown;case 501:return n.Unimplemented;case 503:return n.Unavailable;case 504:return n.DeadlineExceeded;default:return n.Unknown}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3),o=r(4),s=r(6),i=r(12),a=r(7),u=r(5),d=r(9),c=r(13),p=r(15),h=r(2);!function(e){e.setDefaultTransport=o.setDefaultTransportFactory,e.CrossBrowserHttpTransport=u.CrossBrowserHttpTransport,e.FetchReadableStreamTransport=s.FetchReadableStreamTransport,e.XhrTransport=a.XhrTransport,e.WebsocketTransport=i.WebsocketTransport,e.Code=d.Code,e.Metadata=n.BrowserHeaders,e.client=function(e,t){return h.client(e,t)},e.invoke=c.invoke,e.unary=p.unary}(t.grpc||(t.grpc={}))},function(e,t,r){"use strict";var n;function o(){if(void 0!==n)return n;if(XMLHttpRequest){n=new XMLHttpRequest;try{n.open("GET","https://localhost")}catch(e){}}return n}function s(e){var t=o();if(!t)return!1;try{return t.responseType=e,t.responseType===e}catch(e){}return!1}Object.defineProperty(t,"__esModule",{value:!0}),t.xhrSupportsResponseType=s,t.detectMozXHRSupport=function(){return"undefined"!=typeof XMLHttpRequest&&s("moz-chunked-arraybuffer")},t.detectXHROverrideMimeTypeSupport=function(){return"undefined"!=typeof XMLHttpRequest&&XMLHttpRequest.prototype.hasOwnProperty("overrideMimeType")}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n,o=r(1),s=r(8);!function(e){e[e.FINISH_SEND=1]="FINISH_SEND"}(n||(n={}));var i=new Uint8Array([1]);t.WebsocketTransport=function(){return function(e){return function(e){e.debug&&o.debug("websocketRequest",e);var t,r=function(e){if("https://"===e.substr(0,8))return"wss://"+e.substr(8);if("http://"===e.substr(0,7))return"ws://"+e.substr(7);throw new Error("Websocket transport constructed with non-https:// or http:// host.")}(e.url),a=[];function u(e){if(e===n.FINISH_SEND)t.send(i);else{var r=e,o=new Int8Array(r.byteLength+1);o.set(new Uint8Array([0])),o.set(r,1),t.send(o)}}return{sendMessage:function(e){t&&t.readyState!==t.CONNECTING?u(e):a.push(e)},finishSend:function(){t&&t.readyState!==t.CONNECTING?u(n.FINISH_SEND):a.push(n.FINISH_SEND)},start:function(n){(t=new WebSocket(r,["grpc-websockets"])).binaryType="arraybuffer",t.onopen=function(){var r;e.debug&&o.debug("websocketRequest.onopen"),t.send((r="",n.forEach(function(e,t){r+=e+": "+t.join(", ")+"\r\n"}),s.encodeASCII(r))),a.forEach(function(e){u(e)})},t.onclose=function(t){e.debug&&o.debug("websocketRequest.onclose",t),e.onEnd()},t.onerror=function(t){e.debug&&o.debug("websocketRequest.onerror",t)},t.onmessage=function(t){e.onChunk(new Uint8Array(t.data))}},cancel:function(){e.debug&&o.debug("websocket.abort"),t.close()}}}(e)}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(2);t.invoke=function(e,t){if(e.requestStream)throw new Error(".invoke cannot be used with client-streaming methods. Use .client instead.");var r=n.client(e,{host:t.host,transport:t.transport,debug:t.debug});return t.onHeaders&&r.onHeaders(t.onHeaders),t.onMessage&&r.onMessage(t.onMessage),t.onEnd&&r.onEnd(t.onEnd),r.start(t.metadata),r.send(t.request),r.finishSend(),{close:function(){r.close()}}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.frameRequest=function(e){var t=e.serializeBinary(),r=new ArrayBuffer(t.byteLength+5);return new DataView(r,1,4).setUint32(0,t.length,!1),new Uint8Array(r,5).set(t),new Uint8Array(r)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0),o=r(2);t.unary=function(e,t){if(e.responseStream)throw new Error(".unary cannot be used with server-streaming methods. Use .invoke or .client instead.");if(e.requestStream)throw new Error(".unary cannot be used with client-streaming methods. Use .client instead.");var r=null,s=null,i=o.client(e,{host:t.host,transport:t.transport,debug:t.debug});return i.onHeaders(function(e){r=e}),i.onMessage(function(e){s=e}),i.onEnd(function(e,o,i){t.onEnd({status:e,statusMessage:o,headers:r||new n.Metadata,message:s,trailers:i})}),i.start(t.metadata),i.send(t.request),i.finishSend(),{close:function(){i.close()}}}}]));
 
 /***/ }),
 
@@ -17792,6 +19935,16 @@ Glob.prototype._stat2 = function (f, abs, er, stat, cb) {
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -17885,6 +20038,7 @@ exports.createUserAuth = createUserAuth;
  * @public
  */
 exports.expirationError = new Error("Auth expired. Consider calling withKeyInfo or withAPISig to refresh.");
+__exportStar(__webpack_require__(998), exports);
 //# sourceMappingURL=index.js.map
 
 /***/ }),
@@ -17931,7 +20085,7 @@ var __rest = (this && this.__rest) || function (s, e) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Context = exports.defaultHost = void 0;
 const grpc_web_1 = __webpack_require__(837);
-const security_1 = __webpack_require__(411);
+const security_1 = __webpack_require__(923);
 exports.defaultHost = "https://webapi.hub.textile.io";
 /**
  * Context provides context management for gRPC credentials and config settings.
@@ -18111,22 +20265,133 @@ exports.Context = Context;
 
 /***/ }),
 
-/***/ 422:
-/***/ (function(module, __unusedexports, __webpack_require__) {
+/***/ 430:
+/***/ (function(module) {
 
-"use strict";
+let node8 = false
 
-const baseTable = __webpack_require__(923)
-
-// map for hexString -> codecName
-const nameTable = new Map()
-
-for (const encodingName in baseTable) {
-  const code = baseTable[encodingName]
-  nameTable.set(code, encodingName)
+if ('process' in global) {
+  node8 = /^v8\./.test(global.process.version)
 }
 
-module.exports = Object.freeze(nameTable)
+module.exports = function init (window) {
+  function execGlobal (name, value) {
+    return window[name](value)
+  }
+  const crypto = execGlobal('require', 'crypto')
+
+  function randomFillUint32 (input, bytes) {
+    const len = input.length
+    for (let i = 0, o = 0; i < len; i++) {
+      input[i] = (
+        (bytes[o++] << 24) |
+        (bytes[o++] << 16) |
+        (bytes[o++] << 8) |
+        bytes[o++]
+      )
+    }
+    return input
+  }
+
+  function randomFillInt32 (input, bytes) {
+    const len = input.length
+    for (let i = 0, o = 0; i < len; i++) {
+      input[i] = (
+        (bytes[o++] << 24) |
+        (bytes[o++] << 16) |
+        (bytes[o++] << 8) |
+        bytes[o++]
+      ) - 0x80000000
+    }
+    return input
+  }
+
+  function randomFillUint16 (input, bytes) {
+    const len = input.length
+    for (let i = 0, o = 0; i < len; i++) {
+      input[i] = (bytes[o++] << 8) | bytes[o++]
+    }
+    return input
+  }
+
+  function randomFillInt16 (input, bytes) {
+    const len = input.length
+    for (let i = 0, o = 0; i < len; i++) {
+      input[i] = ((bytes[o++] << 8) | bytes[o++]) - 0x8000
+    }
+    return input
+  }
+
+  function randomFillUint8 (input, bytes) {
+    const len = input.length
+    for (let i = 0; i < len; i++) {
+      input[i] = bytes[i]
+    }
+    return input
+  }
+
+  function randomFillInt8 (input, bytes) {
+    const len = input.length
+    for (let i = 0; i < len; i++) {
+      input[i] = bytes[i] - 0x80
+    }
+    return input
+  }
+
+  if (node8) {
+    return function randomFillNode8 (input) {
+      if (input instanceof Uint8Array) {
+        return crypto.randomFillSync(input)
+      }
+      const bytes = crypto.randomBytes(input.byteLength)
+      if (input instanceof Uint32Array) {
+        return randomFillUint32(input, bytes)
+      }
+      if (input instanceof Uint16Array) {
+        return randomFillUint16(input, bytes)
+      }
+      if (input instanceof Int32Array) {
+        return randomFillInt32(input, bytes)
+      }
+      if (input instanceof Int16Array) {
+        return randomFillInt16(input, bytes)
+      }
+      if (input instanceof Int8Array) {
+        return randomFillInt8(input, bytes)
+      }
+      if (input instanceof Uint8ClampedArray) {
+        return randomFillUint8(input, bytes)
+      }
+      throw new Error('invalid type')
+    }
+  }
+
+  return crypto.randomFillSync || function randomFillClassic (input) {
+    const bytes = crypto.randomBytes(input.byteLength)
+    if (input instanceof Uint8Array) {
+      return randomFillUint8(input, bytes)
+    }
+    if (input instanceof Uint32Array) {
+      return randomFillUint32(input, bytes)
+    }
+    if (input instanceof Uint16Array) {
+      return randomFillUint16(input, bytes)
+    }
+    if (input instanceof Int32Array) {
+      return randomFillInt32(input, bytes)
+    }
+    if (input instanceof Int16Array) {
+      return randomFillInt16(input, bytes)
+    }
+    if (input instanceof Int8Array) {
+      return randomFillInt8(input, bytes)
+    }
+    if (input instanceof Uint8ClampedArray) {
+      return randomFillUint8(input, bytes)
+    }
+    throw new Error('invalid type')
+  }
+}
 
 
 /***/ }),
@@ -18239,8 +20504,8 @@ function escapeProperty(s) {
 const { Buffer } = __webpack_require__(293)
 const mh = __webpack_require__(20)
 const multibase = __webpack_require__(939)
-const multicodec = __webpack_require__(548)
-const codecs = __webpack_require__(923)
+const multicodec = __webpack_require__(477)
+const codecs = __webpack_require__(822)
 const CIDUtil = __webpack_require__(102)
 const withIs = __webpack_require__(471)
 
@@ -18849,39 +21114,7 @@ module.exports.proto = withIsProto;
 
 /***/ }),
 
-/***/ 507:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-module.exports = {
-    encode: __webpack_require__(549)
-  , decode: __webpack_require__(561)
-  , encodingLength: __webpack_require__(199)
-}
-
-
-/***/ }),
-
-/***/ 519:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const table = __webpack_require__(923)
-
-// map for code -> print friendly name
-const tableByCode = {}
-
-for (const [name, code] of Object.entries(table)) {
-  if (tableByCode[code] === undefined) tableByCode[code] = name
-}
-
-module.exports = Object.freeze(tableByCode)
-
-
-/***/ }),
-
-/***/ 548:
+/***/ 477:
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -18899,10 +21132,10 @@ module.exports = Object.freeze(tableByCode)
 
 
 const { Buffer } = __webpack_require__(293)
-const varint = __webpack_require__(507)
-const intTable = __webpack_require__(422)
-const codecNameToCodeVarint = __webpack_require__(276)
-const util = __webpack_require__(902)
+const varint = __webpack_require__(844)
+const intTable = __webpack_require__(121)
+const codecNameToCodeVarint = __webpack_require__(266)
+const util = __webpack_require__(537)
 
 exports = module.exports
 
@@ -19007,80 +21240,90 @@ exports.getVarint = (code) => {
 }
 
 // Make the constants top-level constants
-const constants = __webpack_require__(66)
+const constants = __webpack_require__(209)
 Object.assign(exports, constants)
 
 // Human friendly names for printing, e.g. in error messages
-exports.print = __webpack_require__(519)
+exports.print = __webpack_require__(830)
 
 
 /***/ }),
 
-/***/ 549:
-/***/ (function(module) {
+/***/ 537:
+/***/ (function(module, __unusedexports, __webpack_require__) {
 
-module.exports = encode
+"use strict";
 
-var MSB = 0x80
-  , REST = 0x7F
-  , MSBALL = ~REST
-  , INT = Math.pow(2, 31)
+const varint = __webpack_require__(844)
+const { Buffer } = __webpack_require__(293)
 
-function encode(num, out, offset) {
-  out = out || []
-  offset = offset || 0
-  var oldOffset = offset
+module.exports = {
+  numberToBuffer,
+  bufferToNumber,
+  varintBufferEncode,
+  varintBufferDecode,
+  varintEncode
+}
 
-  while(num >= INT) {
-    out[offset++] = (num & 0xFF) | MSB
-    num /= 128
+function bufferToNumber (buf) {
+  return parseInt(buf.toString('hex'), 16)
+}
+
+function numberToBuffer (num) {
+  let hexString = num.toString(16)
+  if (hexString.length % 2 === 1) {
+    hexString = '0' + hexString
   }
-  while(num & MSBALL) {
-    out[offset++] = (num & 0xFF) | MSB
-    num >>>= 7
-  }
-  out[offset] = num | 0
-  
-  encode.bytes = offset - oldOffset + 1
-  
-  return out
+  return Buffer.from(hexString, 'hex')
+}
+
+function varintBufferEncode (input) {
+  return Buffer.from(varint.encode(bufferToNumber(input)))
+}
+
+function varintBufferDecode (input) {
+  return numberToBuffer(varint.decode(input))
+}
+
+function varintEncode (num) {
+  return Buffer.from(varint.encode(num))
 }
 
 
 /***/ }),
 
-/***/ 561:
-/***/ (function(module) {
+/***/ 554:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
 
-module.exports = read
+"use strict";
 
-var MSB = 0x80
-  , REST = 0x7F
-
-function read(buf, offset) {
-  var res    = 0
-    , offset = offset || 0
-    , shift  = 0
-    , counter = offset
-    , b
-    , l = buf.length
-
-  do {
-    if (counter >= l) {
-      read.bytes = 0
-      throw new RangeError('Could not decode varint')
-    }
-    b = buf[counter++]
-    res += shift < 28
-      ? (b & REST) << shift
-      : (b & REST) * Math.pow(2, shift)
-    shift += 7
-  } while (b >= MSB)
-
-  read.bytes = counter - offset
-
-  return res
+Object.defineProperty(exports, "__esModule", { value: true });
+const event_iterator_1 = __webpack_require__(853);
+exports.EventIterator = event_iterator_1.EventIterator;
+function stream(evOptions) {
+    return new event_iterator_1.EventIterator(queue => {
+        this.addListener("data", queue.push);
+        this.addListener("end", queue.stop);
+        this.addListener("error", queue.fail);
+        queue.on("highWater", () => this.pause());
+        queue.on("lowWater", () => this.resume());
+        return () => {
+            this.removeListener("data", queue.push);
+            this.removeListener("end", queue.stop);
+            this.removeListener("error", queue.fail);
+            /* We are no longer interested in any data; attempt to close the stream. */
+            if (this.destroy) {
+                this.destroy();
+            }
+            else if (typeof this.close == "function") {
+                ;
+                this.close();
+            }
+        };
+    }, evOptions);
 }
+exports.stream = stream;
+exports.default = event_iterator_1.EventIterator;
 
 
 /***/ }),
@@ -19123,6 +21366,109 @@ exports.isValidStatusCode = (code) => {
 
 /***/ }),
 
+/***/ 563:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ThreadKey = exports.keyToString = exports.keyFromString = exports.randomBytes = exports.invalidKeyError = void 0;
+const sync_randombytes_1 = __importDefault(__webpack_require__(651));
+const multibase_1 = __importDefault(__webpack_require__(939));
+exports.invalidKeyError = new Error("Invalid key");
+exports.randomBytes = (byteLength) => {
+    return sync_randombytes_1.default(new Uint8Array(byteLength));
+};
+// KeyBytes is the length of GCM key.
+const keyBytes = 32;
+/**
+ * keyFromString returns a key by decoding a base32-encoded string.
+ * @param k Input base32-encoded string.
+ */
+exports.keyFromString = (k) => {
+    return multibase_1.default.decode(k);
+};
+/**
+ * String returns the base32-encoded string representation of raw key bytes.
+ * @param k Input key buffer.
+ */
+exports.keyToString = (k) => {
+    return multibase_1.default.encode("base32", k).toString();
+};
+/**
+ * Key is a thread encryption key with two components.
+ * @param sk Network key is used to encrypt outer log record linkages.
+ * @param rk Read key is used to encrypt inner record events.
+ */
+class ThreadKey {
+    constructor(service, read) {
+        this.service = service;
+        this.read = read;
+    }
+    /**
+     * Create a new set of keys.
+     * @param withRead Whether to also include a random read key.
+     */
+    static fromRandom(withRead = true) {
+        return new ThreadKey(exports.randomBytes(keyBytes), withRead ? exports.randomBytes(keyBytes) : undefined);
+    }
+    /**
+     * Create Key from bytes.
+     * @param bytes Input bytes of (possibly both) key(s).
+     */
+    static fromBytes(bytes) {
+        if (bytes.byteLength !== keyBytes && bytes.byteLength !== keyBytes * 2) {
+            throw exports.invalidKeyError;
+        }
+        const sk = bytes.slice(0, keyBytes);
+        let rk;
+        if (bytes.byteLength === keyBytes * 2) {
+            rk = bytes.slice(keyBytes);
+        }
+        return new ThreadKey(sk, rk);
+    }
+    /**
+     * Create Key by decoding a base32-encoded string.
+     * @param s The base32-encoded string.
+     */
+    static fromString(s) {
+        const data = multibase_1.default.decode(s);
+        return this.fromBytes(data);
+    }
+    isDefined() {
+        return this.service !== undefined;
+    }
+    canRead() {
+        return this.read !== undefined;
+    }
+    toBytes() {
+        var _a;
+        if (this.read !== undefined) {
+            const full = new Uint8Array(this.service.byteLength + ((_a = this.read.byteLength) !== null && _a !== void 0 ? _a : 0));
+            full.set(this.service);
+            this.read && full.set(this.read, this.service.byteLength);
+            return full;
+        }
+        return this.service;
+    }
+    /**
+     * Return the base32-encoded string representation of raw key bytes.
+     * For example:
+     * Full: "brv7t5l2h55uklz5qwpntcat26csaasfchzof3emmdy6povabcd3a2to2qdkqdkto2prfhizerqqudqsdvwherbiy4nazqxjejgdr4oy"
+     * Network: "bp2vvqody5zm6yqycsnazb4kpqvycbdosos352zvpsorxce5koh7q"
+     */
+    toString() {
+        return multibase_1.default.encode("base32", this.toBytes()).toString();
+    }
+}
+exports.ThreadKey = ThreadKey;
+//# sourceMappingURL=key.js.map
+
+/***/ }),
+
 /***/ 578:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -19131,8 +21477,8 @@ exports.isValidStatusCode = (code) => {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GrpcConnection = void 0;
 const grpc_web_1 = __webpack_require__(650);
-const context_1 = __webpack_require__(421);
-const grpc_transport_1 = __webpack_require__(647);
+const context_1 = __webpack_require__(785);
+const grpc_transport_1 = __webpack_require__(755);
 class GrpcConnection {
     /**
      * Creates a new gRPC client instance for accessing the Textile Buckets API.
@@ -19140,15 +21486,18 @@ class GrpcConnection {
      */
     constructor(context = new context_1.Context(), debug = false) {
         this.context = context;
+        const transport = grpc_transport_1.WebsocketTransport(); // Default to websocket always
         this.serviceHost = context.host;
         this.rpcOptions = {
-            transport: grpc_transport_1.WebsocketTransport(),
+            transport,
             debug,
         };
+        // Set default transport to websocket "globally"
+        grpc_web_1.grpc.setDefaultTransport(transport);
     }
     unary(methodDescriptor, req, ctx) {
         return new Promise((resolve, reject) => {
-            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            const metadata = ctx ? Object.assign({}, ctx.toJSON()) : Object.assign({}, this.context.toJSON());
             grpc_web_1.grpc.unary(methodDescriptor, {
                 request: req,
                 host: this.serviceHost,
@@ -20275,133 +22624,28 @@ module.exports = EventTarget;
 
 /***/ }),
 
-/***/ 647:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WebsocketTransport = void 0;
-// Copyright improbable-eng Apache License 2.0
-// https://github.com/improbable-eng/grpc-web/blob/master/client/grpc-web/src/transports/websocket/websocket.ts
-const isomorphic_ws_1 = __importDefault(__webpack_require__(723));
-const loglevel_1 = __importDefault(__webpack_require__(104));
-const { debug } = loglevel_1.default.getLogger('grpc-transport');
-const isAllowedControlChars = (char) => char === 0x9 || char === 0xa || char === 0xd;
-function isValidHeaderAscii(val) {
-    return isAllowedControlChars(val) || (val >= 0x20 && val <= 0x7e);
-}
-function encodeASCII(input) {
-    const encoded = new Uint8Array(input.length);
-    for (let i = 0; i !== input.length; ++i) {
-        const charCode = input.charCodeAt(i);
-        if (!isValidHeaderAscii(charCode)) {
-            throw new Error('Metadata contains invalid ASCII');
-        }
-        encoded[i] = charCode;
-    }
-    return encoded;
-}
-var WebsocketSignal;
-(function (WebsocketSignal) {
-    WebsocketSignal[WebsocketSignal["FINISH_SEND"] = 1] = "FINISH_SEND";
-})(WebsocketSignal || (WebsocketSignal = {}));
-const finishSendFrame = new Uint8Array([1]);
-function constructWebSocketAddress(url) {
-    if (url.substr(0, 8) === 'https://') {
-        return `wss://${url.substr(8)}`;
-    }
-    else if (url.substr(0, 7) === 'http://') {
-        return `ws://${url.substr(7)}`;
-    }
-    throw new Error('Websocket transport constructed with non-https:// or http:// host.');
-}
-function headersToBytes(headers) {
-    let asString = '';
-    headers.forEach((key, values) => {
-        asString += `${key}: ${values.join(', ')}\r\n`;
-    });
-    return encodeASCII(asString);
-}
-function websocketRequest(options) {
-    options.debug && debug('websocketRequest', options);
-    const webSocketAddress = constructWebSocketAddress(options.url);
-    const sendQueue = [];
-    let ws;
-    function sendToWebsocket(toSend) {
-        if (toSend === WebsocketSignal.FINISH_SEND) {
-            ws.send(finishSendFrame);
-        }
-        else {
-            const byteArray = toSend;
-            const c = new Int8Array(byteArray.byteLength + 1);
-            c.set(new Uint8Array([0]));
-            c.set(byteArray, 1);
-            ws.send(c);
-        }
-    }
-    return {
-        sendMessage: (msgBytes) => {
-            if (!ws || ws.readyState === ws.CONNECTING) {
-                sendQueue.push(msgBytes);
-            }
-            else {
-                sendToWebsocket(msgBytes);
-            }
-        },
-        finishSend: () => {
-            if (!ws || ws.readyState === ws.CONNECTING) {
-                sendQueue.push(WebsocketSignal.FINISH_SEND);
-            }
-            else {
-                sendToWebsocket(WebsocketSignal.FINISH_SEND);
-            }
-        },
-        start: (metadata) => {
-            ws = new isomorphic_ws_1.default(webSocketAddress, ['grpc-websockets']);
-            ws.binaryType = 'arraybuffer';
-            ws.onopen = function () {
-                options.debug && debug('websocketRequest.onopen');
-                ws.send(headersToBytes(metadata));
-                // send any messages that were passed to sendMessage before the connection was ready
-                sendQueue.forEach((toSend) => {
-                    sendToWebsocket(toSend);
-                });
-            };
-            ws.onclose = function (closeEvent) {
-                options.debug && debug('websocketRequest.onclose', closeEvent);
-                options.onEnd();
-            };
-            ws.onerror = function (error) {
-                options.debug && debug('websocketRequest.onerror', error);
-            };
-            ws.onmessage = function (e) {
-                options.onChunk(new Uint8Array(e.data));
-            };
-        },
-        cancel: () => {
-            options.debug && debug('websocket.abort');
-            ws.close();
-        },
-    };
-}
-function WebsocketTransport() {
-    return (opts) => {
-        return websocketRequest(opts);
-    };
-}
-exports.WebsocketTransport = WebsocketTransport;
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
 /***/ 650:
 /***/ (function(__unusedmodule, exports) {
 
 !function(e,t){for(var n in t)e[n]=t[n]}(exports,function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:r})},n.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},n.t=function(e,t){if(1&t&&(e=n(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var o in e)n.d(r,o,function(t){return e[t]}.bind(null,o));return r},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=11)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(4);t.Metadata=r.BrowserHeaders},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.debug=function(){for(var e=[],t=0;t<arguments.length;t++)e[t]=arguments[t];console.debug?console.debug.apply(null,e):console.log.apply(null,e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=null;t.default=function(e){null===r?(r=[e],setTimeout(function(){!function e(){if(r){var t=r;r=null;for(var n=0;n<t.length;n++)try{t[n]()}catch(s){null===r&&(r=[],setTimeout(function(){e()},0));for(var o=t.length-1;o>n;o--)r.unshift(t[o]);throw s}}}()},0)):r.push(e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0),o=n(9),s=n(10),i=n(1),a=n(2),u=n(5),d=n(15);t.client=function(e,t){return new c(e,t)};var c=function(){function e(e,t){this.started=!1,this.sentFirstMessage=!1,this.completed=!1,this.closed=!1,this.finishedSending=!1,this.onHeadersCallbacks=[],this.onMessageCallbacks=[],this.onEndCallbacks=[],this.parser=new o.ChunkParser,this.methodDefinition=e,this.props=t,this.createTransport()}return e.prototype.createTransport=function(){var e=this.props.host+"/"+this.methodDefinition.service.serviceName+"/"+this.methodDefinition.methodName,t={methodDefinition:this.methodDefinition,debug:this.props.debug||!1,url:e,onHeaders:this.onTransportHeaders.bind(this),onChunk:this.onTransportChunk.bind(this),onEnd:this.onTransportEnd.bind(this)};this.props.transport?this.transport=this.props.transport(t):this.transport=u.makeDefaultTransport(t)},e.prototype.onTransportHeaders=function(e,t){if(this.props.debug&&i.debug("onHeaders",e,t),this.closed)this.props.debug&&i.debug("grpc.onHeaders received after request was closed - ignoring");else if(0===t);else{this.responseHeaders=e,this.props.debug&&i.debug("onHeaders.responseHeaders",JSON.stringify(this.responseHeaders,null,2));var n=p(e);this.props.debug&&i.debug("onHeaders.gRPCStatus",n);var r=n&&n>=0?n:s.httpStatusToCode(t);this.props.debug&&i.debug("onHeaders.code",r);var o=e.get("grpc-message")||[];if(this.props.debug&&i.debug("onHeaders.gRPCMessage",o),this.rawOnHeaders(e),r!==s.Code.OK){var a=this.decodeGRPCStatus(o[0]);this.rawOnError(r,a,e)}}},e.prototype.onTransportChunk=function(e){var t=this;if(this.closed)this.props.debug&&i.debug("grpc.onChunk received after request was closed - ignoring");else{var n=[];try{n=this.parser.parse(e)}catch(e){return this.props.debug&&i.debug("onChunk.parsing error",e,e.message),void this.rawOnError(s.Code.Internal,"parsing error: "+e.message)}n.forEach(function(e){if(e.chunkType===o.ChunkType.MESSAGE){var n=t.methodDefinition.responseType.deserializeBinary(e.data);t.rawOnMessage(n)}else e.chunkType===o.ChunkType.TRAILERS&&(t.responseHeaders?(t.responseTrailers=new r.Metadata(e.trailers),t.props.debug&&i.debug("onChunk.trailers",t.responseTrailers)):(t.responseHeaders=new r.Metadata(e.trailers),t.rawOnHeaders(t.responseHeaders)))})}},e.prototype.onTransportEnd=function(){if(this.props.debug&&i.debug("grpc.onEnd"),this.closed)this.props.debug&&i.debug("grpc.onEnd received after request was closed - ignoring");else if(void 0!==this.responseTrailers){var e=p(this.responseTrailers);if(null!==e){var t=this.responseTrailers.get("grpc-message"),n=this.decodeGRPCStatus(t[0]);this.rawOnEnd(e,n,this.responseTrailers)}else this.rawOnError(s.Code.Internal,"Response closed without grpc-status (Trailers provided)")}else{if(void 0===this.responseHeaders)return void this.rawOnError(s.Code.Unknown,"Response closed without headers");var r=p(this.responseHeaders),o=this.responseHeaders.get("grpc-message");if(this.props.debug&&i.debug("grpc.headers only response ",r,o),null===r)return void this.rawOnEnd(s.Code.Unknown,"Response closed without grpc-status (Headers only)",this.responseHeaders);var a=this.decodeGRPCStatus(o[0]);this.rawOnEnd(r,a,this.responseHeaders)}},e.prototype.decodeGRPCStatus=function(e){if(!e)return"";try{return decodeURIComponent(e)}catch(t){return e}},e.prototype.rawOnEnd=function(e,t,n){var r=this;this.props.debug&&i.debug("rawOnEnd",e,t,n),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(o){a.default(function(){r.closed||o(e,t,n)})}))},e.prototype.rawOnHeaders=function(e){this.props.debug&&i.debug("rawOnHeaders",e),this.completed||this.onHeadersCallbacks.forEach(function(t){a.default(function(){t(e)})})},e.prototype.rawOnError=function(e,t,n){var o=this;void 0===n&&(n=new r.Metadata),this.props.debug&&i.debug("rawOnError",e,t),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(r){a.default(function(){o.closed||r(e,t,n)})}))},e.prototype.rawOnMessage=function(e){var t=this;this.props.debug&&i.debug("rawOnMessage",e.toObject()),this.completed||this.closed||this.onMessageCallbacks.forEach(function(n){a.default(function(){t.closed||n(e)})})},e.prototype.onHeaders=function(e){this.onHeadersCallbacks.push(e)},e.prototype.onMessage=function(e){this.onMessageCallbacks.push(e)},e.prototype.onEnd=function(e){this.onEndCallbacks.push(e)},e.prototype.start=function(e){if(this.started)throw new Error("Client already started - cannot .start()");this.started=!0;var t=new r.Metadata(e||{});t.set("content-type","application/grpc-web+proto"),t.set("x-grpc-web","1"),this.transport.start(t)},e.prototype.send=function(e){if(!this.started)throw new Error("Client not started - .start() must be called before .send()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .send()");if(!this.methodDefinition.requestStream&&this.sentFirstMessage)throw new Error("Message already sent for non-client-streaming method - cannot .send()");this.sentFirstMessage=!0;var t=d.frameRequest(e);this.transport.sendMessage(t)},e.prototype.finishSend=function(){if(!this.started)throw new Error("Client not started - .finishSend() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .finishSend()");this.finishedSending=!0,this.transport.finishSend()},e.prototype.close=function(){if(!this.started)throw new Error("Client not started - .start() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .close()");this.closed=!0,this.props.debug&&i.debug("request.abort aborting request"),this.transport.cancel()},e}();function p(e){var t=e.get("grpc-status")||[];if(t.length>0)try{var n=t[0];return parseInt(n,10)}catch(e){return null}return null}},function(e,t,n){var r;r=function(){return function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.i=function(e){return e},n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{configurable:!1,enumerable:!0,get:r})},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=1)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(3);var o=function(){function e(e,t){void 0===e&&(e={}),void 0===t&&(t={splitValues:!1});var n,o=this;if(this.headersMap={},e)if("undefined"!=typeof Headers&&e instanceof Headers)r.getHeaderKeys(e).forEach(function(n){r.getHeaderValues(e,n).forEach(function(e){t.splitValues?o.append(n,r.splitHeaderValue(e)):o.append(n,e)})});else if("object"==typeof(n=e)&&"object"==typeof n.headersMap&&"function"==typeof n.forEach)e.forEach(function(e,t){o.append(e,t)});else if("undefined"!=typeof Map&&e instanceof Map){e.forEach(function(e,t){o.append(t,e)})}else"string"==typeof e?this.appendFromString(e):"object"==typeof e&&Object.getOwnPropertyNames(e).forEach(function(t){var n=e[t];Array.isArray(n)?n.forEach(function(e){o.append(t,e)}):o.append(t,n)})}return e.prototype.appendFromString=function(e){for(var t=e.split("\r\n"),n=0;n<t.length;n++){var r=t[n],o=r.indexOf(":");if(o>0){var s=r.substring(0,o).trim(),i=r.substring(o+1).trim();this.append(s,i)}}},e.prototype.delete=function(e,t){var n=r.normalizeName(e);if(void 0===t)delete this.headersMap[n];else{var o=this.headersMap[n];if(o){var s=o.indexOf(t);s>=0&&o.splice(s,1),0===o.length&&delete this.headersMap[n]}}},e.prototype.append=function(e,t){var n=this,o=r.normalizeName(e);Array.isArray(this.headersMap[o])||(this.headersMap[o]=[]),Array.isArray(t)?t.forEach(function(e){n.headersMap[o].push(r.normalizeValue(e))}):this.headersMap[o].push(r.normalizeValue(t))},e.prototype.set=function(e,t){var n=r.normalizeName(e);if(Array.isArray(t)){var o=[];t.forEach(function(e){o.push(r.normalizeValue(e))}),this.headersMap[n]=o}else this.headersMap[n]=[r.normalizeValue(t)]},e.prototype.has=function(e,t){var n=this.headersMap[r.normalizeName(e)];if(!Array.isArray(n))return!1;if(void 0!==t){var o=r.normalizeValue(t);return n.indexOf(o)>=0}return!0},e.prototype.get=function(e){var t=this.headersMap[r.normalizeName(e)];return void 0!==t?t.concat():[]},e.prototype.forEach=function(e){var t=this;Object.getOwnPropertyNames(this.headersMap).forEach(function(n){e(n,t.headersMap[n])},this)},e.prototype.toHeaders=function(){if("undefined"!=typeof Headers){var e=new Headers;return this.forEach(function(t,n){n.forEach(function(n){e.append(t,n)})}),e}throw new Error("Headers class is not defined")},e}();t.BrowserHeaders=o},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0);t.BrowserHeaders=r.BrowserHeaders},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.iterateHeaders=function(e,t){for(var n=e[Symbol.iterator](),r=n.next();!r.done;)t(r.value[0]),r=n.next()},t.iterateHeadersKeys=function(e,t){for(var n=e.keys(),r=n.next();!r.done;)t(r.value),r=n.next()}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(2);function o(e){return e}t.normalizeName=function(e){if("string"!=typeof e&&(e=String(e)),/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(e))throw new TypeError("Invalid character in header field name");return e.toLowerCase()},t.normalizeValue=function(e){return"string"!=typeof e&&(e=String(e)),e},t.getHeaderValues=function(e,t){var n=o(e);if(n instanceof Headers&&n.getAll)return n.getAll(t);var r=n.get(t);return r&&"string"==typeof r?[r]:r},t.getHeaderKeys=function(e){var t=o(e),n={},s=[];return t.keys?r.iterateHeadersKeys(t,function(e){n[e]||(n[e]=!0,s.push(e))}):t.forEach?t.forEach(function(e,t){n[t]||(n[t]=!0,s.push(t))}):r.iterateHeaders(t,function(e){var t=e[0];n[t]||(n[t]=!0,s.push(t))}),s},t.splitHeaderValue=function(e){var t=[];return e.split(", ").forEach(function(e){e.split(",").forEach(function(e){t.push(e)})}),t}}])},e.exports=r()},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(6),o=function(e){return r.CrossBrowserHttpTransport({withCredentials:!1})(e)};t.setDefaultTransportFactory=function(e){o=e},t.makeDefaultTransport=function(e){return o(e)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(7),o=n(8);t.CrossBrowserHttpTransport=function(e){if(r.detectFetchSupport()){var t={credentials:e.withCredentials?"include":"same-origin"};return r.FetchReadableStreamTransport(t)}return o.XhrTransport({withCredentials:e.withCredentials})}},function(e,t,n){"use strict";var r=this&&this.__assign||function(){return(r=Object.assign||function(e){for(var t,n=1,r=arguments.length;n<r;n++)for(var o in t=arguments[n])Object.prototype.hasOwnProperty.call(t,o)&&(e[o]=t[o]);return e}).apply(this,arguments)};Object.defineProperty(t,"__esModule",{value:!0});var o=n(0),s=n(1),i=n(2);t.FetchReadableStreamTransport=function(e){return function(t){return function(e,t){return e.debug&&s.debug("fetchRequest",e),new a(e,t)}(t,e)}};var a=function(){function e(e,t){this.cancelled=!1,this.controller=self.AbortController&&new AbortController,this.options=e,this.init=t}return e.prototype.pump=function(e,t){var n=this;if(this.reader=e,this.cancelled)return this.options.debug&&s.debug("Fetch.pump.cancel at first pump"),void this.reader.cancel();this.reader.read().then(function(e){if(e.done)return i.default(function(){n.options.onEnd()}),t;i.default(function(){n.options.onChunk(e.value)}),n.pump(n.reader,t)}).catch(function(e){n.cancelled?n.options.debug&&s.debug("Fetch.catch - request cancelled"):(n.cancelled=!0,n.options.debug&&s.debug("Fetch.catch",e.message),i.default(function(){n.options.onEnd(e)}))})},e.prototype.send=function(e){var t=this;fetch(this.options.url,r({},this.init,{headers:this.metadata.toHeaders(),method:"POST",body:e,signal:this.controller&&this.controller.signal})).then(function(e){if(t.options.debug&&s.debug("Fetch.response",e),i.default(function(){t.options.onHeaders(new o.Metadata(e.headers),e.status)}),!e.body)return e;t.pump(e.body.getReader(),e)}).catch(function(e){t.cancelled?t.options.debug&&s.debug("Fetch.catch - request cancelled"):(t.cancelled=!0,t.options.debug&&s.debug("Fetch.catch",e.message),i.default(function(){t.options.onEnd(e)}))})},e.prototype.sendMessage=function(e){this.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){this.metadata=e},e.prototype.cancel=function(){this.cancelled?this.options.debug&&s.debug("Fetch.abort.cancel already cancelled"):(this.cancelled=!0,this.reader?(this.options.debug&&s.debug("Fetch.abort.cancel"),this.reader.cancel()):this.options.debug&&s.debug("Fetch.abort.cancel before reader"),this.controller&&this.controller.abort())},e}();t.detectFetchSupport=function(){return"undefined"!=typeof Response&&Response.prototype.hasOwnProperty("body")&&"function"==typeof Headers}},function(e,t,n){"use strict";var r,o=this&&this.__extends||(r=function(e,t){return(r=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(e,t){e.__proto__=t}||function(e,t){for(var n in t)t.hasOwnProperty(n)&&(e[n]=t[n])})(e,t)},function(e,t){function n(){this.constructor=e}r(e,t),e.prototype=null===t?Object.create(t):(n.prototype=t.prototype,new n)});Object.defineProperty(t,"__esModule",{value:!0});var s=n(0),i=n(1),a=n(2),u=n(12);t.XhrTransport=function(e){return function(t){if(u.detectMozXHRSupport())return new c(t,e);if(u.detectXHROverrideMimeTypeSupport())return new d(t,e);throw new Error("This environment's XHR implementation cannot support binary transfer.")}};var d=function(){function e(e,t){this.options=e,this.init=t}return e.prototype.onProgressEvent=function(){var e=this;this.options.debug&&i.debug("XHR.onProgressEvent.length: ",this.xhr.response.length);var t=this.xhr.response.substr(this.index);this.index=this.xhr.response.length;var n=f(t);a.default(function(){e.options.onChunk(n)})},e.prototype.onLoadEvent=function(){var e=this;this.options.debug&&i.debug("XHR.onLoadEvent"),a.default(function(){e.options.onEnd()})},e.prototype.onStateChange=function(){var e=this;this.options.debug&&i.debug("XHR.onStateChange",this.xhr.readyState),this.xhr.readyState===XMLHttpRequest.HEADERS_RECEIVED&&a.default(function(){e.options.onHeaders(new s.Metadata(e.xhr.getAllResponseHeaders()),e.xhr.status)})},e.prototype.sendMessage=function(e){this.xhr.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){var t=this;this.metadata=e;var n=new XMLHttpRequest;this.xhr=n,n.open("POST",this.options.url),this.configureXhr(),this.metadata.forEach(function(e,t){n.setRequestHeader(e,t.join(", "))}),n.withCredentials=Boolean(this.init.withCredentials),n.addEventListener("readystatechange",this.onStateChange.bind(this)),n.addEventListener("progress",this.onProgressEvent.bind(this)),n.addEventListener("loadend",this.onLoadEvent.bind(this)),n.addEventListener("error",function(e){t.options.debug&&i.debug("XHR.error",e),a.default(function(){t.options.onEnd(e.error)})})},e.prototype.configureXhr=function(){this.xhr.responseType="text",this.xhr.overrideMimeType("text/plain; charset=x-user-defined")},e.prototype.cancel=function(){this.options.debug&&i.debug("XHR.abort"),this.xhr.abort()},e}();t.XHR=d;var c=function(e){function t(){return null!==e&&e.apply(this,arguments)||this}return o(t,e),t.prototype.configureXhr=function(){this.options.debug&&i.debug("MozXHR.configureXhr: setting responseType to 'moz-chunked-arraybuffer'"),this.xhr.responseType="moz-chunked-arraybuffer"},t.prototype.onProgressEvent=function(){var e=this,t=this.xhr.response;this.options.debug&&i.debug("MozXHR.onProgressEvent: ",new Uint8Array(t)),a.default(function(){e.options.onChunk(new Uint8Array(t))})},t}(d);function p(e,t){var n=e.charCodeAt(t);if(n>=55296&&n<=56319){var r=e.charCodeAt(t+1);r>=56320&&r<=57343&&(n=65536+(n-55296<<10)+(r-56320))}return n}function f(e){for(var t=new Uint8Array(e.length),n=0,r=0;r<e.length;r++){var o=String.prototype.codePointAt?e.codePointAt(r):p(e,r);t[n++]=255&o}return t}t.MozChunkedArrayBufferXHR=c,t.stringToArrayBuffer=f},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r,o=n(0),s=function(e){return 9===e||10===e||13===e};function i(e){return s(e)||e>=32&&e<=126}function a(e){for(var t=0;t!==e.length;++t)if(!i(e[t]))throw new Error("Metadata is not valid (printable) ASCII");return String.fromCharCode.apply(String,Array.prototype.slice.call(e))}function u(e){return 128==(128&e.getUint8(0))}function d(e){return e.getUint32(1,!1)}function c(e,t,n){return e.byteLength-t>=n}function p(e,t,n){if(e.slice)return e.slice(t,n);var r=e.length;void 0!==n&&(r=n);for(var o=new Uint8Array(r-t),s=0,i=t;i<r;i++)o[s++]=e[i];return o}t.decodeASCII=a,t.encodeASCII=function(e){for(var t=new Uint8Array(e.length),n=0;n!==e.length;++n){var r=e.charCodeAt(n);if(!i(r))throw new Error("Metadata contains invalid ASCII");t[n]=r}return t},function(e){e[e.MESSAGE=1]="MESSAGE",e[e.TRAILERS=2]="TRAILERS"}(r=t.ChunkType||(t.ChunkType={}));var f=function(){function e(){this.buffer=null,this.position=0}return e.prototype.parse=function(e,t){if(0===e.length&&t)return[];var n,s=[];if(null==this.buffer)this.buffer=e,this.position=0;else if(this.position===this.buffer.byteLength)this.buffer=e,this.position=0;else{var i=this.buffer.byteLength-this.position,f=new Uint8Array(i+e.byteLength),h=p(this.buffer,this.position);f.set(h,0);var l=new Uint8Array(e);f.set(l,i),this.buffer=f,this.position=0}for(;;){if(!c(this.buffer,this.position,5))return s;var g=p(this.buffer,this.position,this.position+5),b=new DataView(g.buffer,g.byteOffset,g.byteLength),y=d(b);if(!c(this.buffer,this.position,5+y))return s;var v=p(this.buffer,this.position+5,this.position+5+y);if(this.position+=5+y,u(b))return s.push({chunkType:r.TRAILERS,trailers:(n=v,new o.Metadata(a(n)))}),s;s.push({chunkType:r.MESSAGE,data:v})}},e}();t.ChunkParser=f},function(e,t,n){"use strict";var r;Object.defineProperty(t,"__esModule",{value:!0}),function(e){e[e.OK=0]="OK",e[e.Canceled=1]="Canceled",e[e.Unknown=2]="Unknown",e[e.InvalidArgument=3]="InvalidArgument",e[e.DeadlineExceeded=4]="DeadlineExceeded",e[e.NotFound=5]="NotFound",e[e.AlreadyExists=6]="AlreadyExists",e[e.PermissionDenied=7]="PermissionDenied",e[e.ResourceExhausted=8]="ResourceExhausted",e[e.FailedPrecondition=9]="FailedPrecondition",e[e.Aborted=10]="Aborted",e[e.OutOfRange=11]="OutOfRange",e[e.Unimplemented=12]="Unimplemented",e[e.Internal=13]="Internal",e[e.Unavailable=14]="Unavailable",e[e.DataLoss=15]="DataLoss",e[e.Unauthenticated=16]="Unauthenticated"}(r=t.Code||(t.Code={})),t.httpStatusToCode=function(e){switch(e){case 0:return r.Internal;case 200:return r.OK;case 400:return r.InvalidArgument;case 401:return r.Unauthenticated;case 403:return r.PermissionDenied;case 404:return r.NotFound;case 409:return r.Aborted;case 412:return r.FailedPrecondition;case 429:return r.ResourceExhausted;case 499:return r.Canceled;case 500:return r.Unknown;case 501:return r.Unimplemented;case 503:return r.Unavailable;case 504:return r.DeadlineExceeded;default:return r.Unknown}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(4),o=n(5),s=n(7),i=n(13),a=n(8),u=n(6),d=n(10),c=n(14),p=n(16),f=n(3);!function(e){e.setDefaultTransport=o.setDefaultTransportFactory,e.CrossBrowserHttpTransport=u.CrossBrowserHttpTransport,e.FetchReadableStreamTransport=s.FetchReadableStreamTransport,e.XhrTransport=a.XhrTransport,e.WebsocketTransport=i.WebsocketTransport,e.Code=d.Code,e.Metadata=r.BrowserHeaders,e.client=function(e,t){return f.client(e,t)},e.invoke=c.invoke,e.unary=p.unary}(t.grpc||(t.grpc={}))},function(e,t,n){"use strict";var r;function o(){if(void 0!==r)return r;if(XMLHttpRequest){r=new XMLHttpRequest;try{r.open("GET","https://localhost")}catch(e){}}return r}function s(e){var t=o();if(!t)return!1;try{return t.responseType=e,t.responseType===e}catch(e){}return!1}Object.defineProperty(t,"__esModule",{value:!0}),t.xhrSupportsResponseType=s,t.detectMozXHRSupport=function(){return"undefined"!=typeof XMLHttpRequest&&s("moz-chunked-arraybuffer")},t.detectXHROverrideMimeTypeSupport=function(){return"undefined"!=typeof XMLHttpRequest&&XMLHttpRequest.prototype.hasOwnProperty("overrideMimeType")}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r,o=n(1),s=n(2),i=n(9);!function(e){e[e.FINISH_SEND=1]="FINISH_SEND"}(r||(r={}));var a=new Uint8Array([1]);t.WebsocketTransport=function(){return function(e){return function(e){e.debug&&o.debug("websocketRequest",e);var t,n=function(e){if("https://"===e.substr(0,8))return"wss://"+e.substr(8);if("http://"===e.substr(0,7))return"ws://"+e.substr(7);throw new Error("Websocket transport constructed with non-https:// or http:// host.")}(e.url),u=[];function d(e){if(e===r.FINISH_SEND)t.send(a);else{var n=e,o=new Int8Array(n.byteLength+1);o.set(new Uint8Array([0])),o.set(n,1),t.send(o)}}return{sendMessage:function(e){t&&t.readyState!==t.CONNECTING?d(e):u.push(e)},finishSend:function(){t&&t.readyState!==t.CONNECTING?d(r.FINISH_SEND):u.push(r.FINISH_SEND)},start:function(r){(t=new WebSocket(n,["grpc-websockets"])).binaryType="arraybuffer",t.onopen=function(){var n;e.debug&&o.debug("websocketRequest.onopen"),t.send((n="",r.forEach(function(e,t){n+=e+": "+t.join(", ")+"\r\n"}),i.encodeASCII(n))),u.forEach(function(e){d(e)})},t.onclose=function(t){e.debug&&o.debug("websocketRequest.onclose",t),s.default(function(){e.onEnd()})},t.onerror=function(t){e.debug&&o.debug("websocketRequest.onerror",t)},t.onmessage=function(t){s.default(function(){e.onChunk(new Uint8Array(t.data))})}},cancel:function(){e.debug&&o.debug("websocket.abort"),s.default(function(){t.close()})}}}(e)}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(3);t.invoke=function(e,t){if(e.requestStream)throw new Error(".invoke cannot be used with client-streaming methods. Use .client instead.");var n=r.client(e,{host:t.host,transport:t.transport,debug:t.debug});return t.onHeaders&&n.onHeaders(t.onHeaders),t.onMessage&&n.onMessage(t.onMessage),t.onEnd&&n.onEnd(t.onEnd),n.start(t.metadata),n.send(t.request),n.finishSend(),{close:function(){n.close()}}}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.frameRequest=function(e){var t=e.serializeBinary(),n=new ArrayBuffer(t.byteLength+5);return new DataView(n,1,4).setUint32(0,t.length,!1),new Uint8Array(n,5).set(t),new Uint8Array(n)}},function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(0),o=n(3);t.unary=function(e,t){if(e.responseStream)throw new Error(".unary cannot be used with server-streaming methods. Use .invoke or .client instead.");if(e.requestStream)throw new Error(".unary cannot be used with client-streaming methods. Use .client instead.");var n=null,s=null,i=o.client(e,{host:t.host,transport:t.transport,debug:t.debug});return i.onHeaders(function(e){n=e}),i.onMessage(function(e){s=e}),i.onEnd(function(e,o,i){t.onEnd({status:e,statusMessage:o,headers:n||new r.Metadata,message:s,trailers:i})}),i.start(t.metadata),i.send(t.request),i.finishSend(),{close:function(){i.close()}}}}]));
+
+/***/ }),
+
+/***/ 651:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+/* module decorator */ module = __webpack_require__.nmd(module);
+module.exports = (function (window) {
+  if (window && window.crypto && window.crypto.getRandomValues) {
+    return window.crypto.getRandomValues.bind(window.crypto)
+  }
+  try {
+    return __webpack_require__(430)(window)
+  } catch (_) {
+    return __webpack_require__(308)(window)
+  }
+})(typeof window === 'object' ? window : module)
+
 
 /***/ }),
 
@@ -21357,6 +23601,38 @@ try {
 
 /***/ }),
 
+/***/ 692:
+/***/ (function(module) {
+
+
+var N1 = Math.pow(2,  7)
+var N2 = Math.pow(2, 14)
+var N3 = Math.pow(2, 21)
+var N4 = Math.pow(2, 28)
+var N5 = Math.pow(2, 35)
+var N6 = Math.pow(2, 42)
+var N7 = Math.pow(2, 49)
+var N8 = Math.pow(2, 56)
+var N9 = Math.pow(2, 63)
+
+module.exports = function (value) {
+  return (
+    value < N1 ? 1
+  : value < N2 ? 2
+  : value < N3 ? 3
+  : value < N4 ? 4
+  : value < N5 ? 5
+  : value < N6 ? 6
+  : value < N7 ? 7
+  : value < N8 ? 8
+  : value < N9 ? 9
+  :              10
+  )
+}
+
+
+/***/ }),
+
 /***/ 723:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -21374,10 +23650,341 @@ module.exports = require("fs");
 
 /***/ }),
 
+/***/ 755:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WebsocketTransport = void 0;
+// Copyright improbable-eng Apache License 2.0
+// https://github.com/improbable-eng/grpc-web/blob/master/client/grpc-web/src/transports/websocket/websocket.ts
+const isomorphic_ws_1 = __importDefault(__webpack_require__(723));
+const loglevel_1 = __importDefault(__webpack_require__(104));
+const { debug } = loglevel_1.default.getLogger('grpc-transport');
+const isAllowedControlChars = (char) => char === 0x9 || char === 0xa || char === 0xd;
+function isValidHeaderAscii(val) {
+    return isAllowedControlChars(val) || (val >= 0x20 && val <= 0x7e);
+}
+function encodeASCII(input) {
+    const encoded = new Uint8Array(input.length);
+    for (let i = 0; i !== input.length; ++i) {
+        const charCode = input.charCodeAt(i);
+        if (!isValidHeaderAscii(charCode)) {
+            throw new Error('Metadata contains invalid ASCII');
+        }
+        encoded[i] = charCode;
+    }
+    return encoded;
+}
+var WebsocketSignal;
+(function (WebsocketSignal) {
+    WebsocketSignal[WebsocketSignal["FINISH_SEND"] = 1] = "FINISH_SEND";
+})(WebsocketSignal || (WebsocketSignal = {}));
+const finishSendFrame = new Uint8Array([1]);
+function constructWebSocketAddress(url) {
+    if (url.substr(0, 8) === 'https://') {
+        return `wss://${url.substr(8)}`;
+    }
+    else if (url.substr(0, 7) === 'http://') {
+        return `ws://${url.substr(7)}`;
+    }
+    throw new Error('Websocket transport constructed with non-https:// or http:// host.');
+}
+function headersToBytes(headers) {
+    let asString = '';
+    headers.forEach((key, values) => {
+        asString += `${key}: ${values.join(', ')}\r\n`;
+    });
+    return encodeASCII(asString);
+}
+function websocketRequest(options) {
+    options.debug && debug('websocketRequest', options);
+    const webSocketAddress = constructWebSocketAddress(options.url);
+    const sendQueue = [];
+    let ws;
+    function sendToWebsocket(toSend) {
+        if (toSend === WebsocketSignal.FINISH_SEND) {
+            ws.send(finishSendFrame);
+        }
+        else {
+            const byteArray = toSend;
+            const c = new Int8Array(byteArray.byteLength + 1);
+            c.set(new Uint8Array([0]));
+            c.set(byteArray, 1);
+            ws.send(c);
+        }
+    }
+    return {
+        sendMessage: (msgBytes) => {
+            if (!ws || ws.readyState === ws.CONNECTING) {
+                sendQueue.push(msgBytes);
+            }
+            else {
+                sendToWebsocket(msgBytes);
+            }
+        },
+        finishSend: () => {
+            if (!ws || ws.readyState === ws.CONNECTING) {
+                sendQueue.push(WebsocketSignal.FINISH_SEND);
+            }
+            else {
+                sendToWebsocket(WebsocketSignal.FINISH_SEND);
+            }
+        },
+        start: (metadata) => {
+            ws = new isomorphic_ws_1.default(webSocketAddress, ['grpc-websockets']);
+            ws.binaryType = 'arraybuffer';
+            ws.onopen = function () {
+                options.debug && debug('websocketRequest.onopen');
+                ws.send(headersToBytes(metadata));
+                // send any messages that were passed to sendMessage before the connection was ready
+                sendQueue.forEach((toSend) => {
+                    sendToWebsocket(toSend);
+                });
+            };
+            ws.onclose = function (closeEvent) {
+                options.debug && debug('websocketRequest.onclose', closeEvent);
+                options.onEnd();
+            };
+            ws.onerror = function (error) {
+                options.debug && debug('websocketRequest.onerror', error);
+            };
+            ws.onmessage = function (e) {
+                options.onChunk(new Uint8Array(e.data));
+            };
+        },
+        cancel: () => {
+            options.debug && debug('websocket.abort');
+            ws.close();
+        },
+    };
+}
+function WebsocketTransport() {
+    return (opts) => {
+        return websocketRequest(opts);
+    };
+}
+exports.WebsocketTransport = WebsocketTransport;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 761:
 /***/ (function(module) {
 
 module.exports = require("zlib");
+
+/***/ }),
+
+/***/ 785:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Context = exports.defaultHost = void 0;
+const grpc_web_1 = __webpack_require__(327);
+const security_1 = __webpack_require__(411);
+exports.defaultHost = "https://webapi.hub.textile.io";
+/**
+ * Context provides context management for gRPC credentials and config settings.
+ * It is the default implementation for the ContextInterface interface.
+ */
+class Context {
+    /**
+     * Construct a new Context object.
+     * @param host The remote gRPC host. This input exists to comply with the Config interface.
+     */
+    constructor(host = exports.defaultHost) {
+        // Internal context variables
+        this._context = {};
+        this._context["host"] = host;
+    }
+    static fromUserAuth(auth, host = exports.defaultHost) {
+        const ctx = new Context(host);
+        const { key, token } = auth, sig = __rest(auth, ["key", "token"]);
+        return ctx.withAPIKey(key).withAPISig(sig).withToken(token);
+    }
+    static fromUserAuthCallback(authCallback, host = exports.defaultHost) {
+        const ctx = new Context(host);
+        // @todo: Should we now callback right away?
+        ctx.authCallback = authCallback;
+        return ctx;
+    }
+    get host() {
+        return this._context["host"];
+    }
+    // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+    set(key, value) {
+        this._context[key] = value;
+        return this;
+    }
+    get(key) {
+        return this._context[key];
+    }
+    withSession(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-session"] = value;
+        return this;
+    }
+    withThread(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-thread"] = value.toString();
+        return this;
+    }
+    withThreadName(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-thread-name"] = value;
+        return this;
+    }
+    withOrg(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-org"] = value;
+        return this;
+    }
+    withToken(value) {
+        if (value === undefined)
+            return this;
+        this._context["authorization"] = `bearer ${value}`;
+        return this;
+    }
+    withAPIKey(value) {
+        if (value === undefined)
+            return this;
+        this._context["x-textile-api-key"] = value;
+        return this;
+    }
+    withAPISig(value) {
+        if (value === undefined)
+            return this;
+        const { sig, msg } = value;
+        this._context["x-textile-api-sig-msg"] = msg;
+        this._context["x-textile-api-sig"] = sig;
+        return this;
+    }
+    withKeyInfo(key, date) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (key === undefined)
+                return this;
+            // Enables the use of insecure / non-signing keys
+            if (!key.secret)
+                return this.withAPIKey(key.key);
+            const sig = yield security_1.createAPISig(key.secret, date);
+            return this.withAPIKey(key.key).withAPISig(sig);
+        });
+    }
+    withContext(value) {
+        if (value === undefined)
+            return this;
+        // Spread to copy rather than reference
+        this._context = value.toJSON();
+        return this;
+    }
+    /**
+     * Returns true if this Context contains an api sig msg, and that msg has expired, or if
+     * it does _not_ have an api sig msg, but it _does_ have an auth callback.
+     */
+    get isExpired() {
+        const msg = this.get("x-textile-api-sig-msg");
+        const notAuthed = msg === undefined && this.authCallback !== undefined;
+        const isExpired = msg !== undefined && new Date(msg) <= new Date();
+        return isExpired || notAuthed;
+    }
+    /**
+     * Refresh user auth with provided callback.
+     * If callback is not specified, attempts to use existing callback specified at initialization.
+     */
+    refreshUserAuth(authCallback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // If we have a new one, use it...
+            if (authCallback !== undefined) {
+                this.authCallback = authCallback;
+            }
+            // If we still don't have a callback, throw...
+            if (this.authCallback === undefined) {
+                throw new Error("Missing authCallback. See Context.fromUserAuthCallback for details.");
+            }
+            // Now do the renewal and return self...
+            const _a = yield this.authCallback(), { key, token } = _a, sig = __rest(_a, ["key", "token"]);
+            return this.withAPIKey(key).withAPISig(sig).withToken(token);
+        });
+    }
+    /**
+     * Convert Context to plain JSON object.
+     * @throws If this Context has expired.
+     * @see toMetadata for an alternative for gRPC clients that supports auto-renewal.
+     */
+    toJSON() {
+        const json = __rest(this._context
+        // If we're expired, throw...
+        , []);
+        // If we're expired, throw...
+        if (this.isExpired) {
+            throw security_1.expirationError;
+        }
+        return json;
+    }
+    /**
+     * Convert Context to grpc Metadata object.
+     * Will automatically call the auth callback if available.
+     * @param ctx Additional context object that will be merged with this prior to conversion.
+     * @see toJSON for an alternative that returns a plain object, and throws when expired.
+     */
+    toMetadata(ctx) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const context = new Context();
+            if (this.isExpired && this.authCallback !== undefined) {
+                const _a = yield this.authCallback(), { key, token } = _a, sig = __rest(_a, ["key", "token"]);
+                // We do want to mutate this here because we want to update our auth sig
+                this.withAPIKey(key).withAPISig(sig).withToken(token);
+            }
+            // We merge this context and ctx with the empty context so as to avoid mutating this with ctx
+            return new grpc_web_1.grpc.Metadata(context.withContext(this).withContext(ctx).toJSON());
+        });
+    }
+    /**
+     * Import various ContextInterface API properties from JSON.
+     * @param json The JSON object.
+     * @param host Optional host string.
+     */
+    static fromJSON(json, host = exports.defaultHost) {
+        const newContext = Object.assign({}, json);
+        newContext["host"] = host;
+        const ctx = new Context();
+        ctx._context = newContext;
+        return ctx;
+    }
+}
+exports.Context = Context;
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -21399,6 +24006,33 @@ module.exports = {
 
 /***/ }),
 
+/***/ 822:
+/***/ (function(module) {
+
+module.exports = {"identity":0,"ip4":4,"tcp":6,"sha1":17,"sha2-256":18,"sha2-512":19,"sha3-512":20,"sha3-384":21,"sha3-256":22,"sha3-224":23,"shake-128":24,"shake-256":25,"keccak-224":26,"keccak-256":27,"keccak-384":28,"keccak-512":29,"blake3":30,"dccp":33,"murmur3-128":34,"murmur3-32":35,"ip6":41,"ip6zone":42,"path":47,"multicodec":48,"multihash":49,"multiaddr":50,"multibase":51,"dns":53,"dns4":54,"dns6":55,"dnsaddr":56,"protobuf":80,"cbor":81,"raw":85,"dbl-sha2-256":86,"rlp":96,"bencode":99,"dag-pb":112,"dag-cbor":113,"libp2p-key":114,"git-raw":120,"torrent-info":123,"torrent-file":124,"leofcoin-block":129,"leofcoin-tx":130,"leofcoin-pr":131,"sctp":132,"dag-jose":133,"dag-cose":134,"eth-block":144,"eth-block-list":145,"eth-tx-trie":146,"eth-tx":147,"eth-tx-receipt-trie":148,"eth-tx-receipt":149,"eth-state-trie":150,"eth-account-snapshot":151,"eth-storage-trie":152,"bitcoin-block":176,"bitcoin-tx":177,"bitcoin-witness-commitment":178,"zcash-block":192,"zcash-tx":193,"stellar-block":208,"stellar-tx":209,"md4":212,"md5":213,"bmt":214,"decred-block":224,"decred-tx":225,"ipld-ns":226,"ipfs-ns":227,"swarm-ns":228,"ipns-ns":229,"zeronet":230,"secp256k1-pub":231,"bls12_381-g1-pub":234,"bls12_381-g2-pub":235,"x25519-pub":236,"ed25519-pub":237,"dash-block":240,"dash-tx":241,"swarm-manifest":250,"swarm-feed":251,"udp":273,"p2p-webrtc-star":275,"p2p-webrtc-direct":276,"p2p-stardust":277,"p2p-circuit":290,"dag-json":297,"udt":301,"utp":302,"unix":400,"p2p":421,"ipfs":421,"https":443,"onion":444,"onion3":445,"garlic64":446,"garlic32":447,"tls":448,"quic":460,"ws":477,"wss":478,"p2p-websocket-star":479,"http":480,"json":512,"messagepack":513,"libp2p-peer-record":769,"sha2-256-trunc254-padded":4114,"ripemd-128":4178,"ripemd-160":4179,"ripemd-256":4180,"ripemd-320":4181,"x11":4352,"sm3-256":21325,"blake2b-8":45569,"blake2b-16":45570,"blake2b-24":45571,"blake2b-32":45572,"blake2b-40":45573,"blake2b-48":45574,"blake2b-56":45575,"blake2b-64":45576,"blake2b-72":45577,"blake2b-80":45578,"blake2b-88":45579,"blake2b-96":45580,"blake2b-104":45581,"blake2b-112":45582,"blake2b-120":45583,"blake2b-128":45584,"blake2b-136":45585,"blake2b-144":45586,"blake2b-152":45587,"blake2b-160":45588,"blake2b-168":45589,"blake2b-176":45590,"blake2b-184":45591,"blake2b-192":45592,"blake2b-200":45593,"blake2b-208":45594,"blake2b-216":45595,"blake2b-224":45596,"blake2b-232":45597,"blake2b-240":45598,"blake2b-248":45599,"blake2b-256":45600,"blake2b-264":45601,"blake2b-272":45602,"blake2b-280":45603,"blake2b-288":45604,"blake2b-296":45605,"blake2b-304":45606,"blake2b-312":45607,"blake2b-320":45608,"blake2b-328":45609,"blake2b-336":45610,"blake2b-344":45611,"blake2b-352":45612,"blake2b-360":45613,"blake2b-368":45614,"blake2b-376":45615,"blake2b-384":45616,"blake2b-392":45617,"blake2b-400":45618,"blake2b-408":45619,"blake2b-416":45620,"blake2b-424":45621,"blake2b-432":45622,"blake2b-440":45623,"blake2b-448":45624,"blake2b-456":45625,"blake2b-464":45626,"blake2b-472":45627,"blake2b-480":45628,"blake2b-488":45629,"blake2b-496":45630,"blake2b-504":45631,"blake2b-512":45632,"blake2s-8":45633,"blake2s-16":45634,"blake2s-24":45635,"blake2s-32":45636,"blake2s-40":45637,"blake2s-48":45638,"blake2s-56":45639,"blake2s-64":45640,"blake2s-72":45641,"blake2s-80":45642,"blake2s-88":45643,"blake2s-96":45644,"blake2s-104":45645,"blake2s-112":45646,"blake2s-120":45647,"blake2s-128":45648,"blake2s-136":45649,"blake2s-144":45650,"blake2s-152":45651,"blake2s-160":45652,"blake2s-168":45653,"blake2s-176":45654,"blake2s-184":45655,"blake2s-192":45656,"blake2s-200":45657,"blake2s-208":45658,"blake2s-216":45659,"blake2s-224":45660,"blake2s-232":45661,"blake2s-240":45662,"blake2s-248":45663,"blake2s-256":45664,"skein256-8":45825,"skein256-16":45826,"skein256-24":45827,"skein256-32":45828,"skein256-40":45829,"skein256-48":45830,"skein256-56":45831,"skein256-64":45832,"skein256-72":45833,"skein256-80":45834,"skein256-88":45835,"skein256-96":45836,"skein256-104":45837,"skein256-112":45838,"skein256-120":45839,"skein256-128":45840,"skein256-136":45841,"skein256-144":45842,"skein256-152":45843,"skein256-160":45844,"skein256-168":45845,"skein256-176":45846,"skein256-184":45847,"skein256-192":45848,"skein256-200":45849,"skein256-208":45850,"skein256-216":45851,"skein256-224":45852,"skein256-232":45853,"skein256-240":45854,"skein256-248":45855,"skein256-256":45856,"skein512-8":45857,"skein512-16":45858,"skein512-24":45859,"skein512-32":45860,"skein512-40":45861,"skein512-48":45862,"skein512-56":45863,"skein512-64":45864,"skein512-72":45865,"skein512-80":45866,"skein512-88":45867,"skein512-96":45868,"skein512-104":45869,"skein512-112":45870,"skein512-120":45871,"skein512-128":45872,"skein512-136":45873,"skein512-144":45874,"skein512-152":45875,"skein512-160":45876,"skein512-168":45877,"skein512-176":45878,"skein512-184":45879,"skein512-192":45880,"skein512-200":45881,"skein512-208":45882,"skein512-216":45883,"skein512-224":45884,"skein512-232":45885,"skein512-240":45886,"skein512-248":45887,"skein512-256":45888,"skein512-264":45889,"skein512-272":45890,"skein512-280":45891,"skein512-288":45892,"skein512-296":45893,"skein512-304":45894,"skein512-312":45895,"skein512-320":45896,"skein512-328":45897,"skein512-336":45898,"skein512-344":45899,"skein512-352":45900,"skein512-360":45901,"skein512-368":45902,"skein512-376":45903,"skein512-384":45904,"skein512-392":45905,"skein512-400":45906,"skein512-408":45907,"skein512-416":45908,"skein512-424":45909,"skein512-432":45910,"skein512-440":45911,"skein512-448":45912,"skein512-456":45913,"skein512-464":45914,"skein512-472":45915,"skein512-480":45916,"skein512-488":45917,"skein512-496":45918,"skein512-504":45919,"skein512-512":45920,"skein1024-8":45921,"skein1024-16":45922,"skein1024-24":45923,"skein1024-32":45924,"skein1024-40":45925,"skein1024-48":45926,"skein1024-56":45927,"skein1024-64":45928,"skein1024-72":45929,"skein1024-80":45930,"skein1024-88":45931,"skein1024-96":45932,"skein1024-104":45933,"skein1024-112":45934,"skein1024-120":45935,"skein1024-128":45936,"skein1024-136":45937,"skein1024-144":45938,"skein1024-152":45939,"skein1024-160":45940,"skein1024-168":45941,"skein1024-176":45942,"skein1024-184":45943,"skein1024-192":45944,"skein1024-200":45945,"skein1024-208":45946,"skein1024-216":45947,"skein1024-224":45948,"skein1024-232":45949,"skein1024-240":45950,"skein1024-248":45951,"skein1024-256":45952,"skein1024-264":45953,"skein1024-272":45954,"skein1024-280":45955,"skein1024-288":45956,"skein1024-296":45957,"skein1024-304":45958,"skein1024-312":45959,"skein1024-320":45960,"skein1024-328":45961,"skein1024-336":45962,"skein1024-344":45963,"skein1024-352":45964,"skein1024-360":45965,"skein1024-368":45966,"skein1024-376":45967,"skein1024-384":45968,"skein1024-392":45969,"skein1024-400":45970,"skein1024-408":45971,"skein1024-416":45972,"skein1024-424":45973,"skein1024-432":45974,"skein1024-440":45975,"skein1024-448":45976,"skein1024-456":45977,"skein1024-464":45978,"skein1024-472":45979,"skein1024-480":45980,"skein1024-488":45981,"skein1024-496":45982,"skein1024-504":45983,"skein1024-512":45984,"skein1024-520":45985,"skein1024-528":45986,"skein1024-536":45987,"skein1024-544":45988,"skein1024-552":45989,"skein1024-560":45990,"skein1024-568":45991,"skein1024-576":45992,"skein1024-584":45993,"skein1024-592":45994,"skein1024-600":45995,"skein1024-608":45996,"skein1024-616":45997,"skein1024-624":45998,"skein1024-632":45999,"skein1024-640":46000,"skein1024-648":46001,"skein1024-656":46002,"skein1024-664":46003,"skein1024-672":46004,"skein1024-680":46005,"skein1024-688":46006,"skein1024-696":46007,"skein1024-704":46008,"skein1024-712":46009,"skein1024-720":46010,"skein1024-728":46011,"skein1024-736":46012,"skein1024-744":46013,"skein1024-752":46014,"skein1024-760":46015,"skein1024-768":46016,"skein1024-776":46017,"skein1024-784":46018,"skein1024-792":46019,"skein1024-800":46020,"skein1024-808":46021,"skein1024-816":46022,"skein1024-824":46023,"skein1024-832":46024,"skein1024-840":46025,"skein1024-848":46026,"skein1024-856":46027,"skein1024-864":46028,"skein1024-872":46029,"skein1024-880":46030,"skein1024-888":46031,"skein1024-896":46032,"skein1024-904":46033,"skein1024-912":46034,"skein1024-920":46035,"skein1024-928":46036,"skein1024-936":46037,"skein1024-944":46038,"skein1024-952":46039,"skein1024-960":46040,"skein1024-968":46041,"skein1024-976":46042,"skein1024-984":46043,"skein1024-992":46044,"skein1024-1000":46045,"skein1024-1008":46046,"skein1024-1016":46047,"skein1024-1024":46048,"poseidon-bls12_381-a2-fc1":46081,"poseidon-bls12_381-a2-fc1-sc":46082,"zeroxcert-imprint-256":52753,"fil-commitment-unsealed":61697,"fil-commitment-sealed":61698,"holochain-adr-v0":8417572,"holochain-adr-v1":8483108,"holochain-key-v0":9728292,"holochain-key-v1":9793828,"holochain-sig-v0":10645796,"holochain-sig-v1":10711332};
+
+/***/ }),
+
+/***/ 830:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const table = __webpack_require__(822)
+
+// map for code -> print friendly name
+const tableByCode = {}
+
+for (const [name, code] of Object.entries(table)) {
+  if (tableByCode[code] === undefined) tableByCode[code] = name
+}
+
+module.exports = Object.freeze(tableByCode)
+
+
+/***/ }),
+
 /***/ 835:
 /***/ (function(module) {
 
@@ -21410,6 +24044,18 @@ module.exports = require("url");
 /***/ (function(__unusedmodule, exports) {
 
 !function(e,t){for(var r in t)e[r]=t[r]}(exports,function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};return e[n].call(o.exports,o,o.exports,r),o.l=!0,o.exports}return r.m=e,r.c=t,r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:n})},r.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},r.t=function(e,t){if(1&t&&(e=r(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var n=Object.create(null);if(r.r(n),Object.defineProperty(n,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var o in e)r.d(n,o,function(t){return e[t]}.bind(null,o));return n},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=10)}([function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3);t.Metadata=n.BrowserHeaders},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.debug=function(){for(var e=[],t=0;t<arguments.length;t++)e[t]=arguments[t];console.debug?console.debug.apply(null,e):console.log.apply(null,e)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0),o=r(8),s=r(9),i=r(1),a=r(4),u=r(14);t.client=function(e,t){return new d(e,t)};var d=function(){function e(e,t){this.started=!1,this.sentFirstMessage=!1,this.completed=!1,this.closed=!1,this.finishedSending=!1,this.onHeadersCallbacks=[],this.onMessageCallbacks=[],this.onEndCallbacks=[],this.parser=new o.ChunkParser,this.methodDefinition=e,this.props=t,this.createTransport()}return e.prototype.createTransport=function(){var e=this.props.host+"/"+this.methodDefinition.service.serviceName+"/"+this.methodDefinition.methodName,t={methodDefinition:this.methodDefinition,debug:this.props.debug||!1,url:e,onHeaders:this.onTransportHeaders.bind(this),onChunk:this.onTransportChunk.bind(this),onEnd:this.onTransportEnd.bind(this)};this.props.transport?this.transport=this.props.transport(t):this.transport=a.makeDefaultTransport(t)},e.prototype.onTransportHeaders=function(e,t){if(this.props.debug&&i.debug("onHeaders",e,t),this.closed)this.props.debug&&i.debug("grpc.onHeaders received after request was closed - ignoring");else if(0===t);else{this.responseHeaders=e,this.props.debug&&i.debug("onHeaders.responseHeaders",JSON.stringify(this.responseHeaders,null,2));var r=c(e);this.props.debug&&i.debug("onHeaders.gRPCStatus",r);var n=r&&r>=0?r:s.httpStatusToCode(t);this.props.debug&&i.debug("onHeaders.code",n);var o=e.get("grpc-message")||[];if(this.props.debug&&i.debug("onHeaders.gRPCMessage",o),this.rawOnHeaders(e),n!==s.Code.OK){var a=this.decodeGRPCStatus(o[0]);this.rawOnError(n,a,e)}}},e.prototype.onTransportChunk=function(e){var t=this;if(this.closed)this.props.debug&&i.debug("grpc.onChunk received after request was closed - ignoring");else{var r=[];try{r=this.parser.parse(e)}catch(e){return this.props.debug&&i.debug("onChunk.parsing error",e,e.message),void this.rawOnError(s.Code.Internal,"parsing error: "+e.message)}r.forEach(function(e){if(e.chunkType===o.ChunkType.MESSAGE){var r=t.methodDefinition.responseType.deserializeBinary(e.data);t.rawOnMessage(r)}else e.chunkType===o.ChunkType.TRAILERS&&(t.responseHeaders?(t.responseTrailers=new n.Metadata(e.trailers),t.props.debug&&i.debug("onChunk.trailers",t.responseTrailers)):(t.responseHeaders=new n.Metadata(e.trailers),t.rawOnHeaders(t.responseHeaders)))})}},e.prototype.onTransportEnd=function(){if(this.props.debug&&i.debug("grpc.onEnd"),this.closed)this.props.debug&&i.debug("grpc.onEnd received after request was closed - ignoring");else if(void 0!==this.responseTrailers){var e=c(this.responseTrailers);if(null!==e){var t=this.responseTrailers.get("grpc-message"),r=this.decodeGRPCStatus(t[0]);this.rawOnEnd(e,r,this.responseTrailers)}else this.rawOnError(s.Code.Internal,"Response closed without grpc-status (Trailers provided)")}else{if(void 0===this.responseHeaders)return void this.rawOnError(s.Code.Unknown,"Response closed without headers");var n=c(this.responseHeaders),o=this.responseHeaders.get("grpc-message");if(this.props.debug&&i.debug("grpc.headers only response ",n,o),null===n)return void this.rawOnEnd(s.Code.Unknown,"Response closed without grpc-status (Headers only)",this.responseHeaders);var a=this.decodeGRPCStatus(o[0]);this.rawOnEnd(n,a,this.responseHeaders)}},e.prototype.decodeGRPCStatus=function(e){if(!e)return"";try{return decodeURIComponent(e)}catch(t){return e}},e.prototype.rawOnEnd=function(e,t,r){var n=this;this.props.debug&&i.debug("rawOnEnd",e,t,r),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(o){if(!n.closed)try{o(e,t,r)}catch(e){setTimeout(function(){throw e})}}))},e.prototype.rawOnHeaders=function(e){this.props.debug&&i.debug("rawOnHeaders",e),this.completed||this.onHeadersCallbacks.forEach(function(t){try{t(e)}catch(e){setTimeout(function(){throw e})}})},e.prototype.rawOnError=function(e,t,r){var o=this;void 0===r&&(r=new n.Metadata),this.props.debug&&i.debug("rawOnError",e,t),this.completed||(this.completed=!0,this.onEndCallbacks.forEach(function(n){if(!o.closed)try{n(e,t,r)}catch(e){setTimeout(function(){throw e})}}))},e.prototype.rawOnMessage=function(e){var t=this;this.props.debug&&i.debug("rawOnMessage",e.toObject()),this.completed||this.closed||this.onMessageCallbacks.forEach(function(r){if(!t.closed)try{r(e)}catch(e){setTimeout(function(){throw e})}})},e.prototype.onHeaders=function(e){this.onHeadersCallbacks.push(e)},e.prototype.onMessage=function(e){this.onMessageCallbacks.push(e)},e.prototype.onEnd=function(e){this.onEndCallbacks.push(e)},e.prototype.start=function(e){if(this.started)throw new Error("Client already started - cannot .start()");this.started=!0;var t=new n.Metadata(e||{});t.set("content-type","application/grpc-web+proto"),t.set("x-grpc-web","1"),this.transport.start(t)},e.prototype.send=function(e){if(!this.started)throw new Error("Client not started - .start() must be called before .send()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .send()");if(!this.methodDefinition.requestStream&&this.sentFirstMessage)throw new Error("Message already sent for non-client-streaming method - cannot .send()");this.sentFirstMessage=!0;var t=u.frameRequest(e);this.transport.sendMessage(t)},e.prototype.finishSend=function(){if(!this.started)throw new Error("Client not started - .finishSend() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .send()");if(this.finishedSending)throw new Error("Client already finished sending - cannot .finishSend()");this.finishedSending=!0,this.transport.finishSend()},e.prototype.close=function(){if(!this.started)throw new Error("Client not started - .start() must be called before .close()");if(this.closed)throw new Error("Client already closed - cannot .close()");this.closed=!0,this.props.debug&&i.debug("request.abort aborting request"),this.transport.cancel()},e}();function c(e){var t=e.get("grpc-status")||[];if(t.length>0)try{var r=t[0];return parseInt(r,10)}catch(e){return null}return null}},function(e,t,r){var n;n=function(){return function(e){var t={};function r(n){if(t[n])return t[n].exports;var o=t[n]={i:n,l:!1,exports:{}};return e[n].call(o.exports,o,o.exports,r),o.l=!0,o.exports}return r.m=e,r.c=t,r.i=function(e){return e},r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{configurable:!1,enumerable:!0,get:n})},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=1)}([function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3);var o=function(){function e(e,t){void 0===e&&(e={}),void 0===t&&(t={splitValues:!1});var r,o=this;if(this.headersMap={},e)if("undefined"!=typeof Headers&&e instanceof Headers)n.getHeaderKeys(e).forEach(function(r){n.getHeaderValues(e,r).forEach(function(e){t.splitValues?o.append(r,n.splitHeaderValue(e)):o.append(r,e)})});else if("object"==typeof(r=e)&&"object"==typeof r.headersMap&&"function"==typeof r.forEach)e.forEach(function(e,t){o.append(e,t)});else if("undefined"!=typeof Map&&e instanceof Map){e.forEach(function(e,t){o.append(t,e)})}else"string"==typeof e?this.appendFromString(e):"object"==typeof e&&Object.getOwnPropertyNames(e).forEach(function(t){var r=e[t];Array.isArray(r)?r.forEach(function(e){o.append(t,e)}):o.append(t,r)})}return e.prototype.appendFromString=function(e){for(var t=e.split("\r\n"),r=0;r<t.length;r++){var n=t[r],o=n.indexOf(":");if(o>0){var s=n.substring(0,o).trim(),i=n.substring(o+1).trim();this.append(s,i)}}},e.prototype.delete=function(e,t){var r=n.normalizeName(e);if(void 0===t)delete this.headersMap[r];else{var o=this.headersMap[r];if(o){var s=o.indexOf(t);s>=0&&o.splice(s,1),0===o.length&&delete this.headersMap[r]}}},e.prototype.append=function(e,t){var r=this,o=n.normalizeName(e);Array.isArray(this.headersMap[o])||(this.headersMap[o]=[]),Array.isArray(t)?t.forEach(function(e){r.headersMap[o].push(n.normalizeValue(e))}):this.headersMap[o].push(n.normalizeValue(t))},e.prototype.set=function(e,t){var r=n.normalizeName(e);if(Array.isArray(t)){var o=[];t.forEach(function(e){o.push(n.normalizeValue(e))}),this.headersMap[r]=o}else this.headersMap[r]=[n.normalizeValue(t)]},e.prototype.has=function(e,t){var r=this.headersMap[n.normalizeName(e)];if(!Array.isArray(r))return!1;if(void 0!==t){var o=n.normalizeValue(t);return r.indexOf(o)>=0}return!0},e.prototype.get=function(e){var t=this.headersMap[n.normalizeName(e)];return void 0!==t?t.concat():[]},e.prototype.forEach=function(e){var t=this;Object.getOwnPropertyNames(this.headersMap).forEach(function(r){e(r,t.headersMap[r])},this)},e.prototype.toHeaders=function(){if("undefined"!=typeof Headers){var e=new Headers;return this.forEach(function(t,r){r.forEach(function(r){e.append(t,r)})}),e}throw new Error("Headers class is not defined")},e}();t.BrowserHeaders=o},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0);t.BrowserHeaders=n.BrowserHeaders},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.iterateHeaders=function(e,t){for(var r=e[Symbol.iterator](),n=r.next();!n.done;)t(n.value[0]),n=r.next()},t.iterateHeadersKeys=function(e,t){for(var r=e.keys(),n=r.next();!n.done;)t(n.value),n=r.next()}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(2);function o(e){return e}t.normalizeName=function(e){if("string"!=typeof e&&(e=String(e)),/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(e))throw new TypeError("Invalid character in header field name");return e.toLowerCase()},t.normalizeValue=function(e){return"string"!=typeof e&&(e=String(e)),e},t.getHeaderValues=function(e,t){var r=o(e);if(r instanceof Headers&&r.getAll)return r.getAll(t);var n=r.get(t);return n&&"string"==typeof n?[n]:n},t.getHeaderKeys=function(e){var t=o(e),r={},s=[];return t.keys?n.iterateHeadersKeys(t,function(e){r[e]||(r[e]=!0,s.push(e))}):t.forEach?t.forEach(function(e,t){r[t]||(r[t]=!0,s.push(t))}):n.iterateHeaders(t,function(e){var t=e[0];r[t]||(r[t]=!0,s.push(t))}),s},t.splitHeaderValue=function(e){var t=[];return e.split(", ").forEach(function(e){e.split(",").forEach(function(e){t.push(e)})}),t}}])},e.exports=n()},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(5),o=function(e){return n.CrossBrowserHttpTransport({withCredentials:!1})(e)};t.setDefaultTransportFactory=function(e){o=e},t.makeDefaultTransport=function(e){return o(e)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(6),o=r(7);t.CrossBrowserHttpTransport=function(e){if(n.detectFetchSupport()){var t={credentials:e.withCredentials?"include":"same-origin"};return n.FetchReadableStreamTransport(t)}return o.XhrTransport({withCredentials:e.withCredentials})}},function(e,t,r){"use strict";var n=this&&this.__assign||function(){return(n=Object.assign||function(e){for(var t,r=1,n=arguments.length;r<n;r++)for(var o in t=arguments[r])Object.prototype.hasOwnProperty.call(t,o)&&(e[o]=t[o]);return e}).apply(this,arguments)};Object.defineProperty(t,"__esModule",{value:!0});var o=r(0),s=r(1);t.FetchReadableStreamTransport=function(e){return function(t){return function(e,t){return e.debug&&s.debug("fetchRequest",e),new i(e,t)}(t,e)}};var i=function(){function e(e,t){this.cancelled=!1,this.controller=self.AbortController&&new AbortController,this.options=e,this.init=t}return e.prototype.pump=function(e,t){var r=this;if(this.reader=e,this.cancelled)return this.options.debug&&s.debug("Fetch.pump.cancel at first pump"),void this.reader.cancel();this.reader.read().then(function(e){if(e.done)return r.options.onEnd(),t;r.options.onChunk(e.value),r.pump(r.reader,t)}).catch(function(e){r.cancelled?r.options.debug&&s.debug("Fetch.catch - request cancelled"):(r.cancelled=!0,r.options.debug&&s.debug("Fetch.catch",e.message),r.options.onEnd(e))})},e.prototype.send=function(e){var t=this;fetch(this.options.url,n({},this.init,{headers:this.metadata.toHeaders(),method:"POST",body:e,signal:this.controller&&this.controller.signal})).then(function(e){if(t.options.debug&&s.debug("Fetch.response",e),t.options.onHeaders(new o.Metadata(e.headers),e.status),!e.body)return e;t.pump(e.body.getReader(),e)}).catch(function(e){t.cancelled?t.options.debug&&s.debug("Fetch.catch - request cancelled"):(t.cancelled=!0,t.options.debug&&s.debug("Fetch.catch",e.message),t.options.onEnd(e))})},e.prototype.sendMessage=function(e){this.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){this.metadata=e},e.prototype.cancel=function(){this.cancelled?this.options.debug&&s.debug("Fetch.abort.cancel already cancelled"):(this.cancelled=!0,this.reader?(this.options.debug&&s.debug("Fetch.abort.cancel"),this.reader.cancel()):this.options.debug&&s.debug("Fetch.abort.cancel before reader"),this.controller&&this.controller.abort())},e}();t.detectFetchSupport=function(){return"undefined"!=typeof Response&&Response.prototype.hasOwnProperty("body")&&"function"==typeof Headers}},function(e,t,r){"use strict";var n,o=this&&this.__extends||(n=function(e,t){return(n=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(e,t){e.__proto__=t}||function(e,t){for(var r in t)t.hasOwnProperty(r)&&(e[r]=t[r])})(e,t)},function(e,t){function r(){this.constructor=e}n(e,t),e.prototype=null===t?Object.create(t):(r.prototype=t.prototype,new r)});Object.defineProperty(t,"__esModule",{value:!0});var s=r(0),i=r(1),a=r(11);t.XhrTransport=function(e){return function(t){if(a.detectMozXHRSupport())return new d(t,e);if(a.detectXHROverrideMimeTypeSupport())return new u(t,e);throw new Error("This environment's XHR implementation cannot support binary transfer.")}};var u=function(){function e(e,t){this.options=e,this.init=t}return e.prototype.onProgressEvent=function(){this.options.debug&&i.debug("XHR.onProgressEvent.length: ",this.xhr.response.length);var e=this.xhr.response.substr(this.index);this.index=this.xhr.response.length;var t=p(e);this.options.onChunk(t)},e.prototype.onLoadEvent=function(){this.options.debug&&i.debug("XHR.onLoadEvent"),this.options.onEnd()},e.prototype.onStateChange=function(){this.options.debug&&i.debug("XHR.onStateChange",this.xhr.readyState),this.xhr.readyState===XMLHttpRequest.HEADERS_RECEIVED&&this.options.onHeaders(new s.Metadata(this.xhr.getAllResponseHeaders()),this.xhr.status)},e.prototype.sendMessage=function(e){this.xhr.send(e)},e.prototype.finishSend=function(){},e.prototype.start=function(e){var t=this;this.metadata=e;var r=new XMLHttpRequest;this.xhr=r,r.open("POST",this.options.url),this.configureXhr(),this.metadata.forEach(function(e,t){r.setRequestHeader(e,t.join(", "))}),r.withCredentials=Boolean(this.init.withCredentials),r.addEventListener("readystatechange",this.onStateChange.bind(this)),r.addEventListener("progress",this.onProgressEvent.bind(this)),r.addEventListener("loadend",this.onLoadEvent.bind(this)),r.addEventListener("error",function(e){t.options.debug&&i.debug("XHR.error",e),t.options.onEnd(e.error)})},e.prototype.configureXhr=function(){this.xhr.responseType="text",this.xhr.overrideMimeType("text/plain; charset=x-user-defined")},e.prototype.cancel=function(){this.options.debug&&i.debug("XHR.abort"),this.xhr.abort()},e}();t.XHR=u;var d=function(e){function t(){return null!==e&&e.apply(this,arguments)||this}return o(t,e),t.prototype.configureXhr=function(){this.options.debug&&i.debug("MozXHR.configureXhr: setting responseType to 'moz-chunked-arraybuffer'"),this.xhr.responseType="moz-chunked-arraybuffer"},t.prototype.onProgressEvent=function(){var e=this.xhr.response;this.options.debug&&i.debug("MozXHR.onProgressEvent: ",new Uint8Array(e)),this.options.onChunk(new Uint8Array(e))},t}(u);function c(e,t){var r=e.charCodeAt(t);if(r>=55296&&r<=56319){var n=e.charCodeAt(t+1);n>=56320&&n<=57343&&(r=65536+(r-55296<<10)+(n-56320))}return r}function p(e){for(var t=new Uint8Array(e.length),r=0,n=0;n<e.length;n++){var o=String.prototype.codePointAt?e.codePointAt(n):c(e,n);t[r++]=255&o}return t}t.MozChunkedArrayBufferXHR=d,t.stringToArrayBuffer=p},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n,o=r(0),s=function(e){return 9===e||10===e||13===e};function i(e){return s(e)||e>=32&&e<=126}function a(e){for(var t=0;t!==e.length;++t)if(!i(e[t]))throw new Error("Metadata is not valid (printable) ASCII");return String.fromCharCode.apply(String,Array.prototype.slice.call(e))}function u(e){return 128==(128&e.getUint8(0))}function d(e){return e.getUint32(1,!1)}function c(e,t,r){return e.byteLength-t>=r}function p(e,t,r){if(e.slice)return e.slice(t,r);var n=e.length;void 0!==r&&(n=r);for(var o=new Uint8Array(n-t),s=0,i=t;i<n;i++)o[s++]=e[i];return o}t.decodeASCII=a,t.encodeASCII=function(e){for(var t=new Uint8Array(e.length),r=0;r!==e.length;++r){var n=e.charCodeAt(r);if(!i(n))throw new Error("Metadata contains invalid ASCII");t[r]=n}return t},function(e){e[e.MESSAGE=1]="MESSAGE",e[e.TRAILERS=2]="TRAILERS"}(n=t.ChunkType||(t.ChunkType={}));var h=function(){function e(){this.buffer=null,this.position=0}return e.prototype.parse=function(e,t){if(0===e.length&&t)return[];var r,s=[];if(null==this.buffer)this.buffer=e,this.position=0;else if(this.position===this.buffer.byteLength)this.buffer=e,this.position=0;else{var i=this.buffer.byteLength-this.position,h=new Uint8Array(i+e.byteLength),f=p(this.buffer,this.position);h.set(f,0);var l=new Uint8Array(e);h.set(l,i),this.buffer=h,this.position=0}for(;;){if(!c(this.buffer,this.position,5))return s;var g=p(this.buffer,this.position,this.position+5),b=new DataView(g.buffer,g.byteOffset,g.byteLength),y=d(b);if(!c(this.buffer,this.position,5+y))return s;var v=p(this.buffer,this.position+5,this.position+5+y);if(this.position+=5+y,u(b))return s.push({chunkType:n.TRAILERS,trailers:(r=v,new o.Metadata(a(r)))}),s;s.push({chunkType:n.MESSAGE,data:v})}},e}();t.ChunkParser=h},function(e,t,r){"use strict";var n;Object.defineProperty(t,"__esModule",{value:!0}),function(e){e[e.OK=0]="OK",e[e.Canceled=1]="Canceled",e[e.Unknown=2]="Unknown",e[e.InvalidArgument=3]="InvalidArgument",e[e.DeadlineExceeded=4]="DeadlineExceeded",e[e.NotFound=5]="NotFound",e[e.AlreadyExists=6]="AlreadyExists",e[e.PermissionDenied=7]="PermissionDenied",e[e.ResourceExhausted=8]="ResourceExhausted",e[e.FailedPrecondition=9]="FailedPrecondition",e[e.Aborted=10]="Aborted",e[e.OutOfRange=11]="OutOfRange",e[e.Unimplemented=12]="Unimplemented",e[e.Internal=13]="Internal",e[e.Unavailable=14]="Unavailable",e[e.DataLoss=15]="DataLoss",e[e.Unauthenticated=16]="Unauthenticated"}(n=t.Code||(t.Code={})),t.httpStatusToCode=function(e){switch(e){case 0:return n.Internal;case 200:return n.OK;case 400:return n.InvalidArgument;case 401:return n.Unauthenticated;case 403:return n.PermissionDenied;case 404:return n.NotFound;case 409:return n.Aborted;case 412:return n.FailedPrecondition;case 429:return n.ResourceExhausted;case 499:return n.Canceled;case 500:return n.Unknown;case 501:return n.Unimplemented;case 503:return n.Unavailable;case 504:return n.DeadlineExceeded;default:return n.Unknown}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(3),o=r(4),s=r(6),i=r(12),a=r(7),u=r(5),d=r(9),c=r(13),p=r(15),h=r(2);!function(e){e.setDefaultTransport=o.setDefaultTransportFactory,e.CrossBrowserHttpTransport=u.CrossBrowserHttpTransport,e.FetchReadableStreamTransport=s.FetchReadableStreamTransport,e.XhrTransport=a.XhrTransport,e.WebsocketTransport=i.WebsocketTransport,e.Code=d.Code,e.Metadata=n.BrowserHeaders,e.client=function(e,t){return h.client(e,t)},e.invoke=c.invoke,e.unary=p.unary}(t.grpc||(t.grpc={}))},function(e,t,r){"use strict";var n;function o(){if(void 0!==n)return n;if(XMLHttpRequest){n=new XMLHttpRequest;try{n.open("GET","https://localhost")}catch(e){}}return n}function s(e){var t=o();if(!t)return!1;try{return t.responseType=e,t.responseType===e}catch(e){}return!1}Object.defineProperty(t,"__esModule",{value:!0}),t.xhrSupportsResponseType=s,t.detectMozXHRSupport=function(){return"undefined"!=typeof XMLHttpRequest&&s("moz-chunked-arraybuffer")},t.detectXHROverrideMimeTypeSupport=function(){return"undefined"!=typeof XMLHttpRequest&&XMLHttpRequest.prototype.hasOwnProperty("overrideMimeType")}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n,o=r(1),s=r(8);!function(e){e[e.FINISH_SEND=1]="FINISH_SEND"}(n||(n={}));var i=new Uint8Array([1]);t.WebsocketTransport=function(){return function(e){return function(e){e.debug&&o.debug("websocketRequest",e);var t,r=function(e){if("https://"===e.substr(0,8))return"wss://"+e.substr(8);if("http://"===e.substr(0,7))return"ws://"+e.substr(7);throw new Error("Websocket transport constructed with non-https:// or http:// host.")}(e.url),a=[];function u(e){if(e===n.FINISH_SEND)t.send(i);else{var r=e,o=new Int8Array(r.byteLength+1);o.set(new Uint8Array([0])),o.set(r,1),t.send(o)}}return{sendMessage:function(e){t&&t.readyState!==t.CONNECTING?u(e):a.push(e)},finishSend:function(){t&&t.readyState!==t.CONNECTING?u(n.FINISH_SEND):a.push(n.FINISH_SEND)},start:function(n){(t=new WebSocket(r,["grpc-websockets"])).binaryType="arraybuffer",t.onopen=function(){var r;e.debug&&o.debug("websocketRequest.onopen"),t.send((r="",n.forEach(function(e,t){r+=e+": "+t.join(", ")+"\r\n"}),s.encodeASCII(r))),a.forEach(function(e){u(e)})},t.onclose=function(t){e.debug&&o.debug("websocketRequest.onclose",t),e.onEnd()},t.onerror=function(t){e.debug&&o.debug("websocketRequest.onerror",t)},t.onmessage=function(t){e.onChunk(new Uint8Array(t.data))}},cancel:function(){e.debug&&o.debug("websocket.abort"),t.close()}}}(e)}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(2);t.invoke=function(e,t){if(e.requestStream)throw new Error(".invoke cannot be used with client-streaming methods. Use .client instead.");var r=n.client(e,{host:t.host,transport:t.transport,debug:t.debug});return t.onHeaders&&r.onHeaders(t.onHeaders),t.onMessage&&r.onMessage(t.onMessage),t.onEnd&&r.onEnd(t.onEnd),r.start(t.metadata),r.send(t.request),r.finishSend(),{close:function(){r.close()}}}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.frameRequest=function(e){var t=e.serializeBinary(),r=new ArrayBuffer(t.byteLength+5);return new DataView(r,1,4).setUint32(0,t.length,!1),new Uint8Array(r,5).set(t),new Uint8Array(r)}},function(e,t,r){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var n=r(0),o=r(2);t.unary=function(e,t){if(e.responseStream)throw new Error(".unary cannot be used with server-streaming methods. Use .invoke or .client instead.");if(e.requestStream)throw new Error(".unary cannot be used with client-streaming methods. Use .client instead.");var r=null,s=null,i=o.client(e,{host:t.host,transport:t.transport,debug:t.debug});return i.onHeaders(function(e){r=e}),i.onMessage(function(e){s=e}),i.onEnd(function(e,o,i){t.onEnd({status:e,statusMessage:o,headers:r||new n.Metadata,message:s,trailers:i})}),i.start(t.metadata),i.send(t.request),i.finishSend(),{close:function(){i.close()}}}}]));
+
+/***/ }),
+
+/***/ 844:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+module.exports = {
+    encode: __webpack_require__(79)
+  , decode: __webpack_require__(971)
+  , encodingLength: __webpack_require__(692)
+}
+
 
 /***/ }),
 
@@ -21789,6 +24435,266 @@ function childrenIgnored (self, path) {
 
 /***/ }),
 
+/***/ 863:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+/*
+Copyright 2019 David Bau.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+*/
+
+(function (global, pool, math) {
+//
+// The following constants are related to IEEE 754 limits.
+//
+
+var width = 256,        // each RC4 output is 0 <= x < 256
+    chunks = 6,         // at least six RC4 outputs for each double
+    digits = 52,        // there are 52 significant digits in a double
+    rngname = 'random', // rngname: name for Math.random and Math.seedrandom
+    startdenom = math.pow(width, chunks),
+    significance = math.pow(2, digits),
+    overflow = significance * 2,
+    mask = width - 1,
+    nodecrypto;         // node.js crypto module, initialized at the bottom.
+
+//
+// seedrandom()
+// This is the seedrandom function described above.
+//
+function seedrandom(seed, options, callback) {
+  var key = [];
+  options = (options == true) ? { entropy: true } : (options || {});
+
+  // Flatten the seed string or build one from local entropy if needed.
+  var shortseed = mixkey(flatten(
+    options.entropy ? [seed, tostring(pool)] :
+    (seed == null) ? autoseed() : seed, 3), key);
+
+  // Use the seed to initialize an ARC4 generator.
+  var arc4 = new ARC4(key);
+
+  // This function returns a random double in [0, 1) that contains
+  // randomness in every bit of the mantissa of the IEEE 754 value.
+  var prng = function() {
+    var n = arc4.g(chunks),             // Start with a numerator n < 2 ^ 48
+        d = startdenom,                 //   and denominator d = 2 ^ 48.
+        x = 0;                          //   and no 'extra last byte'.
+    while (n < significance) {          // Fill up all significant digits by
+      n = (n + x) * width;              //   shifting numerator and
+      d *= width;                       //   denominator and generating a
+      x = arc4.g(1);                    //   new least-significant-byte.
+    }
+    while (n >= overflow) {             // To avoid rounding up, before adding
+      n /= 2;                           //   last byte, shift everything
+      d /= 2;                           //   right using integer math until
+      x >>>= 1;                         //   we have exactly the desired bits.
+    }
+    return (n + x) / d;                 // Form the number within [0, 1).
+  };
+
+  prng.int32 = function() { return arc4.g(4) | 0; }
+  prng.quick = function() { return arc4.g(4) / 0x100000000; }
+  prng.double = prng;
+
+  // Mix the randomness into accumulated entropy.
+  mixkey(tostring(arc4.S), pool);
+
+  // Calling convention: what to return as a function of prng, seed, is_math.
+  return (options.pass || callback ||
+      function(prng, seed, is_math_call, state) {
+        if (state) {
+          // Load the arc4 state from the given state if it has an S array.
+          if (state.S) { copy(state, arc4); }
+          // Only provide the .state method if requested via options.state.
+          prng.state = function() { return copy(arc4, {}); }
+        }
+
+        // If called as a method of Math (Math.seedrandom()), mutate
+        // Math.random because that is how seedrandom.js has worked since v1.0.
+        if (is_math_call) { math[rngname] = prng; return seed; }
+
+        // Otherwise, it is a newer calling convention, so return the
+        // prng directly.
+        else return prng;
+      })(
+  prng,
+  shortseed,
+  'global' in options ? options.global : (this == math),
+  options.state);
+}
+
+//
+// ARC4
+//
+// An ARC4 implementation.  The constructor takes a key in the form of
+// an array of at most (width) integers that should be 0 <= x < (width).
+//
+// The g(count) method returns a pseudorandom integer that concatenates
+// the next (count) outputs from ARC4.  Its return value is a number x
+// that is in the range 0 <= x < (width ^ count).
+//
+function ARC4(key) {
+  var t, keylen = key.length,
+      me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
+
+  // The empty key [] is treated as [0].
+  if (!keylen) { key = [keylen++]; }
+
+  // Set up S using the standard key scheduling algorithm.
+  while (i < width) {
+    s[i] = i++;
+  }
+  for (i = 0; i < width; i++) {
+    s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))];
+    s[j] = t;
+  }
+
+  // The "g" method returns the next (count) outputs as one number.
+  (me.g = function(count) {
+    // Using instance members instead of closure state nearly doubles speed.
+    var t, r = 0,
+        i = me.i, j = me.j, s = me.S;
+    while (count--) {
+      t = s[i = mask & (i + 1)];
+      r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))];
+    }
+    me.i = i; me.j = j;
+    return r;
+    // For robust unpredictability, the function call below automatically
+    // discards an initial batch of values.  This is called RC4-drop[256].
+    // See http://google.com/search?q=rsa+fluhrer+response&btnI
+  })(width);
+}
+
+//
+// copy()
+// Copies internal state of ARC4 to or from a plain object.
+//
+function copy(f, t) {
+  t.i = f.i;
+  t.j = f.j;
+  t.S = f.S.slice();
+  return t;
+};
+
+//
+// flatten()
+// Converts an object tree to nested arrays of strings.
+//
+function flatten(obj, depth) {
+  var result = [], typ = (typeof obj), prop;
+  if (depth && typ == 'object') {
+    for (prop in obj) {
+      try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {}
+    }
+  }
+  return (result.length ? result : typ == 'string' ? obj : obj + '\0');
+}
+
+//
+// mixkey()
+// Mixes a string seed into a key that is an array of integers, and
+// returns a shortened string seed that is equivalent to the result key.
+//
+function mixkey(seed, key) {
+  var stringseed = seed + '', smear, j = 0;
+  while (j < stringseed.length) {
+    key[mask & j] =
+      mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++));
+  }
+  return tostring(key);
+}
+
+//
+// autoseed()
+// Returns an object for autoseeding, using window.crypto and Node crypto
+// module if available.
+//
+function autoseed() {
+  try {
+    var out;
+    if (nodecrypto && (out = nodecrypto.randomBytes)) {
+      // The use of 'out' to remember randomBytes makes tight minified code.
+      out = out(width);
+    } else {
+      out = new Uint8Array(width);
+      (global.crypto || global.msCrypto).getRandomValues(out);
+    }
+    return tostring(out);
+  } catch (e) {
+    var browser = global.navigator,
+        plugins = browser && browser.plugins;
+    return [+new Date, global, plugins, global.screen, tostring(pool)];
+  }
+}
+
+//
+// tostring()
+// Converts an array of charcodes to a string
+//
+function tostring(a) {
+  return String.fromCharCode.apply(0, a);
+}
+
+//
+// When seedrandom.js is loaded, we immediately mix a few bits
+// from the built-in RNG into the entropy pool.  Because we do
+// not want to interfere with deterministic PRNG state later,
+// seedrandom will not call math.random on its own again after
+// initialization.
+//
+mixkey(math.random(), pool);
+
+//
+// Nodejs and AMD support: export the implementation as a module using
+// either convention.
+//
+if ( true && module.exports) {
+  module.exports = seedrandom;
+  // When in node.js, try using crypto package for autoseeding.
+  try {
+    nodecrypto = __webpack_require__(417);
+  } catch (ex) {}
+} else if ((typeof define) == 'function' && define.amd) {
+  define(function() { return seedrandom; });
+} else {
+  // When included as a plain script, set up Math.seedrandom global.
+  math['seed' + rngname] = seedrandom;
+}
+
+
+// End anonymous scope, and pass initial values.
+})(
+  // global: `self` in browsers (including strict mode and web workers),
+  // otherwise `this` in Node and other environments
+  (typeof self !== 'undefined') ? self : this,
+  [],     // pool: entropy pool starts empty
+  Math    // math: package containing random, pow, and seedrandom
+);
+
+
+/***/ }),
+
 /***/ 896:
 /***/ (function(module) {
 
@@ -21809,53 +24715,116 @@ var isArray = Array.isArray || function (xs) {
 
 /***/ }),
 
-/***/ 902:
-/***/ (function(module, __unusedexports, __webpack_require__) {
+/***/ 923:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
 
-const varint = __webpack_require__(507)
-const { Buffer } = __webpack_require__(293)
-
-module.exports = {
-  numberToBuffer,
-  bufferToNumber,
-  varintBufferEncode,
-  varintBufferDecode,
-  varintEncode
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.expirationError = exports.createUserAuth = exports.createAPISig = void 0;
+/**
+ * Common types/methods for Textile security including authentication and authorization.
+ *
+ * All methods here should be imported directly from the @textile/hub library.
+ *
+ * @packageDocumentation
+ */
+const fast_sha256_1 = __webpack_require__(362);
+const multibase_1 = __importDefault(__webpack_require__(939));
+/**
+ * createAPISig generates an authorization signature and message only.
+ *
+ * This function should NOT be used client-side, as it requires a key secret.
+ * @public
+ * @example
+ * Basic usage
+ * ```typescript
+ * import {createAPISig, APISig} from '@textile/threads'
+ *
+ * async function sign (key: string) {
+ *   const sig: APISig = await createAPISig(key)
+ *   return sig
+ * }
+ * ```
+ * @param {string} secret - The key secret to generate the signature. See KeyInfo for details.
+ * @param {Date} date - An optional future Date to use as signature message. Once `date` has passed, this
+ * authorization signature and message will expire. Defaults to one minute from `Date.now`.
+ */
+function createAPISig(secret, date = new Date(Date.now() + 1000 * 60 * 30) // Default to 30 minutes
+) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const sec = multibase_1.default.decode(secret);
+        const msg = date.toISOString();
+        const hash = new fast_sha256_1.HMAC(sec);
+        const mac = hash.update(Buffer.from(msg)).digest();
+        const sig = multibase_1.default.encode("base32", Buffer.from(mac)).toString();
+        return { sig, msg };
+    });
 }
-
-function bufferToNumber (buf) {
-  return parseInt(buf.toString('hex'), 16)
+exports.createAPISig = createAPISig;
+/**
+ * Generate a UserAuth containing API key, signature, and message.
+ *
+ * The gRPC APIs will throw (or return an authorization error) if the message date has passed.
+ * This function should NOT be used client-side, as it requires a key secret. The result does
+ * not contain the secret and therefor CAN be used client side.
+ * @public
+ * @example
+ * Create a new UserAuth
+ * ```typescript
+ * import {createUserAuth, KeyInfo, UserAuth} from '@textile/threads';
+ *
+ * async function auth (keyInfo: KeyInfo) {
+ *   // Create an expiration and create a signature. 60s or less is recommended.
+ *   const expiration = new Date(Date.now() + 60 * 1000)
+ *   // Generate a new UserAuth
+ *   const userAuth: UserAuth = await createUserAuth(keyInfo.key, keyInfo.secret ?? '', expiration)
+ *   return userAuth
+ * }
+ * ```
+ *
+ * @param {string} key - The API key secret to generate the signature. See KeyInfo for details.
+ * @param {string} secret - The API key secret to generate the signature. See KeyInfo for details.
+ * @param {Date} date - An optional future Date to use as signature message. Default 1 minute from now.
+ * @param {string} token - An optional user API token.
+ */
+function createUserAuth(key, secret, date, token) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const partial = yield createAPISig(secret, date);
+        return Object.assign(Object.assign({}, partial), { key,
+            token });
+    });
 }
-
-function numberToBuffer (num) {
-  let hexString = num.toString(16)
-  if (hexString.length % 2 === 1) {
-    hexString = '0' + hexString
-  }
-  return Buffer.from(hexString, 'hex')
-}
-
-function varintBufferEncode (input) {
-  return Buffer.from(varint.encode(bufferToNumber(input)))
-}
-
-function varintBufferDecode (input) {
-  return numberToBuffer(varint.decode(input))
-}
-
-function varintEncode (num) {
-  return Buffer.from(varint.encode(num))
-}
-
-
-/***/ }),
-
-/***/ 923:
-/***/ (function(module) {
-
-module.exports = {"identity":0,"ip4":4,"tcp":6,"sha1":17,"sha2-256":18,"sha2-512":19,"sha3-512":20,"sha3-384":21,"sha3-256":22,"sha3-224":23,"shake-128":24,"shake-256":25,"keccak-224":26,"keccak-256":27,"keccak-384":28,"keccak-512":29,"blake3":30,"dccp":33,"murmur3-128":34,"murmur3-32":35,"ip6":41,"ip6zone":42,"path":47,"multicodec":48,"multihash":49,"multiaddr":50,"multibase":51,"dns":53,"dns4":54,"dns6":55,"dnsaddr":56,"protobuf":80,"cbor":81,"raw":85,"dbl-sha2-256":86,"rlp":96,"bencode":99,"dag-pb":112,"dag-cbor":113,"libp2p-key":114,"git-raw":120,"torrent-info":123,"torrent-file":124,"leofcoin-block":129,"leofcoin-tx":130,"leofcoin-pr":131,"sctp":132,"dag-jose":133,"dag-cose":134,"eth-block":144,"eth-block-list":145,"eth-tx-trie":146,"eth-tx":147,"eth-tx-receipt-trie":148,"eth-tx-receipt":149,"eth-state-trie":150,"eth-account-snapshot":151,"eth-storage-trie":152,"bitcoin-block":176,"bitcoin-tx":177,"bitcoin-witness-commitment":178,"zcash-block":192,"zcash-tx":193,"stellar-block":208,"stellar-tx":209,"md4":212,"md5":213,"bmt":214,"decred-block":224,"decred-tx":225,"ipld-ns":226,"ipfs-ns":227,"swarm-ns":228,"ipns-ns":229,"zeronet":230,"secp256k1-pub":231,"bls12_381-g1-pub":234,"bls12_381-g2-pub":235,"x25519-pub":236,"ed25519-pub":237,"dash-block":240,"dash-tx":241,"swarm-manifest":250,"swarm-feed":251,"udp":273,"p2p-webrtc-star":275,"p2p-webrtc-direct":276,"p2p-stardust":277,"p2p-circuit":290,"dag-json":297,"udt":301,"utp":302,"unix":400,"p2p":421,"ipfs":421,"https":443,"onion":444,"onion3":445,"garlic64":446,"garlic32":447,"tls":448,"quic":460,"ws":477,"wss":478,"p2p-websocket-star":479,"http":480,"json":512,"messagepack":513,"libp2p-peer-record":769,"sha2-256-trunc254-padded":4114,"ripemd-128":4178,"ripemd-160":4179,"ripemd-256":4180,"ripemd-320":4181,"x11":4352,"sm3-256":21325,"blake2b-8":45569,"blake2b-16":45570,"blake2b-24":45571,"blake2b-32":45572,"blake2b-40":45573,"blake2b-48":45574,"blake2b-56":45575,"blake2b-64":45576,"blake2b-72":45577,"blake2b-80":45578,"blake2b-88":45579,"blake2b-96":45580,"blake2b-104":45581,"blake2b-112":45582,"blake2b-120":45583,"blake2b-128":45584,"blake2b-136":45585,"blake2b-144":45586,"blake2b-152":45587,"blake2b-160":45588,"blake2b-168":45589,"blake2b-176":45590,"blake2b-184":45591,"blake2b-192":45592,"blake2b-200":45593,"blake2b-208":45594,"blake2b-216":45595,"blake2b-224":45596,"blake2b-232":45597,"blake2b-240":45598,"blake2b-248":45599,"blake2b-256":45600,"blake2b-264":45601,"blake2b-272":45602,"blake2b-280":45603,"blake2b-288":45604,"blake2b-296":45605,"blake2b-304":45606,"blake2b-312":45607,"blake2b-320":45608,"blake2b-328":45609,"blake2b-336":45610,"blake2b-344":45611,"blake2b-352":45612,"blake2b-360":45613,"blake2b-368":45614,"blake2b-376":45615,"blake2b-384":45616,"blake2b-392":45617,"blake2b-400":45618,"blake2b-408":45619,"blake2b-416":45620,"blake2b-424":45621,"blake2b-432":45622,"blake2b-440":45623,"blake2b-448":45624,"blake2b-456":45625,"blake2b-464":45626,"blake2b-472":45627,"blake2b-480":45628,"blake2b-488":45629,"blake2b-496":45630,"blake2b-504":45631,"blake2b-512":45632,"blake2s-8":45633,"blake2s-16":45634,"blake2s-24":45635,"blake2s-32":45636,"blake2s-40":45637,"blake2s-48":45638,"blake2s-56":45639,"blake2s-64":45640,"blake2s-72":45641,"blake2s-80":45642,"blake2s-88":45643,"blake2s-96":45644,"blake2s-104":45645,"blake2s-112":45646,"blake2s-120":45647,"blake2s-128":45648,"blake2s-136":45649,"blake2s-144":45650,"blake2s-152":45651,"blake2s-160":45652,"blake2s-168":45653,"blake2s-176":45654,"blake2s-184":45655,"blake2s-192":45656,"blake2s-200":45657,"blake2s-208":45658,"blake2s-216":45659,"blake2s-224":45660,"blake2s-232":45661,"blake2s-240":45662,"blake2s-248":45663,"blake2s-256":45664,"skein256-8":45825,"skein256-16":45826,"skein256-24":45827,"skein256-32":45828,"skein256-40":45829,"skein256-48":45830,"skein256-56":45831,"skein256-64":45832,"skein256-72":45833,"skein256-80":45834,"skein256-88":45835,"skein256-96":45836,"skein256-104":45837,"skein256-112":45838,"skein256-120":45839,"skein256-128":45840,"skein256-136":45841,"skein256-144":45842,"skein256-152":45843,"skein256-160":45844,"skein256-168":45845,"skein256-176":45846,"skein256-184":45847,"skein256-192":45848,"skein256-200":45849,"skein256-208":45850,"skein256-216":45851,"skein256-224":45852,"skein256-232":45853,"skein256-240":45854,"skein256-248":45855,"skein256-256":45856,"skein512-8":45857,"skein512-16":45858,"skein512-24":45859,"skein512-32":45860,"skein512-40":45861,"skein512-48":45862,"skein512-56":45863,"skein512-64":45864,"skein512-72":45865,"skein512-80":45866,"skein512-88":45867,"skein512-96":45868,"skein512-104":45869,"skein512-112":45870,"skein512-120":45871,"skein512-128":45872,"skein512-136":45873,"skein512-144":45874,"skein512-152":45875,"skein512-160":45876,"skein512-168":45877,"skein512-176":45878,"skein512-184":45879,"skein512-192":45880,"skein512-200":45881,"skein512-208":45882,"skein512-216":45883,"skein512-224":45884,"skein512-232":45885,"skein512-240":45886,"skein512-248":45887,"skein512-256":45888,"skein512-264":45889,"skein512-272":45890,"skein512-280":45891,"skein512-288":45892,"skein512-296":45893,"skein512-304":45894,"skein512-312":45895,"skein512-320":45896,"skein512-328":45897,"skein512-336":45898,"skein512-344":45899,"skein512-352":45900,"skein512-360":45901,"skein512-368":45902,"skein512-376":45903,"skein512-384":45904,"skein512-392":45905,"skein512-400":45906,"skein512-408":45907,"skein512-416":45908,"skein512-424":45909,"skein512-432":45910,"skein512-440":45911,"skein512-448":45912,"skein512-456":45913,"skein512-464":45914,"skein512-472":45915,"skein512-480":45916,"skein512-488":45917,"skein512-496":45918,"skein512-504":45919,"skein512-512":45920,"skein1024-8":45921,"skein1024-16":45922,"skein1024-24":45923,"skein1024-32":45924,"skein1024-40":45925,"skein1024-48":45926,"skein1024-56":45927,"skein1024-64":45928,"skein1024-72":45929,"skein1024-80":45930,"skein1024-88":45931,"skein1024-96":45932,"skein1024-104":45933,"skein1024-112":45934,"skein1024-120":45935,"skein1024-128":45936,"skein1024-136":45937,"skein1024-144":45938,"skein1024-152":45939,"skein1024-160":45940,"skein1024-168":45941,"skein1024-176":45942,"skein1024-184":45943,"skein1024-192":45944,"skein1024-200":45945,"skein1024-208":45946,"skein1024-216":45947,"skein1024-224":45948,"skein1024-232":45949,"skein1024-240":45950,"skein1024-248":45951,"skein1024-256":45952,"skein1024-264":45953,"skein1024-272":45954,"skein1024-280":45955,"skein1024-288":45956,"skein1024-296":45957,"skein1024-304":45958,"skein1024-312":45959,"skein1024-320":45960,"skein1024-328":45961,"skein1024-336":45962,"skein1024-344":45963,"skein1024-352":45964,"skein1024-360":45965,"skein1024-368":45966,"skein1024-376":45967,"skein1024-384":45968,"skein1024-392":45969,"skein1024-400":45970,"skein1024-408":45971,"skein1024-416":45972,"skein1024-424":45973,"skein1024-432":45974,"skein1024-440":45975,"skein1024-448":45976,"skein1024-456":45977,"skein1024-464":45978,"skein1024-472":45979,"skein1024-480":45980,"skein1024-488":45981,"skein1024-496":45982,"skein1024-504":45983,"skein1024-512":45984,"skein1024-520":45985,"skein1024-528":45986,"skein1024-536":45987,"skein1024-544":45988,"skein1024-552":45989,"skein1024-560":45990,"skein1024-568":45991,"skein1024-576":45992,"skein1024-584":45993,"skein1024-592":45994,"skein1024-600":45995,"skein1024-608":45996,"skein1024-616":45997,"skein1024-624":45998,"skein1024-632":45999,"skein1024-640":46000,"skein1024-648":46001,"skein1024-656":46002,"skein1024-664":46003,"skein1024-672":46004,"skein1024-680":46005,"skein1024-688":46006,"skein1024-696":46007,"skein1024-704":46008,"skein1024-712":46009,"skein1024-720":46010,"skein1024-728":46011,"skein1024-736":46012,"skein1024-744":46013,"skein1024-752":46014,"skein1024-760":46015,"skein1024-768":46016,"skein1024-776":46017,"skein1024-784":46018,"skein1024-792":46019,"skein1024-800":46020,"skein1024-808":46021,"skein1024-816":46022,"skein1024-824":46023,"skein1024-832":46024,"skein1024-840":46025,"skein1024-848":46026,"skein1024-856":46027,"skein1024-864":46028,"skein1024-872":46029,"skein1024-880":46030,"skein1024-888":46031,"skein1024-896":46032,"skein1024-904":46033,"skein1024-912":46034,"skein1024-920":46035,"skein1024-928":46036,"skein1024-936":46037,"skein1024-944":46038,"skein1024-952":46039,"skein1024-960":46040,"skein1024-968":46041,"skein1024-976":46042,"skein1024-984":46043,"skein1024-992":46044,"skein1024-1000":46045,"skein1024-1008":46046,"skein1024-1016":46047,"skein1024-1024":46048,"poseidon-bls12_381-a2-fc1":46081,"poseidon-bls12_381-a2-fc1-sc":46082,"zeroxcert-imprint-256":52753,"fil-commitment-unsealed":61697,"fil-commitment-sealed":61698,"holochain-adr-v0":8417572,"holochain-adr-v1":8483108,"holochain-key-v0":9728292,"holochain-key-v1":9793828,"holochain-sig-v0":10645796,"holochain-sig-v1":10711332};
+exports.createUserAuth = createUserAuth;
+/**
+ * expirationError is an error your app will receive anytime your credentials have expired.
+ * @public
+ */
+exports.expirationError = new Error("Auth expired. Consider calling withKeyInfo or withAPISig to refresh.");
+__exportStar(__webpack_require__(563), exports);
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -22246,6 +25215,42 @@ module.exports = {
 
 /***/ }),
 
+/***/ 971:
+/***/ (function(module) {
+
+module.exports = read
+
+var MSB = 0x80
+  , REST = 0x7F
+
+function read(buf, offset) {
+  var res    = 0
+    , offset = offset || 0
+    , shift  = 0
+    , counter = offset
+    , b
+    , l = buf.length
+
+  do {
+    if (counter >= l) {
+      read.bytes = 0
+      throw new RangeError('Could not decode varint')
+    }
+    b = buf[counter++]
+    res += shift < 28
+      ? (b & REST) << shift
+      : (b & REST) * Math.pow(2, shift)
+    shift += 7
+  } while (b >= MSB)
+
+  read.bytes = counter - offset
+
+  return res
+}
+
+
+/***/ }),
+
 /***/ 973:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -22375,6 +25380,131 @@ function base (ALPHABET) {
 module.exports = base
 
 
+/***/ }),
+
+/***/ 998:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ThreadKey = exports.keyToString = exports.keyFromString = exports.randomBytes = exports.invalidKeyError = void 0;
+const sync_randombytes_1 = __importDefault(__webpack_require__(651));
+const multibase_1 = __importDefault(__webpack_require__(939));
+exports.invalidKeyError = new Error("Invalid key");
+exports.randomBytes = (byteLength) => {
+    return sync_randombytes_1.default(new Uint8Array(byteLength));
+};
+// KeyBytes is the length of GCM key.
+const keyBytes = 32;
+/**
+ * keyFromString returns a key by decoding a base32-encoded string.
+ * @param k Input base32-encoded string.
+ */
+exports.keyFromString = (k) => {
+    return multibase_1.default.decode(k);
+};
+/**
+ * String returns the base32-encoded string representation of raw key bytes.
+ * @param k Input key buffer.
+ */
+exports.keyToString = (k) => {
+    return multibase_1.default.encode("base32", k).toString();
+};
+/**
+ * Key is a thread encryption key with two components.
+ * @param sk Network key is used to encrypt outer log record linkages.
+ * @param rk Read key is used to encrypt inner record events.
+ */
+class ThreadKey {
+    constructor(service, read) {
+        this.service = service;
+        this.read = read;
+    }
+    /**
+     * Create a new set of keys.
+     * @param withRead Whether to also include a random read key.
+     */
+    static fromRandom(withRead = true) {
+        return new ThreadKey(exports.randomBytes(keyBytes), withRead ? exports.randomBytes(keyBytes) : undefined);
+    }
+    /**
+     * Create Key from bytes.
+     * @param bytes Input bytes of (possibly both) key(s).
+     */
+    static fromBytes(bytes) {
+        if (bytes.byteLength !== keyBytes && bytes.byteLength !== keyBytes * 2) {
+            throw exports.invalidKeyError;
+        }
+        const sk = bytes.slice(0, keyBytes);
+        let rk;
+        if (bytes.byteLength === keyBytes * 2) {
+            rk = bytes.slice(keyBytes);
+        }
+        return new ThreadKey(sk, rk);
+    }
+    /**
+     * Create Key by decoding a base32-encoded string.
+     * @param s The base32-encoded string.
+     */
+    static fromString(s) {
+        const data = multibase_1.default.decode(s);
+        return this.fromBytes(data);
+    }
+    isDefined() {
+        return this.service !== undefined;
+    }
+    canRead() {
+        return this.read !== undefined;
+    }
+    toBytes() {
+        var _a;
+        if (this.read !== undefined) {
+            const full = new Uint8Array(this.service.byteLength + ((_a = this.read.byteLength) !== null && _a !== void 0 ? _a : 0));
+            full.set(this.service);
+            this.read && full.set(this.read, this.service.byteLength);
+            return full;
+        }
+        return this.service;
+    }
+    /**
+     * Return the base32-encoded string representation of raw key bytes.
+     * For example:
+     * Full: "brv7t5l2h55uklz5qwpntcat26csaasfchzof3emmdy6povabcd3a2to2qdkqdkto2prfhizerqqudqsdvwherbiy4nazqxjejgdr4oy"
+     * Network: "bp2vvqody5zm6yqycsnazb4kpqvycbdosos352zvpsorxce5koh7q"
+     */
+    toString() {
+        return multibase_1.default.encode("base32", this.toBytes()).toString();
+    }
+}
+exports.ThreadKey = ThreadKey;
+//# sourceMappingURL=key.js.map
+
 /***/ })
 
-/******/ });
+/******/ },
+/******/ function(__webpack_require__) { // webpackRuntimeModules
+/******/ 	"use strict";
+/******/ 
+/******/ 	/* webpack/runtime/node module decorator */
+/******/ 	!function() {
+/******/ 		__webpack_require__.nmd = function(module) {
+/******/ 			module.paths = [];
+/******/ 			if (!module.children) module.children = [];
+/******/ 			Object.defineProperty(module, 'loaded', {
+/******/ 				enumerable: true,
+/******/ 				get: function() { return module.l; }
+/******/ 			});
+/******/ 			Object.defineProperty(module, 'id', {
+/******/ 				enumerable: true,
+/******/ 				get: function() { return module.i; }
+/******/ 			});
+/******/ 			return module;
+/******/ 		};
+/******/ 	}();
+/******/ 	
+/******/ }
+);

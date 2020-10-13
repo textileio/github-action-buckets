@@ -226,7 +226,7 @@ export async function execute(
     await bucketsRemovePath(connection, bucketKey, orphan)
   }
 
-  const links = await bucketsLinks(connection, bucketKey)
+  const links = await bucketsLinks(connection, bucketKey, '/')
 
   const ipfs = raw ? raw.root.replace('/ipfs/', '') : ''
   response.set('ipfs', ipfs)
