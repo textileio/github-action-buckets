@@ -74,7 +74,7 @@ class Sender {
    * Creates a Sender instance.
    *
    * @param {net.Socket} socket The connection socket
-   * @param {Object} extensions An object containing the negotiated extensions
+   * @param {Object} [extensions] An object containing the negotiated extensions
    */
   constructor(socket, extensions) {
     this._extensions = extensions || {};
@@ -94,10 +94,14 @@ class Sender {
    * @param {Buffer} data The data to frame
    * @param {Object} options Options object
    * @param {Number} options.opcode The opcode
-   * @param {Boolean} options.readOnly Specifies whether `data` can be modified
-   * @param {Boolean} options.fin Specifies whether or not to set the FIN bit
-   * @param {Boolean} options.mask Specifies whether or not to mask `data`
-   * @param {Boolean} options.rsv1 Specifies whether or not to set the RSV1 bit
+   * @param {Boolean} [options.readOnly=false] Specifies whether `data` can be
+   *     modified
+   * @param {Boolean} [options.fin=false] Specifies whether or not to set the
+   *     FIN bit
+   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
+   *     `data`
+   * @param {Boolean} [options.rsv1=false] Specifies whether or not to set the
+   *     RSV1 bit
    * @return {Buffer[]} The framed data as a list of `Buffer` instances
    * @public
    */
@@ -150,10 +154,10 @@ class Sender {
   /**
    * Sends a close message to the other peer.
    *
-   * @param {(Number|undefined)} code The status code component of the body
-   * @param {String} data The message component of the body
-   * @param {Boolean} mask Specifies whether or not to mask the message
-   * @param {Function} cb Callback
+   * @param {Number} [code] The status code component of the body
+   * @param {String} [data] The message component of the body
+   * @param {Boolean} [mask=false] Specifies whether or not to mask the message
+   * @param {Function} [cb] Callback
    * @public
    */
   close(code, data, mask, cb) {
@@ -189,8 +193,8 @@ class Sender {
    * Frames and sends a close message.
    *
    * @param {Buffer} data The message to send
-   * @param {Boolean} mask Specifies whether or not to mask `data`
-   * @param {Function} cb Callback
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback
    * @private
    */
   doClose(data, mask, cb) {
@@ -210,8 +214,8 @@ class Sender {
    * Sends a ping message to the other peer.
    *
    * @param {*} data The message to send
-   * @param {Boolean} mask Specifies whether or not to mask `data`
-   * @param {Function} cb Callback
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback
    * @public
    */
   ping(data, mask, cb) {
@@ -232,9 +236,9 @@ class Sender {
    * Frames and sends a ping message.
    *
    * @param {Buffer} data The message to send
-   * @param {Boolean} mask Specifies whether or not to mask `data`
-   * @param {Boolean} readOnly Specifies whether `data` can be modified
-   * @param {Function} cb Callback
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Boolean} [readOnly=false] Specifies whether `data` can be modified
+   * @param {Function} [cb] Callback
    * @private
    */
   doPing(data, mask, readOnly, cb) {
@@ -254,8 +258,8 @@ class Sender {
    * Sends a pong message to the other peer.
    *
    * @param {*} data The message to send
-   * @param {Boolean} mask Specifies whether or not to mask `data`
-   * @param {Function} cb Callback
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback
    * @public
    */
   pong(data, mask, cb) {
@@ -276,9 +280,9 @@ class Sender {
    * Frames and sends a pong message.
    *
    * @param {Buffer} data The message to send
-   * @param {Boolean} mask Specifies whether or not to mask `data`
-   * @param {Boolean} readOnly Specifies whether `data` can be modified
-   * @param {Function} cb Callback
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Boolean} [readOnly=false] Specifies whether `data` can be modified
+   * @param {Function} [cb] Callback
    * @private
    */
   doPong(data, mask, readOnly, cb) {
@@ -299,11 +303,15 @@ class Sender {
    *
    * @param {*} data The message to send
    * @param {Object} options Options object
-   * @param {Boolean} options.compress Specifies whether or not to compress `data`
-   * @param {Boolean} options.binary Specifies whether `data` is binary or text
-   * @param {Boolean} options.fin Specifies whether the fragment is the last one
-   * @param {Boolean} options.mask Specifies whether or not to mask `data`
-   * @param {Function} cb Callback
+   * @param {Boolean} [options.compress=false] Specifies whether or not to
+   *     compress `data`
+   * @param {Boolean} [options.binary=false] Specifies whether `data` is binary
+   *     or text
+   * @param {Boolean} [options.fin=false] Specifies whether the fragment is the
+   *     last one
+   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
+   *     `data`
+   * @param {Function} [cb] Callback
    * @public
    */
   send(data, options, cb) {
@@ -357,14 +365,19 @@ class Sender {
    * Dispatches a data message.
    *
    * @param {Buffer} data The message to send
-   * @param {Boolean} compress Specifies whether or not to compress `data`
+   * @param {Boolean} [compress=false] Specifies whether or not to compress
+   *     `data`
    * @param {Object} options Options object
    * @param {Number} options.opcode The opcode
-   * @param {Boolean} options.readOnly Specifies whether `data` can be modified
-   * @param {Boolean} options.fin Specifies whether or not to set the FIN bit
-   * @param {Boolean} options.mask Specifies whether or not to mask `data`
-   * @param {Boolean} options.rsv1 Specifies whether or not to set the RSV1 bit
-   * @param {Function} cb Callback
+   * @param {Boolean} [options.readOnly=false] Specifies whether `data` can be
+   *     modified
+   * @param {Boolean} [options.fin=false] Specifies whether or not to set the
+   *     FIN bit
+   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
+   *     `data`
+   * @param {Boolean} [options.rsv1=false] Specifies whether or not to set the
+   *     RSV1 bit
+   * @param {Function} [cb] Callback
    * @private
    */
   dispatch(data, compress, options, cb) {
@@ -431,7 +444,7 @@ class Sender {
    * Sends a frame.
    *
    * @param {Buffer[]} list The frame to send
-   * @param {Function} cb Callback
+   * @param {Function} [cb] Callback
    * @private
    */
   sendFrame(list, cb) {
@@ -778,22 +791,21 @@ class WebSocket extends EventEmitter {
    * Create a new `WebSocket`.
    *
    * @param {(String|url.URL)} address The URL to which to connect
-   * @param {(String|String[])} protocols The subprotocols
-   * @param {Object} options Connection options
+   * @param {(String|String[])} [protocols] The subprotocols
+   * @param {Object} [options] Connection options
    */
   constructor(address, protocols, options) {
     super();
 
-    this.readyState = WebSocket.CONNECTING;
-    this.protocol = '';
-
     this._binaryType = BINARY_TYPES[0];
+    this._closeCode = 1006;
     this._closeFrameReceived = false;
     this._closeFrameSent = false;
     this._closeMessage = '';
     this._closeTimer = null;
-    this._closeCode = 1006;
     this._extensions = {};
+    this._protocol = '';
+    this._readyState = WebSocket.CONNECTING;
     this._receiver = null;
     this._sender = null;
     this._socket = null;
@@ -814,19 +826,6 @@ class WebSocket extends EventEmitter {
     } else {
       this._isServer = true;
     }
-  }
-
-  get CONNECTING() {
-    return WebSocket.CONNECTING;
-  }
-  get CLOSING() {
-    return WebSocket.CLOSING;
-  }
-  get CLOSED() {
-    return WebSocket.CLOSED;
-  }
-  get OPEN() {
-    return WebSocket.OPEN;
   }
 
   /**
@@ -868,16 +867,37 @@ class WebSocket extends EventEmitter {
   }
 
   /**
+   * @type {String}
+   */
+  get protocol() {
+    return this._protocol;
+  }
+
+  /**
+   * @type {Number}
+   */
+  get readyState() {
+    return this._readyState;
+  }
+
+  /**
+   * @type {String}
+   */
+  get url() {
+    return this._url;
+  }
+
+  /**
    * Set up the socket and the internal resources.
    *
    * @param {net.Socket} socket The network socket between the server and client
    * @param {Buffer} head The first packet of the upgraded stream
-   * @param {Number} maxPayload The maximum allowed message size
+   * @param {Number} [maxPayload=0] The maximum allowed message size
    * @private
    */
   setSocket(socket, head, maxPayload) {
     const receiver = new Receiver(
-      this._binaryType,
+      this.binaryType,
       this._extensions,
       this._isServer,
       maxPayload
@@ -907,7 +927,7 @@ class WebSocket extends EventEmitter {
     socket.on('end', socketOnEnd);
     socket.on('error', socketOnError);
 
-    this.readyState = WebSocket.OPEN;
+    this._readyState = WebSocket.OPEN;
     this.emit('open');
   }
 
@@ -918,7 +938,7 @@ class WebSocket extends EventEmitter {
    */
   emitClose() {
     if (!this._socket) {
-      this.readyState = WebSocket.CLOSED;
+      this._readyState = WebSocket.CLOSED;
       this.emit('close', this._closeCode, this._closeMessage);
       return;
     }
@@ -928,7 +948,7 @@ class WebSocket extends EventEmitter {
     }
 
     this._receiver.removeAllListeners();
-    this.readyState = WebSocket.CLOSED;
+    this._readyState = WebSocket.CLOSED;
     this.emit('close', this._closeCode, this._closeMessage);
   }
 
@@ -947,8 +967,8 @@ class WebSocket extends EventEmitter {
    *     - - - - -|fin|<---------------------+
    *              +---+
    *
-   * @param {Number} code Status code explaining why the connection is closing
-   * @param {String} data A string explaining why the connection is closing
+   * @param {Number} [code] Status code explaining why the connection is closing
+   * @param {String} [data] A string explaining why the connection is closing
    * @public
    */
   close(code, data) {
@@ -963,7 +983,7 @@ class WebSocket extends EventEmitter {
       return;
     }
 
-    this.readyState = WebSocket.CLOSING;
+    this._readyState = WebSocket.CLOSING;
     this._sender.close(code, data, !this._isServer, (err) => {
       //
       // This error is handled by the `'error'` listener on the socket. We only
@@ -987,9 +1007,9 @@ class WebSocket extends EventEmitter {
   /**
    * Send a ping.
    *
-   * @param {*} data The data to send
-   * @param {Boolean} mask Indicates whether or not to mask `data`
-   * @param {Function} cb Callback which is executed when the ping is sent
+   * @param {*} [data] The data to send
+   * @param {Boolean} [mask] Indicates whether or not to mask `data`
+   * @param {Function} [cb] Callback which is executed when the ping is sent
    * @public
    */
   ping(data, mask, cb) {
@@ -1019,9 +1039,9 @@ class WebSocket extends EventEmitter {
   /**
    * Send a pong.
    *
-   * @param {*} data The data to send
-   * @param {Boolean} mask Indicates whether or not to mask `data`
-   * @param {Function} cb Callback which is executed when the pong is sent
+   * @param {*} [data] The data to send
+   * @param {Boolean} [mask] Indicates whether or not to mask `data`
+   * @param {Function} [cb] Callback which is executed when the pong is sent
    * @public
    */
   pong(data, mask, cb) {
@@ -1052,13 +1072,15 @@ class WebSocket extends EventEmitter {
    * Send a data message.
    *
    * @param {*} data The message to send
-   * @param {Object} options Options object
-   * @param {Boolean} options.compress Specifies whether or not to compress
+   * @param {Object} [options] Options object
+   * @param {Boolean} [options.compress] Specifies whether or not to compress
    *     `data`
-   * @param {Boolean} options.binary Specifies whether `data` is binary or text
-   * @param {Boolean} options.fin Specifies whether the fragment is the last one
-   * @param {Boolean} options.mask Specifies whether or not to mask `data`
-   * @param {Function} cb Callback which is executed when data is written out
+   * @param {Boolean} [options.binary] Specifies whether `data` is binary or
+   *     text
+   * @param {Boolean} [options.fin=true] Specifies whether the fragment is the
+   *     last one
+   * @param {Boolean} [options.mask] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback which is executed when data is written out
    * @public
    */
   send(data, options, cb) {
@@ -1106,14 +1128,28 @@ class WebSocket extends EventEmitter {
     }
 
     if (this._socket) {
-      this.readyState = WebSocket.CLOSING;
+      this._readyState = WebSocket.CLOSING;
       this._socket.destroy();
     }
   }
 }
 
 readyStates.forEach((readyState, i) => {
-  WebSocket[readyState] = i;
+  const descriptor = { enumerable: true, value: i };
+
+  Object.defineProperty(WebSocket.prototype, readyState, descriptor);
+  Object.defineProperty(WebSocket, readyState, descriptor);
+});
+
+[
+  'binaryType',
+  'bufferedAmount',
+  'extensions',
+  'protocol',
+  'readyState',
+  'url'
+].forEach((property) => {
+  Object.defineProperty(WebSocket.prototype, property, { enumerable: true });
 });
 
 //
@@ -1122,6 +1158,8 @@ readyStates.forEach((readyState, i) => {
 //
 ['open', 'error', 'close', 'message'].forEach((method) => {
   Object.defineProperty(WebSocket.prototype, `on${method}`, {
+    configurable: true,
+    enumerable: true,
     /**
      * Return the listener of the event.
      *
@@ -1165,19 +1203,22 @@ module.exports = WebSocket;
  *
  * @param {WebSocket} websocket The client to initialize
  * @param {(String|url.URL)} address The URL to which to connect
- * @param {String} protocols The subprotocols
- * @param {Object} options Connection options
- * @param {(Boolean|Object)} options.perMessageDeflate Enable/disable
+ * @param {String} [protocols] The subprotocols
+ * @param {Object} [options] Connection options
+ * @param {(Boolean|Object)} [options.perMessageDeflate=true] Enable/disable
  *     permessage-deflate
- * @param {Number} options.handshakeTimeout Timeout in milliseconds for the
+ * @param {Number} [options.handshakeTimeout] Timeout in milliseconds for the
  *     handshake request
- * @param {Number} options.protocolVersion Value of the `Sec-WebSocket-Version`
- *     header
- * @param {String} options.origin Value of the `Origin` or
+ * @param {Number} [options.protocolVersion=13] Value of the
+ *     `Sec-WebSocket-Version` header
+ * @param {String} [options.origin] Value of the `Origin` or
  *     `Sec-WebSocket-Origin` header
- * @param {Number} options.maxPayload The maximum allowed message size
- * @param {Boolean} options.followRedirects Whether or not to follow redirects
- * @param {Number} options.maxRedirects The maximum number of redirects allowed
+ * @param {Number} [options.maxPayload=104857600] The maximum allowed message
+ *     size
+ * @param {Boolean} [options.followRedirects=false] Whether or not to follow
+ *     redirects
+ * @param {Number} [options.maxRedirects=10] The maximum number of redirects
+ *     allowed
  * @private
  */
 function initAsClient(websocket, address, protocols, options) {
@@ -1210,10 +1251,10 @@ function initAsClient(websocket, address, protocols, options) {
 
   if (address instanceof URL) {
     parsedUrl = address;
-    websocket.url = address.href;
+    websocket._url = address.href;
   } else {
     parsedUrl = new URL(address);
-    websocket.url = address;
+    websocket._url = address;
   }
 
   const isUnixSocket = parsedUrl.protocol === 'ws+unix:';
@@ -1288,7 +1329,7 @@ function initAsClient(websocket, address, protocols, options) {
     if (websocket._req.aborted) return;
 
     req = websocket._req = null;
-    websocket.readyState = WebSocket.CLOSING;
+    websocket._readyState = WebSocket.CLOSING;
     websocket.emit('error', err);
     websocket.emitClose();
   });
@@ -1359,7 +1400,7 @@ function initAsClient(websocket, address, protocols, options) {
       return;
     }
 
-    if (serverProt) websocket.protocol = serverProt;
+    if (serverProt) websocket._protocol = serverProt;
 
     if (perMessageDeflate) {
       try {
@@ -1424,7 +1465,7 @@ function tlsConnect(options) {
  * @private
  */
 function abortHandshake(websocket, stream, message) {
-  websocket.readyState = WebSocket.CLOSING;
+  websocket._readyState = WebSocket.CLOSING;
 
   const err = new Error(message);
   Error.captureStackTrace(err, abortHandshake);
@@ -1445,8 +1486,8 @@ function abortHandshake(websocket, stream, message) {
  * when the `readyState` attribute is `CLOSING` or `CLOSED`.
  *
  * @param {WebSocket} websocket The WebSocket instance
- * @param {*} data The data to send
- * @param {Function} cb Callback
+ * @param {*} [data] The data to send
+ * @param {Function} [cb] Callback
  * @private
  */
 function sendAfterClose(websocket, data, cb) {
@@ -1513,7 +1554,7 @@ function receiverOnError(err) {
 
   websocket._socket.removeListener('data', socketOnData);
 
-  websocket.readyState = WebSocket.CLOSING;
+  websocket._readyState = WebSocket.CLOSING;
   websocket._closeCode = err[kStatusCode];
   websocket.emit('error', err);
   websocket._socket.destroy();
@@ -1572,7 +1613,7 @@ function socketOnClose() {
   this.removeListener('close', socketOnClose);
   this.removeListener('end', socketOnEnd);
 
-  websocket.readyState = WebSocket.CLOSING;
+  websocket._readyState = WebSocket.CLOSING;
 
   //
   // The close frame might not have been received or the `'end'` event emitted,
@@ -1623,7 +1664,7 @@ function socketOnData(chunk) {
 function socketOnEnd() {
   const websocket = this[kWebSocket];
 
-  websocket.readyState = WebSocket.CLOSING;
+  websocket._readyState = WebSocket.CLOSING;
   websocket._receiver.end();
   this.end();
 }
@@ -1640,7 +1681,7 @@ function socketOnError() {
   this.on('error', NOOP);
 
   if (websocket) {
-    websocket.readyState = WebSocket.CLOSING;
+    websocket._readyState = WebSocket.CLOSING;
     this.destroy();
   }
 }
@@ -2066,6 +2107,32 @@ function encode(num, out, offset) {
   return out
 }
 
+
+/***/ }),
+
+/***/ 82:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Sanitizes an input into a string so it can be passed into issueCommand safely
+ * @param input input to sanitize into a string
+ */
+function toCommandValue(input) {
+    if (input === null || input === undefined) {
+        return '';
+    }
+    else if (typeof input === 'string' || input instanceof String) {
+        return input;
+    }
+    return JSON.stringify(input);
+}
+exports.toCommandValue = toCommandValue;
+//# sourceMappingURL=utils.js.map
 
 /***/ }),
 
@@ -12802,62 +12869,38 @@ goog.object.extend(exports, proto.api.buckets.pb);
 /***/ }),
 
 /***/ 102:
-/***/ (function(module, __unusedexports, __webpack_require__) {
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
 
-
-const mh = __webpack_require__(20)
-const { Buffer } = __webpack_require__(293)
-var CIDUtil = {
-  /**
-   * Test if the given input is a valid CID object.
-   * Returns an error message if it is not.
-   * Returns undefined if it is a valid CID.
-   *
-   * @param {any} other
-   * @returns {string}
-   */
-  checkCIDComponents: function (other) {
-    if (other == null) {
-      return 'null values are not valid CIDs'
+// For internal use, subject to change.
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const fs = __importStar(__webpack_require__(747));
+const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(82);
+function issueCommand(command, message) {
+    const filePath = process.env[`GITHUB_${command}`];
+    if (!filePath) {
+        throw new Error(`Unable to find environment variable for file command ${command}`);
     }
-
-    if (!(other.version === 0 || other.version === 1)) {
-      return 'Invalid version, must be a number equal to 1 or 0'
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
     }
-
-    if (typeof other.codec !== 'string') {
-      return 'codec must be string'
-    }
-
-    if (other.version === 0) {
-      if (other.codec !== 'dag-pb') {
-        return "codec must be 'dag-pb' for CIDv0"
-      }
-      if (other.multibaseName !== 'base58btc') {
-        return "multibaseName must be 'base58btc' for CIDv0"
-      }
-    }
-
-    if (!Buffer.isBuffer(other.multihash)) {
-      return 'multihash must be a Buffer'
-    }
-
-    try {
-      mh.validate(other.multihash)
-    } catch (err) {
-      let errorMsg = err.message
-      if (!errorMsg) { // Just in case mh.validate() throws an error with empty error message
-        errorMsg = 'Multihash validation failed'
-      }
-      return errorMsg
-    }
-  }
+    fs.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os.EOL}`, {
+        encoding: 'utf8'
+    });
 }
-
-module.exports = CIDUtil
-
+exports.issueCommand = issueCommand;
+//# sourceMappingURL=file-command.js.map
 
 /***/ }),
 
@@ -16778,24 +16821,26 @@ class PerMessageDeflate {
   /**
    * Creates a PerMessageDeflate instance.
    *
-   * @param {Object} options Configuration options
-   * @param {Boolean} options.serverNoContextTakeover Request/accept disabling
-   *     of server context takeover
-   * @param {Boolean} options.clientNoContextTakeover Advertise/acknowledge
-   *     disabling of client context takeover
-   * @param {(Boolean|Number)} options.serverMaxWindowBits Request/confirm the
+   * @param {Object} [options] Configuration options
+   * @param {Boolean} [options.serverNoContextTakeover=false] Request/accept
+   *     disabling of server context takeover
+   * @param {Boolean} [options.clientNoContextTakeover=false] Advertise/
+   *     acknowledge disabling of client context takeover
+   * @param {(Boolean|Number)} [options.serverMaxWindowBits] Request/confirm the
    *     use of a custom server window size
-   * @param {(Boolean|Number)} options.clientMaxWindowBits Advertise support
+   * @param {(Boolean|Number)} [options.clientMaxWindowBits] Advertise support
    *     for, or request, a custom client window size
-   * @param {Object} options.zlibDeflateOptions Options to pass to zlib on deflate
-   * @param {Object} options.zlibInflateOptions Options to pass to zlib on inflate
-   * @param {Number} options.threshold Size (in bytes) below which messages
-   *     should not be compressed
-   * @param {Number} options.concurrencyLimit The number of concurrent calls to
-   *     zlib
-   * @param {Boolean} isServer Create the instance in either server or client
-   *     mode
-   * @param {Number} maxPayload The maximum allowed message length
+   * @param {Object} [options.zlibDeflateOptions] Options to pass to zlib on
+   *     deflate
+   * @param {Object} [options.zlibInflateOptions] Options to pass to zlib on
+   *     inflate
+   * @param {Number} [options.threshold=1024] Size (in bytes) below which
+   *     messages should not be compressed
+   * @param {Number} [options.concurrencyLimit=10] The number of concurrent
+   *     calls to zlib
+   * @param {Boolean} [isServer=false] Create the instance in either server or
+   *     client mode
+   * @param {Number} [maxPayload=0] The maximum allowed message length
    */
   constructor(options, isServer, maxPayload) {
     this._maxPayload = maxPayload | 0;
@@ -17752,11 +17797,11 @@ class Receiver extends Writable {
   /**
    * Creates a Receiver instance.
    *
-   * @param {String} binaryType The type for binary data
-   * @param {Object} extensions An object containing the negotiated extensions
-   * @param {Boolean} isServer Specifies whether to operate in client or server
-   *     mode
-   * @param {Number} maxPayload The maximum allowed message length
+   * @param {String} [binaryType=nodebuffer] The type for binary data
+   * @param {Object} [extensions] An object containing the negotiated extensions
+   * @param {Boolean} [isServer=false] Specifies whether to operate in client or
+   *     server mode
+   * @param {Number} [maxPayload=0] The maximum allowed message length
    */
   constructor(binaryType, extensions, isServer, maxPayload) {
     super();
@@ -20410,6 +20455,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(82);
 /**
  * Commands
  *
@@ -20463,28 +20509,14 @@ class Command {
         return cmdStr;
     }
 }
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function toCommandValue(input) {
-    if (input === null || input === undefined) {
-        return '';
-    }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
-    }
-    return JSON.stringify(input);
-}
-exports.toCommandValue = toCommandValue;
 function escapeData(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A');
 }
 function escapeProperty(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A')
@@ -20506,7 +20538,7 @@ const mh = __webpack_require__(20)
 const multibase = __webpack_require__(939)
 const multicodec = __webpack_require__(477)
 const codecs = __webpack_require__(822)
-const CIDUtil = __webpack_require__(102)
+const CIDUtil = __webpack_require__(769)
 const withIs = __webpack_require__(471)
 
 /**
@@ -20834,6 +20866,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const command_1 = __webpack_require__(431);
+const file_command_1 = __webpack_require__(102);
+const utils_1 = __webpack_require__(82);
 const os = __importStar(__webpack_require__(87));
 const path = __importStar(__webpack_require__(622));
 /**
@@ -20860,9 +20894,17 @@ var ExitCode;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exportVariable(name, val) {
-    const convertedVal = command_1.toCommandValue(val);
+    const convertedVal = utils_1.toCommandValue(val);
     process.env[name] = convertedVal;
-    command_1.issueCommand('set-env', { name }, convertedVal);
+    const filePath = process.env['GITHUB_ENV'] || '';
+    if (filePath) {
+        const delimiter = '_GitHubActionsFileCommandDelimeter_';
+        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
+        file_command_1.issueCommand('ENV', commandValue);
+    }
+    else {
+        command_1.issueCommand('set-env', { name }, convertedVal);
+    }
 }
 exports.exportVariable = exportVariable;
 /**
@@ -20878,7 +20920,13 @@ exports.setSecret = setSecret;
  * @param inputPath
  */
 function addPath(inputPath) {
-    command_1.issueCommand('add-path', {}, inputPath);
+    const filePath = process.env['GITHUB_PATH'] || '';
+    if (filePath) {
+        file_command_1.issueCommand('PATH', inputPath);
+    }
+    else {
+        command_1.issueCommand('add-path', {}, inputPath);
+    }
     process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
 }
 exports.addPath = addPath;
@@ -21931,21 +21979,22 @@ class WebSocketServer extends EventEmitter {
    * Create a `WebSocketServer` instance.
    *
    * @param {Object} options Configuration options
-   * @param {Number} options.backlog The maximum length of the queue of pending
-   *     connections
-   * @param {Boolean} options.clientTracking Specifies whether or not to track
-   *     clients
-   * @param {Function} options.handleProtocols A hook to handle protocols
-   * @param {String} options.host The hostname where to bind the server
-   * @param {Number} options.maxPayload The maximum allowed message size
-   * @param {Boolean} options.noServer Enable no server mode
-   * @param {String} options.path Accept only connections matching this path
-   * @param {(Boolean|Object)} options.perMessageDeflate Enable/disable
+   * @param {Number} [options.backlog=511] The maximum length of the queue of
+   *     pending connections
+   * @param {Boolean} [options.clientTracking=true] Specifies whether or not to
+   *     track clients
+   * @param {Function} [options.handleProtocols] A hook to handle protocols
+   * @param {String} [options.host] The hostname where to bind the server
+   * @param {Number} [options.maxPayload=104857600] The maximum allowed message
+   *     size
+   * @param {Boolean} [options.noServer=false] Enable no server mode
+   * @param {String} [options.path] Accept only connections matching this path
+   * @param {(Boolean|Object)} [options.perMessageDeflate=false] Enable/disable
    *     permessage-deflate
-   * @param {Number} options.port The port where to bind the server
-   * @param {http.Server} options.server A pre-created HTTP/S server to use
-   * @param {Function} options.verifyClient A hook to reject connections
-   * @param {Function} callback A listener for the `listening` event
+   * @param {Number} [options.port] The port where to bind the server
+   * @param {http.Server} [options.server] A pre-created HTTP/S server to use
+   * @param {Function} [options.verifyClient] A hook to reject connections
+   * @param {Function} [callback] A listener for the `listening` event
    */
   constructor(options, callback) {
     super();
@@ -21992,13 +22041,13 @@ class WebSocketServer extends EventEmitter {
     }
 
     if (this._server) {
+      const emitConnection = this.emit.bind(this, 'connection');
+
       this._removeListeners = addListeners(this._server, {
         listening: this.emit.bind(this, 'listening'),
         error: this.emit.bind(this, 'error'),
         upgrade: (req, socket, head) => {
-          this.handleUpgrade(req, socket, head, (ws) => {
-            this.emit('connection', ws, req);
-          });
+          this.handleUpgrade(req, socket, head, emitConnection);
         }
       });
     }
@@ -22029,7 +22078,7 @@ class WebSocketServer extends EventEmitter {
   /**
    * Close the server.
    *
-   * @param {Function} cb Callback
+   * @param {Function} [cb] Callback
    * @public
    */
   close(cb) {
@@ -22208,7 +22257,7 @@ class WebSocketServer extends EventEmitter {
 
       if (protocol) {
         headers.push(`Sec-WebSocket-Protocol: ${protocol}`);
-        ws.protocol = protocol;
+        ws._protocol = protocol;
       }
     }
 
@@ -22236,7 +22285,7 @@ class WebSocketServer extends EventEmitter {
       ws.on('close', () => this.clients.delete(ws));
     }
 
-    cb(ws);
+    cb(ws, req);
   }
 }
 
@@ -22248,7 +22297,8 @@ module.exports = WebSocketServer;
  *
  * @param {EventEmitter} server The event emitter
  * @param {Object.<String, Function>} map The listeners to add
- * @return {Function} A function that will remove the added listeners when called
+ * @return {Function} A function that will remove the added listeners when
+ *     called
  * @private
  */
 function addListeners(server, map) {
@@ -22455,7 +22505,8 @@ class Event {
    * Create a new `Event`.
    *
    * @param {String} type The name of the event
-   * @param {Object} target A reference to the target to which the event was dispatched
+   * @param {Object} target A reference to the target to which the event was
+   *     dispatched
    */
   constructor(type, target) {
     this.target = target;
@@ -22474,7 +22525,8 @@ class MessageEvent extends Event {
    * Create a new `MessageEvent`.
    *
    * @param {(String|Buffer|ArrayBuffer|Buffer[])} data The received data
-   * @param {WebSocket} target A reference to the target to which the event was dispatched
+   * @param {WebSocket} target A reference to the target to which the event was
+   *     dispatched
    */
   constructor(data, target) {
     super('message', target);
@@ -22493,9 +22545,12 @@ class CloseEvent extends Event {
   /**
    * Create a new `CloseEvent`.
    *
-   * @param {Number} code The status code explaining why the connection is being closed
-   * @param {String} reason A human-readable string explaining why the connection is closing
-   * @param {WebSocket} target A reference to the target to which the event was dispatched
+   * @param {Number} code The status code explaining why the connection is being
+   *     closed
+   * @param {String} reason A human-readable string explaining why the
+   *     connection is closing
+   * @param {WebSocket} target A reference to the target to which the event was
+   *     dispatched
    */
   constructor(code, reason, target) {
     super('close', target);
@@ -22516,7 +22571,8 @@ class OpenEvent extends Event {
   /**
    * Create a new `OpenEvent`.
    *
-   * @param {WebSocket} target A reference to the target to which the event was dispatched
+   * @param {WebSocket} target A reference to the target to which the event was
+   *     dispatched
    */
   constructor(target) {
     super('open', target);
@@ -22534,7 +22590,8 @@ class ErrorEvent extends Event {
    * Create a new `ErrorEvent`.
    *
    * @param {Object} error The error that generated this event
-   * @param {WebSocket} target A reference to the target to which the event was dispatched
+   * @param {WebSocket} target A reference to the target to which the event was
+   *     dispatched
    */
   constructor(error, target) {
     super('error', target);
@@ -22556,11 +22613,11 @@ const EventTarget = {
    *
    * @param {String} type A string representing the event type to listen for
    * @param {Function} listener The listener to add
-   * @param {Object} options An options object specifies characteristics about
+   * @param {Object} [options] An options object specifies characteristics about
    *     the event listener
-   * @param {Boolean} options.once A `Boolean`` indicating that the listener
-   *     should be invoked at most once after being added. If `true`, the
-   *     listener would be automatically removed when invoked.
+   * @param {Boolean} [options.once=false] A `Boolean`` indicating that the
+   *     listener should be invoked at most once after being added. If `true`,
+   *     the listener would be automatically removed when invoked.
    * @public
    */
   addEventListener(type, listener, options) {
@@ -22666,8 +22723,8 @@ class Limiter {
   /**
    * Creates a new `Limiter`.
    *
-   * @param {Number} concurrency The maximum number of jobs allowed to run
-   *     concurrently
+   * @param {Number} [concurrency=Infinity] The maximum number of jobs allowed
+   *     to run concurrently
    */
   constructor(concurrency) {
     this[kDone] = () => {
@@ -22682,6 +22739,7 @@ class Limiter {
   /**
    * Adds a job to the queue.
    *
+   * @param {Function} job The job to run
    * @public
    */
   add(job) {
@@ -23777,6 +23835,66 @@ exports.WebsocketTransport = WebsocketTransport;
 /***/ (function(module) {
 
 module.exports = require("zlib");
+
+/***/ }),
+
+/***/ 769:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const mh = __webpack_require__(20)
+const { Buffer } = __webpack_require__(293)
+var CIDUtil = {
+  /**
+   * Test if the given input is a valid CID object.
+   * Returns an error message if it is not.
+   * Returns undefined if it is a valid CID.
+   *
+   * @param {any} other
+   * @returns {string}
+   */
+  checkCIDComponents: function (other) {
+    if (other == null) {
+      return 'null values are not valid CIDs'
+    }
+
+    if (!(other.version === 0 || other.version === 1)) {
+      return 'Invalid version, must be a number equal to 1 or 0'
+    }
+
+    if (typeof other.codec !== 'string') {
+      return 'codec must be string'
+    }
+
+    if (other.version === 0) {
+      if (other.codec !== 'dag-pb') {
+        return "codec must be 'dag-pb' for CIDv0"
+      }
+      if (other.multibaseName !== 'base58btc') {
+        return "multibaseName must be 'base58btc' for CIDv0"
+      }
+    }
+
+    if (!Buffer.isBuffer(other.multihash)) {
+      return 'multihash must be a Buffer'
+    }
+
+    try {
+      mh.validate(other.multihash)
+    } catch (err) {
+      let errorMsg = err.message
+      if (!errorMsg) { // Just in case mh.validate() throws an error with empty error message
+        errorMsg = 'Multihash validation failed'
+      }
+      return errorMsg
+    }
+  }
+}
+
+module.exports = CIDUtil
+
 
 /***/ }),
 
@@ -25012,6 +25130,7 @@ function duplexOnEnd() {
 /**
  * The listener of the `'error'` event.
  *
+ * @param {Error} err The error
  * @private
  */
 function duplexOnError(err) {
@@ -25027,7 +25146,7 @@ function duplexOnError(err) {
  * Wraps a `WebSocket` in a duplex stream.
  *
  * @param {WebSocket} ws The `WebSocket` to wrap
- * @param {Object} options The options for the `Duplex` constructor
+ * @param {Object} [options] The options for the `Duplex` constructor
  * @return {stream.Duplex} The duplex stream
  * @public
  */
