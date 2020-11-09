@@ -160,7 +160,7 @@ export async function execute(
     secret,
   }
 
-  const expire: Date = new Date(Date.now() + 1000 * 600) // 10min expiration
+  const expire: Date = new Date(Date.now() + 1000 * 1800) // 10min expiration
   const ctx = await new Context(target)
   await ctx.withKeyInfo(keyInfo, expire)
 
