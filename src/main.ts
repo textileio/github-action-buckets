@@ -14,6 +14,7 @@ import {
   bucketsPushPath,
   bucketsListPath,
   bucketsRemovePath,
+  RootObject,
 } from '@textile/buckets/dist/api'
 import { Context } from '@textile/context'
 import { GrpcConnection } from '@textile/grpc-connection'
@@ -209,6 +210,9 @@ export async function execute(
   if (files.length === 0) {
     throw Error(`No files found: ${dir}`)
   }
+  // avoid requesting new head on every push path
+  const head = await bucketsListPath(connection, bucketKey, `/`)
+  let root: string | RootObject | undefined = head.root
   let raw
   for (const file of files) {
     pathTree.remove(`/${file}`)
@@ -219,7 +223,8 @@ export async function execute(
       path: `/${file}`,
       content,
     }
-    raw = await bucketsPushPath(connection, bucketKey, `/${file}`, upload)
+    raw = await bucketsPushPath(connection, bucketKey, `/${file}`, upload, { root })
+    root = raw.root
   }
 
   for (const orphan of pathTree.getDeletes()) {

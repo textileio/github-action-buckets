@@ -38,7 +38,7 @@ beforeAll(async () => {
 })
 
 test('test raw runs', async () => {
-  const result = await execute(addrApiurl, key, secret, testThread, 'test', 'false', '*/**', 'website', './')
+  const result = await execute(addrApiurl, key, secret, testThread, 'test', 'false', '**/*', 'website', './')
   expect(result.get('ipfs')).toBeDefined()
 })
 

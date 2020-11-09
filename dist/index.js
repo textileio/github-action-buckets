@@ -14938,7 +14938,8 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                 client.start(metadata);
                 client.send(req);
                 if (source.content) {
-                    const process = yield block({ size: 32768, noPad: true });
+                    const size = 32
+                    const process = yield block({ size: size, noPad: true });
                     try {
                         for (var _f = __asyncValues(process(source.content)), _g; _g = yield _f.next(), !_g.done;) {
                             const chunk = _g.value;
@@ -16012,7 +16013,7 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
             key,
             secret,
         };
-        const expire = new Date(Date.now() + 1000 * 600); // 10min expiration
+        const expire = new Date(Date.now() + 1000 * 1800); // 10min expiration
         const ctx = yield new context_1.Context(target);
         yield ctx.withKeyInfo(keyInfo, expire);
         if (thread.trim() === '') {
@@ -16056,6 +16057,9 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
         if (files.length === 0) {
             throw Error(`No files found: ${dir}`);
         }
+        // avoid requesting new head on every push path
+        const head = yield api_1.bucketsListPath(connection, bucketKey, `/`);
+        let root = head.root;
         let raw;
         for (const file of files) {
             pathTree.remove(`/${file}`);
@@ -16066,7 +16070,8 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
                 path: `/${file}`,
                 content,
             };
-            raw = yield api_1.bucketsPushPath(connection, bucketKey, `/${file}`, upload);
+            raw = yield api_1.bucketsPushPath(connection, bucketKey, `/${file}`, upload, { root });
+            root = raw.root;
         }
         for (const orphan of pathTree.getDeletes()) {
             yield api_1.bucketsRemovePath(connection, bucketKey, orphan);
