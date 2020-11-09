@@ -14938,8 +14938,7 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                 client.start(metadata);
                 client.send(req);
                 if (source.content) {
-                    const size = 32
-                    const process = yield block({ size: size, noPad: true });
+                    const process = yield block({ size: 32768, noPad: true });
                     try {
                         for (var _f = __asyncValues(process(source.content)), _g; _g = yield _f.next(), !_g.done;) {
                             const chunk = _g.value;
