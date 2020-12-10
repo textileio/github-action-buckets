@@ -14,10 +14,11 @@ import {
   bucketsPushPath,
   bucketsListPath,
   bucketsRemovePath,
-  RootObject,
+  bucketsRoot,
 } from '@textile/buckets/dist/api'
 import { Context } from '@textile/context'
 import { GrpcConnection } from '@textile/grpc-connection'
+import { Root } from '@textile/buckets/dist/types'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -152,8 +153,8 @@ export async function execute(
 
   const response: RunOutput = new Map()
 
-  if (!key || key === '' || !secret || secret === '') {
-    throw Error('Invalid credentials')
+  if (!key || key.trim() === '') {
+    throw Error('Credentials required')
   }
 
   const keyInfo = {
@@ -211,8 +212,7 @@ export async function execute(
     throw Error(`No files found: ${dir}`)
   }
   // avoid requesting new head on every push path
-  const head = await bucketsListPath(connection, bucketKey, `/`)
-  let root: string | RootObject | undefined = head.root
+  let root: string | Root | undefined = await bucketsRoot(connection, bucketKey)
   let raw
   for (const file of files) {
     pathTree.remove(`/${file}`)
@@ -226,7 +226,6 @@ export async function execute(
     raw = await bucketsPushPath(connection, bucketKey, `/${file}`, upload, { root })
     root = raw.root
   }
-
   for (const orphan of pathTree.getDeletes()) {
     await bucketsRemovePath(connection, bucketKey, orphan)
   }
