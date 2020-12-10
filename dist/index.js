@@ -14994,9 +14994,6 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
     return __awaiter(this, void 0, void 0, function* () {
         const target = api.trim() != '' ? api.trim() : undefined;
         const response = new Map();
-        if (!key || key === '' || !secret || secret === '') {
-            throw Error('Invalid credentials');
-        }
         const keyInfo = {
             key,
             secret,
@@ -15046,8 +15043,9 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
             throw Error(`No files found: ${dir}`);
         }
         // avoid requesting new head on every push path
-        const head = yield api_1.bucketsListPath(connection, bucketKey, `/`);
-        let root = head.root;
+        // const head = await bucketsListPath(connection, bucketKey, `/`)
+        let root = yield api_1.bucketsRoot(connection, bucketKey);
+        // let root: string | Root | undefined = head
         let raw;
         for (const file of files) {
             pathTree.remove(`/${file}`);
@@ -15062,7 +15060,8 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
             root = raw.root;
         }
         for (const orphan of pathTree.getDeletes()) {
-            yield api_1.bucketsRemovePath(connection, bucketKey, orphan);
+            yield api_1.bucketsRemovePath(connection, bucketKey, orphan, raw === null || raw === void 0 ? void 0 : raw.root);
+            // const r = await bucketsRoot(connection, bucketKey)
         }
         const links = yield api_1.bucketsLinks(connection, bucketKey, '/');
         const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';
