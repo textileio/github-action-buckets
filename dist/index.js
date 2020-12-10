@@ -13571,6 +13571,22 @@ function fromPbArchive(item) {
         // TODO: standardize units coming from server.
         createdAt: new Date(item.createdAt * 1000), status: fromPbArchiveStatus(item.archiveStatus), dealInfo: item.dealInfoList.map(fromPbDealInfo) });
 }
+/**
+ * Ensures that a Root | string | undefined is converted into a string
+ */
+function ensureRootString(api, key, root, ctx) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        if (root) {
+            return typeof root === 'string' ? root : root.path;
+        }
+        else {
+            /* eslint-disable  @typescript-eslint/no-use-before-define */
+            const root = yield bucketsRoot(api, key, ctx);
+            return (_a = root === null || root === void 0 ? void 0 : root.path) !== null && _a !== void 0 ? _a : '';
+        }
+    });
+}
 function* genChunks(value, size) {
     return yield* Array.from(Array(Math.ceil(value.byteLength / size)), (_, i) => value.slice(i * size, i * size + size));
 }
@@ -13749,7 +13765,7 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
             var e_1, _a;
-            var _b, _c, _d, _e;
+            var _b, _c;
             // Only process the first input if there are more than one
             const source = (yield normalize_1.normaliseInput(input).next()).value;
             const client = grpc_web_1.grpc.client(bucketsd_pb_service_1.APIService.PushPath, {
@@ -13810,36 +13826,27 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                 head.setPath(source.path || path);
                 head.setKey(key);
                 // Setting root here ensures pushes will error if root is out of date
-                let root = '';
-                if (opts === null || opts === void 0 ? void 0 : opts.root) {
-                    // If we explicitly received a root argument, use that
-                    root = typeof opts.root === 'string' ? opts.root : opts.root.path;
-                }
-                else {
-                    // Otherwise, make a call to list path to get the latest known root
-                    const head = yield bucketsListPath(api, key, '', ctx);
-                    root = (_c = (_b = head.root) === null || _b === void 0 ? void 0 : _b.path) !== null && _c !== void 0 ? _c : ''; // Shouldn't ever be undefined here
-                }
+                const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
                 head.setRoot(root);
                 const req = new bucketsd_pb_1.PushPathRequest();
                 req.setHeader(head);
                 const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
                 // Let's just make sure we haven't aborted this outside this function
-                if ((_d = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _d === void 0 ? void 0 : _d.aborted) {
+                if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
                     return reject(types_1.AbortError);
                 }
                 client.start(metadata);
                 client.send(req);
                 if (source.content) {
                     try {
-                        for (var _f = __asyncValues(source.content), _g; _g = yield _f.next(), !_g.done;) {
-                            const chunk = _g.value;
+                        for (var _d = __asyncValues(source.content), _e; _e = yield _d.next(), !_e.done;) {
+                            const chunk = _e.value;
                             // Let's just make sure we haven't aborted this outside this function
-                            if ((_e = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _e === void 0 ? void 0 : _e.aborted) {
+                            if ((_c = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _c === void 0 ? void 0 : _c.aborted) {
                                 try {
                                     client.close();
                                 }
-                                catch (_h) { } // noop
+                                catch (_f) { } // noop
                                 return reject(types_1.AbortError);
                             }
                             // Naively chunk into chunks smaller than CHUNK_SIZE bytes
@@ -13853,7 +13860,7 @@ function bucketsPushPath(api, key, path, input, opts, ctx) {
                     catch (e_1_1) { e_1 = { error: e_1_1 }; }
                     finally {
                         try {
-                            if (_g && !_g.done && (_a = _f.return)) yield _a.call(_f);
+                            if (_e && !_e.done && (_a = _d.return)) yield _a.call(_d);
                         }
                         finally { if (e_1) throw e_1.error; }
                     }
@@ -13869,7 +13876,7 @@ function bucketsPushPathNode(api, key, path, input, opts, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
             var e_2, _a;
-            var _b, _c, _d;
+            var _b;
             // Only process the first input if there are more than one
             const source = (yield normalize_1.normaliseInput(input).next()).value;
             if (!source) {
@@ -13936,31 +13943,22 @@ function bucketsPushPathNode(api, key, path, input, opts, ctx) {
             head.setPath(source.path || path);
             head.setKey(key);
             // Setting root here ensures pushes will error if root is out of date
-            let root = '';
-            if (opts === null || opts === void 0 ? void 0 : opts.root) {
-                // If we explicitly received a root argument, use that
-                root = typeof opts.root === 'string' ? opts.root : opts.root.path;
-            }
-            else {
-                // Otherwise, make a call to list path to get the latest known root
-                const head = yield bucketsListPath(api, key, '', ctx);
-                root = (_c = (_b = head.root) === null || _b === void 0 ? void 0 : _b.path) !== null && _c !== void 0 ? _c : ''; // Shouldn't ever be undefined here
-            }
+            const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
             head.setRoot(root);
             const req = new bucketsd_pb_1.PushPathRequest();
             req.setHeader(head);
             stream.write(req);
             if (source.content) {
                 try {
-                    for (var _e = __asyncValues(source.content), _f; _f = yield _e.next(), !_f.done;) {
-                        const chunk = _f.value;
-                        if ((_d = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _d === void 0 ? void 0 : _d.aborted) {
+                    for (var _c = __asyncValues(source.content), _d; _d = yield _c.next(), !_d.done;) {
+                        const chunk = _d.value;
+                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
                             // Let's just make sure we haven't aborted this outside this function
                             try {
                                 // Should already have been handled
                                 stream.cancel();
                             }
-                            catch (_g) { } // noop
+                            catch (_e) { } // noop
                             return reject(types_1.AbortError);
                         }
                         // Naively chunk into chunks smaller than CHUNK_SIZE bytes
@@ -13974,7 +13972,7 @@ function bucketsPushPathNode(api, key, path, input, opts, ctx) {
                 catch (e_2_1) { e_2 = { error: e_2_1 }; }
                 finally {
                     try {
-                        if (_f && !_f.done && (_a = _e.return)) yield _a.call(_e);
+                        if (_d && !_d.done && (_a = _c.return)) yield _a.call(_c);
                     }
                     finally { if (e_2) throw e_2.error; }
                 }
@@ -14108,16 +14106,19 @@ exports.bucketsRemove = bucketsRemove;
  *
  * @internal
  */
-function bucketsRemovePath(api, key, path, root, ctx) {
+function bucketsRemovePath(api, key, path, opts, ctx) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.debug('remove path request');
         const req = new bucketsd_pb_1.RemovePathRequest();
         req.setKey(key);
         req.setPath(path);
-        if (root)
-            req.setRoot(root);
-        yield api.unary(bucketsd_pb_service_1.APIService.RemovePath, req, ctx);
-        return;
+        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+        req.setRoot(root);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.RemovePath, req, ctx);
+        return {
+            pinned: res.getPinned(),
+            root: fromPbRootObjectNullable(res.getRoot())
+        };
     });
 }
 exports.bucketsRemovePath = bucketsRemovePath;
@@ -14994,6 +14995,9 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
     return __awaiter(this, void 0, void 0, function* () {
         const target = api.trim() != '' ? api.trim() : undefined;
         const response = new Map();
+        if (!key || key.trim() === '') {
+            throw Error('Credentials required');
+        }
         const keyInfo = {
             key,
             secret,
@@ -15043,9 +15047,7 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
             throw Error(`No files found: ${dir}`);
         }
         // avoid requesting new head on every push path
-        // const head = await bucketsListPath(connection, bucketKey, `/`)
         let root = yield api_1.bucketsRoot(connection, bucketKey);
-        // let root: string | Root | undefined = head
         let raw;
         for (const file of files) {
             pathTree.remove(`/${file}`);
@@ -15060,8 +15062,8 @@ function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
             root = raw.root;
         }
         for (const orphan of pathTree.getDeletes()) {
-            yield api_1.bucketsRemovePath(connection, bucketKey, orphan, raw === null || raw === void 0 ? void 0 : raw.root);
-            // const r = await bucketsRoot(connection, bucketKey)
+            const rm = yield api_1.bucketsRemovePath(connection, bucketKey, orphan, { root });
+            root = rm.root;
         }
         const links = yield api_1.bucketsLinks(connection, bucketKey, '/');
         const ipfs = raw ? raw.root.replace('/ipfs/', '') : '';

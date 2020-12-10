@@ -227,7 +227,8 @@ export async function execute(
     root = raw.root
   }
   for (const orphan of pathTree.getDeletes()) {
-    await bucketsRemovePath(connection, bucketKey, orphan)
+    const rm = await bucketsRemovePath(connection, bucketKey, orphan, { root })
+    root = rm.root
   }
 
   const links = await bucketsLinks(connection, bucketKey, '/')
