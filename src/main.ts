@@ -14,10 +14,10 @@ import {
   bucketsPushPath,
   bucketsListPath,
   bucketsRemovePath,
-  RootObject,
 } from '@textile/buckets/dist/api'
 import { Context } from '@textile/context'
 import { GrpcConnection } from '@textile/grpc-connection'
+import { Root } from '@textile/buckets/dist/types'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)
@@ -212,7 +212,7 @@ export async function execute(
   }
   // avoid requesting new head on every push path
   const head = await bucketsListPath(connection, bucketKey, `/`)
-  let root: string | RootObject | undefined = head.root
+  let root: string | Root | undefined = head.root
   let raw
   for (const file of files) {
     pathTree.remove(`/${file}`)

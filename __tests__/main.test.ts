@@ -1,14 +1,14 @@
-import axios from 'axios'
 import * as process from 'process'
 import * as cp from 'child_process'
-import delay from 'delay'
 import * as path from 'path'
+import axios from 'axios'
+import delay from 'delay'
 import { Context, ContextInterface } from '@textile/context'
-import * as pb from '@textile/hub-grpc/hub_pb'
+import * as pb from '@textile/hub-grpc/api/hubd/pb/hub_pb'
 import { WebsocketTransport } from '@textile/grpc-transport'
-import { APIServiceClient, ServiceError } from '@textile/hub-grpc/hub_pb_service'
-import { execute } from '../src/main'
+import { APIServiceClient, ServiceError } from '@textile/hub-grpc/api/hubd/pb/hub_pb_service'
 import { Buckets } from '@textile/buckets'
+import { execute } from '../src/main'
 
 jest.setTimeout(20000)
 
