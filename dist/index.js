@@ -7192,10 +7192,9 @@ proto.api.bucketsd.pb.ArchiveConfig.toObject = function(includeInstance, msg) {
     trustedMinersList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
     countryCodesList: (f = jspb.Message.getRepeatedField(msg, 5)) == null ? undefined : f,
     renew: (f = msg.getRenew()) && proto.api.bucketsd.pb.ArchiveRenew.toObject(includeInstance, f),
-    addr: jspb.Message.getFieldWithDefault(msg, 7, ""),
-    maxPrice: jspb.Message.getFieldWithDefault(msg, 8, 0),
-    fastRetrieval: jspb.Message.getBooleanFieldWithDefault(msg, 9, false),
-    dealStartOffset: jspb.Message.getFieldWithDefault(msg, 10, 0)
+    maxPrice: jspb.Message.getFieldWithDefault(msg, 7, 0),
+    fastRetrieval: jspb.Message.getBooleanFieldWithDefault(msg, 8, false),
+    dealStartOffset: jspb.Message.getFieldWithDefault(msg, 9, 0)
   };
 
   if (includeInstance) {
@@ -7258,18 +7257,14 @@ proto.api.bucketsd.pb.ArchiveConfig.deserializeBinaryFromReader = function(msg, 
       msg.setRenew(value);
       break;
     case 7:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setAddr(value);
-      break;
-    case 8:
       var value = /** @type {number} */ (reader.readUint64());
       msg.setMaxPrice(value);
       break;
-    case 9:
+    case 8:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setFastRetrieval(value);
       break;
-    case 10:
+    case 9:
       var value = /** @type {number} */ (reader.readInt64());
       msg.setDealStartOffset(value);
       break;
@@ -7345,31 +7340,24 @@ proto.api.bucketsd.pb.ArchiveConfig.serializeBinaryToWriter = function(message, 
       proto.api.bucketsd.pb.ArchiveRenew.serializeBinaryToWriter
     );
   }
-  f = message.getAddr();
-  if (f.length > 0) {
-    writer.writeString(
-      7,
-      f
-    );
-  }
   f = message.getMaxPrice();
   if (f !== 0) {
     writer.writeUint64(
-      8,
+      7,
       f
     );
   }
   f = message.getFastRetrieval();
   if (f) {
     writer.writeBool(
-      9,
+      8,
       f
     );
   }
   f = message.getDealStartOffset();
   if (f !== 0) {
     writer.writeInt64(
-      10,
+      9,
       f
     );
   }
@@ -7561,29 +7549,11 @@ proto.api.bucketsd.pb.ArchiveConfig.prototype.hasRenew = function() {
 
 
 /**
- * optional string addr = 7;
- * @return {string}
- */
-proto.api.bucketsd.pb.ArchiveConfig.prototype.getAddr = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.api.bucketsd.pb.ArchiveConfig} returns this
- */
-proto.api.bucketsd.pb.ArchiveConfig.prototype.setAddr = function(value) {
-  return jspb.Message.setProto3StringField(this, 7, value);
-};
-
-
-/**
- * optional uint64 max_price = 8;
+ * optional uint64 max_price = 7;
  * @return {number}
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.getMaxPrice = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 8, 0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
 };
 
 
@@ -7592,16 +7562,16 @@ proto.api.bucketsd.pb.ArchiveConfig.prototype.getMaxPrice = function() {
  * @return {!proto.api.bucketsd.pb.ArchiveConfig} returns this
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.setMaxPrice = function(value) {
-  return jspb.Message.setProto3IntField(this, 8, value);
+  return jspb.Message.setProto3IntField(this, 7, value);
 };
 
 
 /**
- * optional bool fast_retrieval = 9;
+ * optional bool fast_retrieval = 8;
  * @return {boolean}
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.getFastRetrieval = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 9, false));
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 8, false));
 };
 
 
@@ -7610,16 +7580,16 @@ proto.api.bucketsd.pb.ArchiveConfig.prototype.getFastRetrieval = function() {
  * @return {!proto.api.bucketsd.pb.ArchiveConfig} returns this
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.setFastRetrieval = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 9, value);
+  return jspb.Message.setProto3BooleanField(this, 8, value);
 };
 
 
 /**
- * optional int64 deal_start_offset = 10;
+ * optional int64 deal_start_offset = 9;
  * @return {number}
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.getDealStartOffset = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 10, 0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 9, 0));
 };
 
 
@@ -7628,7 +7598,7 @@ proto.api.bucketsd.pb.ArchiveConfig.prototype.getDealStartOffset = function() {
  * @return {!proto.api.bucketsd.pb.ArchiveConfig} returns this
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.setDealStartOffset = function(value) {
-  return jspb.Message.setProto3IntField(this, 10, value);
+  return jspb.Message.setProto3IntField(this, 9, value);
 };
 
 
@@ -11504,6 +11474,387 @@ module.exports = eval("require")("bufferutil");
 
 /***/ }),
 
+/***/ 29:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
+var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var g = generator.apply(thisArg, _arguments || []), i, q = [];
+    return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i;
+    function verb(n) { if (g[n]) i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; }
+    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
+    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
+    function fulfill(value) { resume("next", value); }
+    function reject(value) { resume("throw", value); }
+    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __asyncDelegator = (this && this.__asyncDelegator) || function (o) {
+    var i, p;
+    return i = {}, verb("next"), verb("throw", function (e) { throw e; }), verb("return"), i[Symbol.iterator] = function () { return this; }, i;
+    function verb(n, f) { i[n] = o[n] ? function (v) { return (p = !p) ? { value: __await(o[n](v)), done: n === "return" } : f ? f(v) : v; } : f; }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.normaliseInput = void 0;
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable @typescript-eslint/no-use-before-define */
+const buffer_1 = __webpack_require__(293);
+/**
+ * Transform types
+ *
+ * @remarks
+ * This function comes from {@link https://github.com/ipfs/js-ipfs-utils/blob/master/src/files/normalise-input.js}
+ * @example
+ * Supported types
+ * ```yaml
+ * // INPUT TYPES
+ * Bytes (Buffer|ArrayBuffer|TypedArray) [single file]
+ * Bloby (Blob|File) [single file]
+ * String [single file]
+ * { path, content: Bytes } [single file]
+ * { path, content: Bloby } [single file]
+ * { path, content: String } [single file]
+ * { path, content: Iterable<Number> } [single file]
+ * { path, content: Iterable<Bytes> } [single file]
+ * { path, content: AsyncIterable<Bytes> } [single file]
+ * Iterable<Number> [single file]
+ * Iterable<Bytes> [single file]
+ * Iterable<Bloby> [multiple files]
+ * Iterable<String> [multiple files]
+ * Iterable<{ path, content: Bytes }> [multiple files]
+ * Iterable<{ path, content: Bloby }> [multiple files]
+ * Iterable<{ path, content: String }> [multiple files]
+ * Iterable<{ path, content: Iterable<Number> }> [multiple files]
+ * Iterable<{ path, content: Iterable<Bytes> }> [multiple files]
+ * Iterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
+ * AsyncIterable<Bytes> [single file]
+ * AsyncIterable<Bloby> [multiple files]
+ * AsyncIterable<String> [multiple files]
+ * AsyncIterable<{ path, content: Bytes }> [multiple files]
+ * AsyncIterable<{ path, content: Bloby }> [multiple files]
+ * AsyncIterable<{ path, content: String }> [multiple files]
+ * AsyncIterable<{ path, content: Iterable<Number> }> [multiple files]
+ * AsyncIterable<{ path, content: Iterable<Bytes> }> [multiple files]
+ * AsyncIterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
+ *
+ * // OUTPUT
+ * AsyncIterable<{ path, content: AsyncIterable<Buffer> }>
+ * ```
+ *
+ * @public
+ *
+ * @param {Object} input
+ * @return AsyncInterable<{ path, content: AsyncIterable<Buffer> }>
+ */
+function normaliseInput(input) {
+    // must give us something
+    if (input === null || input === undefined) {
+        throw new Error(`Unexpected input: ${input}`);
+    }
+    // String
+    if (typeof input === 'string' || input instanceof String) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    // Buffer|ArrayBuffer|TypedArray
+    // Blob|File
+    if (isBytes(input) || isBloby(input)) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    // Iterable<?>
+    if (input[Symbol.iterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                const iterator = input[Symbol.iterator]();
+                const first = iterator.next();
+                if (first.done)
+                    return yield __await(iterator
+                    // Iterable<Number>
+                    // Iterable<Bytes>
+                    );
+                // Iterable<Number>
+                // Iterable<Bytes>
+                if (Number.isInteger(first.value) || isBytes(first.value)) {
+                    yield yield __await(toFileObject((function* () {
+                        yield first.value;
+                        yield* iterator;
+                    })()));
+                    return yield __await(void 0);
+                }
+                // Iterable<Bloby>
+                // Iterable<String>
+                // Iterable<{ path, content }>
+                if (isFileObject(first.value) ||
+                    isBloby(first.value) ||
+                    typeof first.value === 'string') {
+                    yield yield __await(toFileObject(first.value));
+                    for (const obj of iterator) {
+                        yield yield __await(toFileObject(obj));
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // window.ReadableStream
+    if (typeof input.getReader === 'function') {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_1, _a;
+                try {
+                    for (var _b = __asyncValues(browserStreamToIt(input)), _c; _c = yield __await(_b.next()), !_c.done;) {
+                        const obj = _c.value;
+                        yield yield __await(toFileObject(obj));
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (_c && !_c.done && (_a = _b.return)) yield __await(_a.call(_b));
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+            });
+        })();
+    }
+    // AsyncIterable<?>
+    if (input[Symbol.asyncIterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_2, _a;
+                const iterator = input[Symbol.asyncIterator]();
+                const first = yield __await(iterator.next());
+                if (first.done)
+                    return yield __await(iterator
+                    // AsyncIterable<Bytes>
+                    );
+                // AsyncIterable<Bytes>
+                if (isBytes(first.value)) {
+                    yield yield __await(toFileObject((function () {
+                        return __asyncGenerator(this, arguments, function* () {
+                            // eslint-disable-line require-await
+                            yield yield __await(first.value);
+                            yield __await(yield* __asyncDelegator(__asyncValues(iterator)));
+                        });
+                    })()));
+                    return yield __await(void 0);
+                }
+                // AsyncIterable<Bloby>
+                // AsyncIterable<String>
+                // AsyncIterable<{ path, content }>
+                if (isFileObject(first.value) ||
+                    isBloby(first.value) ||
+                    typeof first.value === 'string') {
+                    yield yield __await(toFileObject(first.value));
+                    try {
+                        for (var iterator_1 = __asyncValues(iterator), iterator_1_1; iterator_1_1 = yield __await(iterator_1.next()), !iterator_1_1.done;) {
+                            const obj = iterator_1_1.value;
+                            yield yield __await(toFileObject(obj));
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (iterator_1_1 && !iterator_1_1.done && (_a = iterator_1.return)) yield __await(_a.call(iterator_1));
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // { path, content: ? }
+    // Note: Detected _after_ AsyncIterable<?> because Node.js streams have a
+    // `path` property that passes this check.
+    if (isFileObject(input)) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    throw new Error('Unexpected input: ' + typeof input);
+}
+exports.normaliseInput = normaliseInput;
+function toFileObject(input) {
+    const obj = {
+        path: input.path || '',
+        mode: input.mode,
+        mtime: input.mtime,
+    };
+    if (input.content) {
+        obj.content = toAsyncIterable(input.content);
+    }
+    else if (!input.path) {
+        // Not already a file object with path or content prop
+        obj.content = toAsyncIterable(input);
+    }
+    return obj;
+}
+function toAsyncIterable(input) {
+    // Bytes | String
+    if (isBytes(input) || typeof input === 'string') {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toBuffer(input));
+            });
+        })();
+    }
+    // Bloby
+    if (isBloby(input)) {
+        return blobToAsyncGenerator(input);
+    }
+    // Browser stream
+    if (typeof input.getReader === 'function') {
+        return browserStreamToIt(input);
+    }
+    // Iterator<?>
+    if (input[Symbol.iterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                const iterator = input[Symbol.iterator]();
+                const first = iterator.next();
+                if (first.done)
+                    return yield __await(iterator
+                    // Iterable<Number>
+                    );
+                // Iterable<Number>
+                if (Number.isInteger(first.value)) {
+                    yield yield __await(toBuffer(Array.from((function* () {
+                        yield first.value;
+                        yield* iterator;
+                    })())));
+                    return yield __await(void 0);
+                }
+                // Iterable<Bytes>
+                if (isBytes(first.value)) {
+                    yield yield __await(toBuffer(first.value));
+                    for (const chunk of iterator) {
+                        yield yield __await(toBuffer(chunk));
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // AsyncIterable<Bytes>
+    if (input[Symbol.asyncIterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_3, _a;
+                try {
+                    for (var input_1 = __asyncValues(input), input_1_1; input_1_1 = yield __await(input_1.next()), !input_1_1.done;) {
+                        const chunk = input_1_1.value;
+                        yield yield __await(toBuffer(chunk));
+                    }
+                }
+                catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                finally {
+                    try {
+                        if (input_1_1 && !input_1_1.done && (_a = input_1.return)) yield __await(_a.call(input_1));
+                    }
+                    finally { if (e_3) throw e_3.error; }
+                }
+            });
+        })();
+    }
+    throw new Error(`Unexpected input: ${input}`);
+}
+function toBuffer(chunk) {
+    return isBytes(chunk) ? chunk : buffer_1.Buffer.from(chunk);
+}
+function isBytes(obj) {
+    return (buffer_1.Buffer.isBuffer(obj) ||
+        ArrayBuffer.isView(obj) ||
+        obj instanceof ArrayBuffer);
+}
+function isBloby(obj) {
+    return (typeof globalThis.Blob !== 'undefined' && obj instanceof globalThis.Blob);
+}
+// An object with a path or content property
+function isFileObject(obj) {
+    return typeof obj === 'object' && (obj.path || obj.content);
+}
+function blobToAsyncGenerator(blob) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+    // @ts-ignore
+    if (typeof blob.stream === 'function') {
+        // firefox < 69 does not support blob.stream()
+        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+        // @ts-ignore
+        return browserStreamToIt(blob.stream());
+    }
+    return readBlob(blob);
+}
+function browserStreamToIt(stream) {
+    return __asyncGenerator(this, arguments, function* browserStreamToIt_1() {
+        const reader = stream.getReader();
+        while (true) {
+            const result = yield __await(reader.read());
+            if (result.done) {
+                return yield __await(void 0);
+            }
+            yield yield __await(result.value);
+        }
+    });
+}
+function readBlob(blob, options) {
+    return __asyncGenerator(this, arguments, function* readBlob_1() {
+        options = options || {};
+        const reader = new globalThis.FileReader();
+        const chunkSize = options.chunkSize || 1024 * 1024;
+        let offset = options.offset || 0;
+        const getNextChunk = () => new Promise((resolve, reject) => {
+            reader.onloadend = (e) => {
+                var _a;
+                const data = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
+                resolve(data.byteLength === 0 ? null : data);
+            };
+            reader.onerror = reject;
+            const end = offset + chunkSize;
+            const slice = blob.slice(offset, end);
+            reader.readAsArrayBuffer(slice);
+            offset = end;
+        });
+        while (true) {
+            const data = yield __await(getNextChunk());
+            if (data == null) {
+                return yield __await(void 0);
+            }
+            yield yield __await(buffer_1.Buffer.from(data));
+        }
+    });
+}
+//# sourceMappingURL=normalize.js.map
+
+/***/ }),
+
 /***/ 49:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -11559,35 +11910,18 @@ function onceStrict (fn) {
 "use strict";
 
 
-const { names } = __webpack_require__(952)
-const { TextDecoder } = __webpack_require__(974)
-const utf8Decoder = new TextDecoder('utf8')
+/** @typedef {import('./generated-types').ConstantNumberMap} ConstantNumberMap */
 
-/**
- * Turns a `Uint8Array` into a string.
- *
- * Supports `utf8` and any encoding supported by the multibase module
- *
- * @param {Uint8Array} buf The array to turn into a string
- * @param {String} [encoding=utf8] The encoding to use
- * @returns {String}
- * @see {@link https://www.npmjs.com/package/multibase|multibase} for supported encodings other than `utf8`
- */
-function toString (buf, encoding = 'utf8') {
-  if (encoding === 'utf8' || encoding === 'utf-8') {
-    return utf8Decoder.decode(buf)
-  }
+const { baseTable } = __webpack_require__(607)
 
-  const codec = names[encoding]
+const constants = /** @type {ConstantNumberMap} */({})
 
-  if (!codec) {
-    throw new Error('Unknown base')
-  }
-
-  return codec.encode(buf)
+for (const [name, code] of Object.entries(baseTable)) {
+  const constant = name.toUpperCase().replace(/-/g, '_')
+  constants[constant] = code
 }
 
-module.exports = toString
+module.exports = Object.freeze(constants)
 
 
 /***/ }),
@@ -12886,15 +13220,16 @@ exports.issueCommand = issueCommand;
 const multibase = __webpack_require__(939)
 const varint = __webpack_require__(507)
 const { names } = __webpack_require__(957)
-const uint8ArrayToString = __webpack_require__(945)
-const uint8ArrayFromString = __webpack_require__(870)
-const uint8ArrayConcat = __webpack_require__(850)
+const uint8ArrayToString = __webpack_require__(997)
+const uint8ArrayFromString = __webpack_require__(251)
+const uint8ArrayConcat = __webpack_require__(912)
 
 const codes = /** @type {import('./types').CodeNameMap} */({})
 
 // eslint-disable-next-line guard-for-in
 for (const key in names) {
-  codes[names[key]] = key
+  const name = /** @type {HashName} */(key)
+  codes[names[name]] = name
 }
 
 /**
@@ -12964,7 +13299,7 @@ function decode (bytes) {
     throw new Error('multihash too short. must be > 2 bytes.')
   }
 
-  const code = varint.decode(bytes)
+  const code = /** @type {HashCode} */(varint.decode(bytes))
   if (!isValidCode(code)) {
     throw new Error(`multihash unknown function code: 0x${code.toString(16)}`)
   }
@@ -13044,6 +13379,7 @@ function coerceCode (name) {
     throw new Error(`Hash function code should be a number. Got: ${code}`)
   }
 
+  // @ts-ignore
   if (codes[code] === undefined && !isAppCode(code)) {
     throw new Error(`Unrecognized function code: ${code}`)
   }
@@ -13437,863 +13773,88 @@ exports.realpath = function realpath(p, cache, cb) {
 
 /***/ }),
 
-/***/ 177:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ 125:
+/***/ (function(__unusedmodule, exports) {
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchives = exports.bucketsArchive = exports.bucketsSetDefaultArchiveConfig = exports.bucketsDefaultArchiveConfig = exports.bucketsPullPathAccessRoles = exports.bucketsPushPathAccessRoles = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPathNode = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.genChunks = exports.CHUNK_SIZE = void 0;
-const grpc_web_1 = __webpack_require__(837);
-const bucketsd_pb_1 = __webpack_require__(3);
-const bucketsd_pb_service_1 = __webpack_require__(322);
-const context_1 = __webpack_require__(783);
-const grpc_transport_1 = __webpack_require__(282);
-const cids_1 = __importDefault(__webpack_require__(437));
-const event_iterator_1 = __webpack_require__(554);
-const loglevel_1 = __importDefault(__webpack_require__(104));
-const types_1 = __webpack_require__(757);
-const normalize_1 = __webpack_require__(678);
-const logger = loglevel_1.default.getLogger('buckets-api');
-function fromPbRootObject(root) {
-    return {
-        key: root.getKey(),
-        name: root.getName(),
-        path: root.getPath(),
-        createdAt: root.getCreatedAt(),
-        updatedAt: root.getUpdatedAt(),
-        thread: root.getThread(),
-    };
-}
-function fromPbRootObjectNullable(root) {
-    if (!root)
-        return;
-    return fromPbRootObject(root);
-}
-function fromPbMetadata(metadata) {
-    if (!metadata)
-        return;
-    const roles = metadata.getRolesMap();
-    const typedRoles = new Map();
-    roles.forEach((entry, key) => typedRoles.set(key, entry));
-    const response = {
-        updatedAt: metadata.getUpdatedAt(),
-        roles: typedRoles,
-    };
-    return response;
-}
-exports.CHUNK_SIZE = 1024;
-function fromPbPathItem(item) {
-    const list = item.getItemsList();
-    return {
-        cid: item.getCid(),
-        name: item.getName(),
-        path: item.getPath(),
-        size: item.getSize(),
-        isDir: item.getIsDir(),
-        items: list ? list.map(fromPbPathItem) : [],
-        count: item.getItemsCount(),
-        metadata: fromPbMetadata(item.getMetadata()),
-    };
-}
-function fromPbPathItemNullable(item) {
-    if (!item)
-        return;
-    return fromPbPathItem(item);
-}
-function fromProtoArchiveRenew(item) {
-    return Object.assign({}, item);
-}
-function fromProtoArchiveConfig(item) {
-    return Object.assign(Object.assign({}, item), { countryCodes: item.countryCodesList, excludedMiners: item.excludedMinersList, trustedMiners: item.trustedMinersList, renew: item.renew ? fromProtoArchiveRenew(item.renew) : undefined });
-}
-function toProtoArchiveConfig(config) {
-    const protoConfig = new bucketsd_pb_1.ArchiveConfig();
-    protoConfig.setAddr(config.addr);
-    protoConfig.setCountryCodesList(config.countryCodes);
-    protoConfig.setDealMinDuration(config.dealMinDuration);
-    protoConfig.setDealStartOffset(config.dealStartOffset);
-    protoConfig.setExcludedMinersList(config.excludedMiners);
-    protoConfig.setFastRetrieval(config.fastRetrieval);
-    protoConfig.setMaxPrice(config.maxPrice);
-    protoConfig.setRepFactor(config.repFactor);
-    protoConfig.setTrustedMinersList(config.trustedMiners);
-    if (config.renew) {
-        const renew = new bucketsd_pb_1.ArchiveRenew();
-        renew.setEnabled(config.renew.enabled);
-        renew.setThreshold(config.renew.threshold);
-        protoConfig.setRenew(renew);
-    }
-    return protoConfig;
-}
-function fromPbDealInfo(item) {
-    return Object.assign({}, item);
-}
-function fromPbArchiveStatus(item) {
-    switch (item) {
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_CANCELED:
-            return types_1.ArchiveStatus.Canceled;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_EXECUTING:
-            return types_1.ArchiveStatus.Executing;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_FAILED:
-            return types_1.ArchiveStatus.Failed;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_QUEUED:
-            return types_1.ArchiveStatus.Queued;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_SUCCESS:
-            return types_1.ArchiveStatus.Success;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_UNSPECIFIED:
-            return types_1.ArchiveStatus.Unspecified;
-        default:
-            throw new Error('unknown status');
-    }
-}
-function fromPbArchive(item) {
-    return Object.assign(Object.assign({}, item), { 
-        // TODO: standardize units coming from server.
-        createdAt: new Date(item.createdAt * 1000), status: fromPbArchiveStatus(item.archiveStatus), dealInfo: item.dealInfoList.map(fromPbDealInfo) });
-}
+exports.ArchiveStatus = exports.PathAccessRole = exports.AbortError = void 0;
+exports.AbortError = new Error('aborted');
+var PathAccessRole;
+(function (PathAccessRole) {
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_UNSPECIFIED"] = 0] = "PATH_ACCESS_ROLE_UNSPECIFIED";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_READER"] = 1] = "PATH_ACCESS_ROLE_READER";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_WRITER"] = 2] = "PATH_ACCESS_ROLE_WRITER";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_ADMIN"] = 3] = "PATH_ACCESS_ROLE_ADMIN";
+})(PathAccessRole = exports.PathAccessRole || (exports.PathAccessRole = {}));
 /**
- * Ensures that a Root | string | undefined is converted into a string
+ * Archive job status codes
  */
-function ensureRootString(api, key, root, ctx) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        if (root) {
-            return typeof root === 'string' ? root : root.path;
-        }
-        else {
-            /* eslint-disable  @typescript-eslint/no-use-before-define */
-            const root = yield bucketsRoot(api, key, ctx);
-            return (_a = root === null || root === void 0 ? void 0 : root.path) !== null && _a !== void 0 ? _a : '';
-        }
-    });
-}
-function* genChunks(value, size) {
-    return yield* Array.from(Array(Math.ceil(value.byteLength / size)), (_, i) => value.slice(i * size, i * size + size));
-}
-exports.genChunks = genChunks;
-/**
- * Creates a new bucket.
- * @public
- * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
- * @param isPrivate encrypt the bucket contents (default `false`)
- * @param cid (optional) Bootstrap the bucket with a UnixFS Cid from the IPFS network
- * @example
- * Creates a Bucket called "app-name-files"
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const create = async (buckets: Buckets) => {
- *     return buckets.create("app-name-files")
- * }
- * ```
- *
- * @internal
- */
-function bucketsCreate(api, name, isPrivate = false, cid, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('create request');
-        const req = new bucketsd_pb_1.CreateRequest();
-        req.setName(name);
-        if (cid) {
-            req.setBootstrapCid(cid);
-        }
-        req.setPrivate(isPrivate);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Create, req, ctx);
-        const links = res.getLinks();
-        return {
-            seed: res.getSeed_asU8(),
-            seedCid: res.getSeedCid(),
-            root: fromPbRootObjectNullable(res.getRoot()),
-            links: links ? links.toObject() : undefined,
-        };
-    });
-}
-exports.bucketsCreate = bucketsCreate;
-/**
- * Returns the bucket root CID
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- *
- * @internal
- */
-function bucketsRoot(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('root request');
-        const req = new bucketsd_pb_1.RootRequest();
-        req.setKey(key);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Root, req, ctx);
-        return fromPbRootObjectNullable(res.getRoot());
-    });
-}
-exports.bucketsRoot = bucketsRoot;
-/**
- * Returns a list of bucket links.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @example
- * Generate the HTTP, IPNS, and IPFS links for a Bucket
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const getLinks = async (buckets: Buckets) => {
- *    const links = buckets.links(bucketKey)
- *    return links.ipfs
- * }
- *
- * const getIpfs = async (buckets: Buckets) => {
- *    const links = buckets.links(bucketKey)
- *    return links.ipfs
- * }
- * ```
- *
- * @internal
- */
-function bucketsLinks(api, key, path, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('link request');
-        const req = new bucketsd_pb_1.LinksRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Links, req, ctx);
-        return res.toObject();
-    });
-}
-exports.bucketsLinks = bucketsLinks;
-/**
- * Returns a list of all bucket roots.
- * @example
- * Find an existing Bucket named "app-name-files"
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const exists = async (buckets: Buckets) => {
- *     const roots = await buckets.list();
- *     return roots.find((bucket) => bucket.name ===  "app-name-files")
- * }
- * ```
- *
- * @internal
- */
-function bucketsList(api, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('list request');
-        const req = new bucketsd_pb_1.ListRequest();
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.List, req, ctx);
-        const roots = res.getRootsList();
-        const map = roots ? roots.map((m) => m).map((m) => fromPbRootObject(m)) : [];
-        return map;
-    });
-}
-exports.bucketsList = bucketsList;
-/**
- * Returns information about a bucket path.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- *
- * @internal
- */
-function bucketsListPath(api, key, path, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('list path request');
-        const req = new bucketsd_pb_1.ListPathRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListPath, req, ctx);
-        return {
-            item: fromPbPathItemNullable(res.getItem()),
-            root: fromPbRootObjectNullable(res.getRoot()),
-        };
-    });
-}
-exports.bucketsListPath = bucketsListPath;
-/**
- * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
- * @param path UnixFS path
- *
- * @internal
- */
-function bucketsListIpfsPath(api, path, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('list path request');
-        const req = new bucketsd_pb_1.ListIpfsPathRequest();
-        req.setPath(path);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListIpfsPath, req, ctx);
-        return fromPbPathItemNullable(res.getItem());
-    });
-}
-exports.bucketsListIpfsPath = bucketsListIpfsPath;
-/**
- * Pushes a file to a bucket path.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- * @param input The input file/stream/object.
- * @param opts Options to control response stream.
- * @remarks
- * This will return the resolved path and the bucket's new root path.
- * @example
- * Push a file to the root of a bucket
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const pushFile = async (content: string, bucketKey: string) => {
- *    const file = { path: '/index.html', content: Buffer.from(content) }
- *    return await buckets.pushPath(bucketKey!, 'index.html', file)
- * }
- * ```
- *
- * @internal
- */
-function bucketsPushPath(api, key, path, input, opts, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-            var e_1, _a;
-            var _b, _c;
-            // Only process the first input if there are more than one
-            const source = (yield normalize_1.normaliseInput(input).next()).value;
-            const client = grpc_web_1.grpc.client(bucketsd_pb_service_1.APIService.PushPath, {
-                host: api.serviceHost,
-                transport: api.rpcOptions.transport,
-                debug: api.rpcOptions.debug,
-            });
-            // Send a close event to the bucket api upon abort
-            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
-                opts.signal.addEventListener('abort', () => {
-                    client.close();
-                    return reject(types_1.AbortError);
-                });
-            }
-            client.onMessage((message) => {
-                var _a, _b, _c, _d;
-                // Let's just make sure we haven't aborted this outside this function
-                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
-                    client.close();
-                    return reject(types_1.AbortError);
-                }
-                if (message.hasEvent()) {
-                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
-                    if (event === null || event === void 0 ? void 0 : event.path) {
-                        // @todo: Is there an standard library/tool for this step in JS?
-                        const pth = event.path.startsWith('/ipfs/') ? event.path.split('/ipfs/')[1] : event.path;
-                        const cid = new cids_1.default(pth);
-                        const res = {
-                            path: {
-                                path: `/ipfs/${cid.toString()}`,
-                                cid: cid,
-                                root: cid,
-                                remainder: '',
-                            },
-                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
-                        };
-                        return resolve(res);
-                    }
-                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
-                    }
-                }
-                else {
-                    return reject(new Error('Invalid reply'));
-                }
-            });
-            client.onEnd((code, msg) => {
-                if (code !== grpc_web_1.grpc.Code.OK) {
-                    const message = msg ? msg : code.toString();
-                    return reject(new Error(message));
-                }
-                else {
-                    return resolve();
-                }
-            });
-            if (source) {
-                const head = new bucketsd_pb_1.PushPathRequest.Header();
-                head.setPath(source.path || path);
-                head.setKey(key);
-                // Setting root here ensures pushes will error if root is out of date
-                const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
-                head.setRoot(root);
-                const req = new bucketsd_pb_1.PushPathRequest();
-                req.setHeader(head);
-                const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-                // Let's just make sure we haven't aborted this outside this function
-                if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
-                    return reject(types_1.AbortError);
-                }
-                client.start(metadata);
-                client.send(req);
-                if (source.content) {
-                    try {
-                        for (var _d = __asyncValues(source.content), _e; _e = yield _d.next(), !_e.done;) {
-                            const chunk = _e.value;
-                            // Let's just make sure we haven't aborted this outside this function
-                            if ((_c = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _c === void 0 ? void 0 : _c.aborted) {
-                                try {
-                                    client.close();
-                                }
-                                catch (_f) { } // noop
-                                return reject(types_1.AbortError);
-                            }
-                            // Naively chunk into chunks smaller than CHUNK_SIZE bytes
-                            for (const chunklet of genChunks(chunk, exports.CHUNK_SIZE)) {
-                                const part = new bucketsd_pb_1.PushPathRequest();
-                                part.setChunk(chunklet);
-                                client.send(part);
-                            }
-                        }
-                    }
-                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                    finally {
-                        try {
-                            if (_e && !_e.done && (_a = _d.return)) yield _a.call(_d);
-                        }
-                        finally { if (e_1) throw e_1.error; }
-                    }
-                }
-                // We only need to finish send here if we actually started
-                client.finishSend();
-            }
-        }));
-    });
-}
-exports.bucketsPushPath = bucketsPushPath;
-function bucketsPushPathNode(api, key, path, input, opts, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-            var e_2, _a;
-            var _b;
-            // Only process the first input if there are more than one
-            const source = (yield normalize_1.normaliseInput(input).next()).value;
-            if (!source) {
-                return reject(types_1.AbortError);
-            }
-            const clientjs = new bucketsd_pb_service_1.APIServiceClient(api.serviceHost, api.rpcOptions);
-            const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            const stream = clientjs.pushPath(metadata);
-            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
-                opts.signal.addEventListener('abort', () => {
-                    stream.cancel();
-                    return reject(types_1.AbortError);
-                });
-            }
-            stream.on('data', (message) => {
-                var _a, _b, _c, _d;
-                // Let's just make sure we haven't aborted this outside this function
-                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
-                    stream.cancel();
-                    return reject(types_1.AbortError);
-                }
-                if (message.hasEvent()) {
-                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
-                    if (event === null || event === void 0 ? void 0 : event.path) {
-                        // TODO: Is there an standard library/tool for this step in JS?
-                        const pth = event.path.startsWith('/ipfs/') ? event.path.split('/ipfs/')[1] : event.path;
-                        const cid = new cids_1.default(pth);
-                        const res = {
-                            path: {
-                                path: `/ipfs/${cid === null || cid === void 0 ? void 0 : cid.toString()}`,
-                                cid,
-                                root: cid,
-                                remainder: '',
-                            },
-                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
-                        };
-                        return resolve(res);
-                    }
-                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
-                    }
-                }
-                else {
-                    return reject(new Error('Invalid reply'));
-                }
-            });
-            stream.on('end', (status) => {
-                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
-                    return reject(new Error(status.details));
-                }
-                else {
-                    return resolve();
-                }
-            });
-            stream.on('status', (status) => {
-                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
-                    return reject(new Error(status.details));
-                }
-                else {
-                    return resolve();
-                }
-            });
-            const head = new bucketsd_pb_1.PushPathRequest.Header();
-            head.setPath(source.path || path);
-            head.setKey(key);
-            // Setting root here ensures pushes will error if root is out of date
-            const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
-            head.setRoot(root);
-            const req = new bucketsd_pb_1.PushPathRequest();
-            req.setHeader(head);
-            stream.write(req);
-            if (source.content) {
-                try {
-                    for (var _c = __asyncValues(source.content), _d; _d = yield _c.next(), !_d.done;) {
-                        const chunk = _d.value;
-                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
-                            // Let's just make sure we haven't aborted this outside this function
-                            try {
-                                // Should already have been handled
-                                stream.cancel();
-                            }
-                            catch (_e) { } // noop
-                            return reject(types_1.AbortError);
-                        }
-                        // Naively chunk into chunks smaller than CHUNK_SIZE bytes
-                        for (const chunklet of genChunks(chunk, exports.CHUNK_SIZE)) {
-                            const part = new bucketsd_pb_1.PushPathRequest();
-                            part.setChunk(chunklet);
-                            stream.write(part);
-                        }
-                    }
-                }
-                catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                finally {
-                    try {
-                        if (_d && !_d.done && (_a = _c.return)) yield _a.call(_c);
-                    }
-                    finally { if (e_2) throw e_2.error; }
-                }
-            }
-            stream.end();
-        }));
-    });
-}
-exports.bucketsPushPathNode = bucketsPushPathNode;
-/**
- * Pushes a file to a bucket path.
- * @internal
- */
-function bucketsSetPath(api, key, path, cid, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const request = new bucketsd_pb_1.SetPathRequest();
-        request.setKey(key);
-        request.setPath(path);
-        request.setCid(cid);
-        yield api.unary(bucketsd_pb_service_1.APIService.SetPath, request, ctx);
-    });
-}
-exports.bucketsSetPath = bucketsSetPath;
-/**
- * Pulls the bucket path, returning the bytes of the given file.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- * @param opts Options to control response stream. Currently only supports a progress function.
- *
- * @internal
- */
-function bucketsPullPath(api, key, path, opts, ctx) {
-    const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-    const request = new bucketsd_pb_1.PullPathRequest();
-    request.setKey(key);
-    request.setPath(path);
-    let written = 0;
-    const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
-        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullPath, {
-            host: api.serviceHost,
-            transport: api.rpcOptions.transport,
-            debug: api.rpcOptions.debug,
-            request,
-            metadata,
-            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
-                const chunk = res.getChunk_asU8();
-                push(chunk);
-                written += chunk.byteLength;
-                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                    opts.progress(written);
-                }
-            }),
-            onEnd: (status, message, _trailers) => __awaiter(this, void 0, void 0, function* () {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    fail(new Error(message));
-                }
-                stop();
-            }),
-        });
-        return () => resp.close();
-    });
-    const it = Object.assign({ [Symbol.asyncIterator]() {
-            return this;
-        } }, events[Symbol.asyncIterator]());
-    return it;
-}
-exports.bucketsPullPath = bucketsPullPath;
-/**
- * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
- * @param path A file/object (sub)-path within a bucket.
- * @param opts Options to control response stream. Currently only supports a progress function.
- *
- * @internal
- */
-function bucketsPullIpfsPath(api, path, opts, ctx) {
-    const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-    const request = new bucketsd_pb_1.PullIpfsPathRequest();
-    request.setPath(path);
-    let written = 0;
-    const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
-        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullIpfsPath, {
-            host: api.serviceHost,
-            transport: api.rpcOptions.transport,
-            debug: api.rpcOptions.debug,
-            request,
-            metadata,
-            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
-                const chunk = res.getChunk_asU8();
-                push(chunk);
-                written += chunk.byteLength;
-                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                    opts.progress(written);
-                }
-            }),
-            onEnd: (status, message, _trailers) => __awaiter(this, void 0, void 0, function* () {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    fail(new Error(message));
-                }
-                stop();
-            }),
-        });
-        return () => resp.close();
-    });
-    const it = Object.assign({ [Symbol.asyncIterator]() {
-            return this;
-        } }, events[Symbol.asyncIterator]());
-    return it;
-}
-exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
-/**
- * Removes an entire bucket. Files and directories will be unpinned.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- *
- * @internal
- */
-function bucketsRemove(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove request');
-        const req = new bucketsd_pb_1.RemoveRequest();
-        req.setKey(key);
-        yield api.unary(bucketsd_pb_service_1.APIService.Remove, req, ctx);
-        return;
-    });
-}
-exports.bucketsRemove = bucketsRemove;
-/**
- * Returns information about a bucket path.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- * @param root optional to specify a root
- *
- * @internal
- */
-function bucketsRemovePath(api, key, path, opts, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove path request');
-        const req = new bucketsd_pb_1.RemovePathRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
-        req.setRoot(root);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.RemovePath, req, ctx);
-        return {
-            pinned: res.getPinned(),
-            root: fromPbRootObjectNullable(res.getRoot())
-        };
-    });
-}
-exports.bucketsRemovePath = bucketsRemovePath;
-function bucketsPushPathAccessRoles(api, key, path, roles, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove path request');
-        const req = new bucketsd_pb_1.PushPathAccessRolesRequest();
-        req.setKey(key);
-        req.setPath(path);
-        roles.forEach((value, key) => req.getRolesMap().set(key, value));
-        yield api.unary(bucketsd_pb_service_1.APIService.PushPathAccessRoles, req, ctx);
-        return;
-    });
-}
-exports.bucketsPushPathAccessRoles = bucketsPushPathAccessRoles;
-function bucketsPullPathAccessRoles(api, key, path = '/', ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove path request');
-        const req = new bucketsd_pb_1.PullPathAccessRolesRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const response = yield api.unary(bucketsd_pb_service_1.APIService.PullPathAccessRoles, req, ctx);
-        const roles = response.getRolesMap();
-        const typedRoles = new Map();
-        roles.forEach((entry, key) => typedRoles.set(key, entry));
-        return typedRoles;
-    });
-}
-exports.bucketsPullPathAccessRoles = bucketsPullPathAccessRoles;
-/**
- * @internal
- */
-function bucketsDefaultArchiveConfig(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('default archive config request');
-        const req = new bucketsd_pb_1.DefaultArchiveConfigRequest();
-        req.setKey(key);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.DefaultArchiveConfig, req, ctx);
-        const config = res.getArchiveConfig();
-        if (!config) {
-            throw new Error('no archive config returned');
-        }
-        return fromProtoArchiveConfig(config.toObject());
-    });
-}
-exports.bucketsDefaultArchiveConfig = bucketsDefaultArchiveConfig;
-/**
- * @internal
- */
-function bucketsSetDefaultArchiveConfig(api, key, config, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('set default archive config request');
-        const req = new bucketsd_pb_1.SetDefaultArchiveConfigRequest();
-        req.setKey(key);
-        req.setArchiveConfig(toProtoArchiveConfig(config));
-        yield api.unary(bucketsd_pb_service_1.APIService.SetDefaultArchiveConfig, req, ctx);
-        return;
-    });
-}
-exports.bucketsSetDefaultArchiveConfig = bucketsSetDefaultArchiveConfig;
-/**
- * archive creates a Filecoin bucket archive.
- * @internal
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param options Options that control the behavior of the bucket archive
- */
-function bucketsArchive(api, key, options, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('archive request');
-        const req = new bucketsd_pb_1.ArchiveRequest();
-        req.setKey(key);
-        if (options === null || options === void 0 ? void 0 : options.archiveConfig) {
-            req.setArchiveConfig(toProtoArchiveConfig(options.archiveConfig));
-        }
-        yield api.unary(bucketsd_pb_service_1.APIService.Archive, req, ctx);
-        return;
-    });
-}
-exports.bucketsArchive = bucketsArchive;
-/**
- * @internal
- */
-function bucketsArchives(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('archives request');
-        const req = new bucketsd_pb_1.ArchivesRequest();
-        req.setKey(key);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Archives, req, ctx);
-        const current = res.toObject().current;
-        return {
-            current: current ? fromPbArchive(current) : undefined,
-            history: res.toObject().historyList.map(fromPbArchive),
-        };
-    });
-}
-exports.bucketsArchives = bucketsArchives;
-/**
- * archiveWatch watches status events from a Filecoin bucket archive.
- * @internal
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- */
-function bucketsArchiveWatch(api, key, callback, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('archive watch request');
-        const req = new bucketsd_pb_1.ArchiveWatchRequest();
-        req.setKey(key);
-        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const res = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.ArchiveWatch, {
-            host: api.context.host,
-            request: req,
-            metadata,
-            onMessage: (rec) => {
-                const response = {
-                    id: rec.getJsPbMessageId(),
-                    msg: rec.getMsg(),
-                };
-                callback(response);
-            },
-            onEnd: (status, message, _trailers) => {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    return callback(undefined, new Error(message));
-                }
-                callback();
-            },
-        });
-        return res.close.bind(res);
-    });
-}
-exports.bucketsArchiveWatch = bucketsArchiveWatch;
-/**
- * Raw API connected needed by Buckets CI code (compile friendly)
- * see more https://github.com/textileio/github-action-buckets
- */
-class BucketsGrpcClient {
+var ArchiveStatus;
+(function (ArchiveStatus) {
     /**
-     * Creates a new gRPC client instance for accessing the Textile Buckets API.
-     * @param context The context to use for interacting with the APIs. Can be modified later.
+     * Status is not specified.
      */
-    constructor(context = new context_1.Context(), debug = false) {
-        this.context = context;
-        this.serviceHost = context.host;
-        this.rpcOptions = {
-            transport: grpc_transport_1.WebsocketTransport(),
-            debug,
-        };
+    ArchiveStatus[ArchiveStatus["Unspecified"] = 0] = "Unspecified";
+    /**
+     * The archive job is queued.
+     */
+    ArchiveStatus[ArchiveStatus["Queued"] = 1] = "Queued";
+    /**
+     * The archive job is executing.
+     */
+    ArchiveStatus[ArchiveStatus["Executing"] = 2] = "Executing";
+    /**
+     * The archive job has failed.
+     */
+    ArchiveStatus[ArchiveStatus["Failed"] = 3] = "Failed";
+    /**
+     * The archive job was canceled.
+     */
+    ArchiveStatus[ArchiveStatus["Canceled"] = 4] = "Canceled";
+    /**
+     * The archive job succeeded.
+     */
+    ArchiveStatus[ArchiveStatus["Success"] = 5] = "Success";
+})(ArchiveStatus = exports.ArchiveStatus || (exports.ArchiveStatus = {}));
+//# sourceMappingURL=types.js.map
+
+/***/ }),
+
+/***/ 153:
+/***/ (function(module) {
+
+"use strict";
+
+
+/**
+ * Returns true if the two passed Uint8Arrays have the same content
+ *
+ * @param {Uint8Array} a
+ * @param {Uint8Array} b
+ * @returns {boolean}
+ */
+function equals (a, b) {
+  if (a === b) {
+    return true
+  }
+
+  if (a.byteLength !== b.byteLength) {
+    return false
+  }
+
+  for (let i = 0; i < a.byteLength; i++) {
+    if (a[i] !== b[i]) {
+      return false
     }
-    unary(methodDescriptor, req, ctx) {
-        return new Promise((resolve, reject) => {
-            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            grpc_web_1.grpc.unary(methodDescriptor, {
-                request: req,
-                host: this.serviceHost,
-                transport: this.rpcOptions.transport,
-                debug: this.rpcOptions.debug,
-                metadata,
-                onEnd: (res) => {
-                    const { status, statusMessage, message } = res;
-                    if (status === grpc_web_1.grpc.Code.OK) {
-                        if (message) {
-                            resolve(message);
-                        }
-                        else {
-                            resolve();
-                        }
-                    }
-                    else {
-                        reject(new Error(statusMessage));
-                    }
-                },
-            });
-        });
-    }
+  }
+
+  return true
 }
-exports.BucketsGrpcClient = BucketsGrpcClient;
-//# sourceMappingURL=index.js.map
+
+module.exports = equals
+
 
 /***/ }),
 
@@ -14873,9 +14434,9 @@ const path_1 = __importDefault(__webpack_require__(622));
 const util_1 = __importDefault(__webpack_require__(669));
 const glob_1 = __importDefault(__webpack_require__(402));
 const core = __importStar(__webpack_require__(470));
-const api_1 = __webpack_require__(177);
+const api_1 = __webpack_require__(582);
 const context_1 = __webpack_require__(783);
-const grpc_connection_1 = __webpack_require__(578);
+const grpc_connection_1 = __webpack_require__(556);
 const readFile = util_1.default.promisify(fs_1.default.readFile);
 const globDir = util_1.default.promisify(glob_1.default);
 function chunkBuffer(content) {
@@ -15663,6 +15224,65 @@ GlobSync.prototype._makeAbs = function (f) {
 
 /***/ }),
 
+/***/ 251:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const { encoding: getCodec } = __webpack_require__(939)
+const { TextEncoder } = __webpack_require__(974)
+const utf8Encoder = new TextEncoder()
+
+/**
+ * @typedef {import('multibase/src/types').BaseName} BaseName
+ */
+
+/**
+ * Interprets each character in a string as a byte and
+ * returns a Uint8Array of those bytes.
+ *
+ * @param {string} string - The string to turn into an array
+ * @returns {Uint8Array}
+ */
+function asciiStringToUint8Array (string) {
+  const array = new Uint8Array(string.length)
+
+  for (let i = 0; i < string.length; i++) {
+    array[i] = string.charCodeAt(i)
+  }
+
+  return array
+}
+
+/**
+ * Create a `Uint8Array` from the passed string
+ *
+ * Supports `utf8`, `utf-8` and any encoding supported by the multibase module.
+ *
+ * Also `ascii` which is similar to node's 'binary' encoding.
+ *
+ * @param {string} string
+ * @param {BaseName | 'utf8' | 'utf-8' | 'ascii'} [encoding=utf8] - utf8, base16, base64, base64urlpad, etc
+ * @returns {Uint8Array}
+ */
+function fromString (string, encoding = 'utf8') {
+  if (encoding === 'utf8' || encoding === 'utf-8') {
+    return utf8Encoder.encode(string)
+  }
+
+  if (encoding === 'ascii') {
+    return asciiStringToUint8Array(string)
+  }
+
+  return getCodec(encoding).decode(string)
+}
+
+module.exports = fromString
+
+
+/***/ }),
+
 /***/ 266:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -15716,11 +15336,12 @@ module.exports = { decodeText, encodeText, concat }
 "use strict";
 
 
-const baseTable = __webpack_require__(923)
+/** @typedef {import('./generated-types').NameUint8ArrayMap} NameUint8ArrayMap */
+
+const { baseTable } = __webpack_require__(607)
 const varintEncode = __webpack_require__(902).varintEncode
 
-// map for codecName -> codeVarintUint8Array
-const varintTable = {}
+const varintTable = /** @type {NameUint8ArrayMap} */ ({})
 
 for (const encodingName in baseTable) {
   const code = baseTable[encodingName]
@@ -15869,6 +15490,7 @@ exports.WebsocketTransport = WebsocketTransport;
  */
 const decode = (string, alphabet, bitsPerChar) => {
   // Build the character lookup table:
+  /** @type {Record<string, number>} */
   const codes = {}
   for (let i = 0; i < alphabet.length; ++i) {
     codes[alphabet[i]] = i
@@ -18342,42 +17964,6 @@ exports.APIServiceClient = APIServiceClient;
 
 /***/ }),
 
-/***/ 327:
-/***/ (function(module) {
-
-"use strict";
-
-
-/**
- * Returns true if the two passed Uint8Arrays have the same content
- *
- * @param {Uint8Array} a
- * @param {Uint8Array} b
- * @returns {boolean}
- */
-function equals (a, b) {
-  if (a === b) {
-    return true
-  }
-
-  if (a.byteLength !== b.byteLength) {
-    return false
-  }
-
-  for (let i = 0; i < a.byteLength; i++) {
-    if (a[i] !== b[i]) {
-      return false
-    }
-  }
-
-  return true
-}
-
-module.exports = equals
-
-
-/***/ }),
-
 /***/ 330:
 /***/ (function(module) {
 
@@ -18750,26 +18336,6 @@ try {
 /***/ (function(module) {
 
 module.exports = require("assert");
-
-/***/ }),
-
-/***/ 359:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const table = __webpack_require__(923)
-
-// map for codecConstant -> code
-const constants = {}
-
-for (const [name, code] of Object.entries(table)) {
-  constants[name.toUpperCase().replace(/-/g, '_')] = code
-}
-
-module.exports = Object.freeze(constants)
-
 
 /***/ }),
 
@@ -20023,14 +19589,20 @@ module.exports = require("crypto");
 
 "use strict";
 
-const baseTable = __webpack_require__(923)
 
-// map for hexString -> codecName
+/** @typedef {import('./generated-types').CodecName} CodecName */
+/** @typedef {import('./generated-types').CodecNumber} CodecNumber */
+
+const { baseTable } = __webpack_require__(607)
+
+/**
+ * @type {Map<CodecNumber,CodecName>}
+ */
 const nameTable = new Map()
 
 for (const encodingName in baseTable) {
   const code = baseTable[encodingName]
-  nameTable.set(code, encodingName)
+  nameTable.set(code, /** @type {CodecName} */(encodingName))
 }
 
 module.exports = Object.freeze(nameTable)
@@ -20264,37 +19836,36 @@ function escapeProperty(s) {
 const mh = __webpack_require__(114)
 const multibase = __webpack_require__(939)
 const multicodec = __webpack_require__(548)
-const codecs = __webpack_require__(923)
+const { baseTable: codecs } = __webpack_require__(607)
 const CIDUtil = __webpack_require__(769)
-const withIs = __webpack_require__(471)
-const uint8ArrayConcat = __webpack_require__(850)
-const uint8ArrayToString = __webpack_require__(945)
-const uint8ArrayEquals = __webpack_require__(327)
+const uint8ArrayConcat = __webpack_require__(958)
+const uint8ArrayToString = __webpack_require__(439)
+const uint8ArrayEquals = __webpack_require__(153)
 
-const codecInts = Object.keys(codecs).reduce((p, name) => {
+const codecInts = /** @type {CodecName[]} */(Object.keys(codecs)).reduce((p, name) => {
   p[codecs[name]] = name
   return p
-}, {})
+}, /** @type {Record<CodecNumber, CodecName>} */({}))
+
+const symbol = Symbol.for('@ipld/js-cid/CID')
 
 /**
  * @typedef {Object} SerializedCID
- * @param {string} codec
- * @param {number} version
- * @param {Uint8Array} multihash
+ * @property {string} codec
+ * @property {number} version
+ * @property {Uint8Array} hash
  */
-
 /**
- * Test if the given input is a CID.
- * @function isCID
- * @memberof CID
- * @static
- * @param {any} other
- * @returns {bool}
+ * @typedef {0|1} CIDVersion
+ * @typedef {import('multibase').BaseNameOrCode} BaseNameOrCode
+ * @typedef {import('multicodec').CodecName} CodecName
+ * @typedef {import('multicodec').CodecNumber} CodecNumber
  */
 
 /**
  * Class representing a CID `<mbase><version><mcodec><mhash>`
  * , as defined in [ipld/cid](https://github.com/multiformats/cid).
+ *
  * @class CID
  */
 class CID {
@@ -20315,7 +19886,7 @@ class CID {
    *   -> construct CID by parts
    * ```
    *
-   * @param {string|Uint8Array|CID} version
+   * @param {CIDVersion | string | Uint8Array | CID} version
    * @param {string|number} [codec]
    * @param {Uint8Array} [multihash]
    * @param {string} [multibaseName]
@@ -20329,13 +19900,43 @@ class CID {
    * new CID(<cid>)
    */
   constructor (version, codec, multihash, multibaseName) {
-    if (_CID.isCID(version)) {
+    // We have below three blank field accessors only because
+    // otherwise TS will not pick them up if done after assignemnts
+
+    /**
+     * The version of the CID.
+     *
+     * @type {CIDVersion}
+     */
+    // eslint-disable-next-line no-unused-expressions
+    this.version
+
+    /**
+     * The codec of the CID.
+     *
+     * @deprecated
+     * @type {CodecName}
+     */
+    // eslint-disable-next-line no-unused-expressions
+    this.codec
+
+    /**
+     * The multihash of the CID.
+     *
+     * @type {Uint8Array}
+     */
+    // eslint-disable-next-line no-unused-expressions
+    this.multihash
+
+    Object.defineProperty(this, symbol, { value: true })
+    if (CID.isCID(version)) {
       // version is an exising CID instance
-      const cid = version
+      const cid = /** @type {CID} */(version)
       this.version = cid.version
       this.codec = cid.codec
       this.multihash = cid.multihash
       // Default guard for when a CID < 0.7 is passed with no multibaseName
+      // @ts-ignore
       this.multibaseName = cid.multibaseName || (cid.version === 0 ? 'base58btc' : 'base32')
       return
     }
@@ -20346,7 +19947,7 @@ class CID {
       if (baseName) {
         // version is a CID String encoded with multibase, so v1
         const cid = multibase.decode(version)
-        this.version = parseInt(cid.slice(0, 1).toString('hex'), 16)
+        this.version = /** @type {CIDVersion} */(parseInt(cid[0].toString(), 16))
         this.codec = multicodec.getCodec(cid.slice(1))
         this.multihash = multicodec.rmPrefix(cid.slice(1))
         this.multibaseName = baseName
@@ -20363,8 +19964,7 @@ class CID {
     }
 
     if (version instanceof Uint8Array) {
-      const firstByte = version.slice(0, 1)
-      const v = parseInt(firstByte.toString('hex'), 16)
+      const v = parseInt(version[0].toString(), 16)
       if (v === 1) {
         // version is a CID Uint8Array
         const cid = version
@@ -20385,26 +19985,21 @@ class CID {
 
     // otherwise, assemble the CID from the parameters
 
-    /**
-     * @type {number}
-     */
     this.version = version
 
     if (typeof codec === 'number') {
+      // @ts-ignore
       codec = codecInts[codec]
     }
 
-    /**
-     * @type {string}
-     */
-    this.codec = codec
+    this.codec = /** @type {CodecName} */ (codec)
+
+    this.multihash = /** @type {Uint8Array} */ (multihash)
 
     /**
-     * @type {Uint8Array}
-     */
-    this.multihash = multihash
-
-    /**
+     * Multibase name as string.
+     *
+     * @deprecated
      * @type {string}
      */
     this.multibaseName = multibaseName || (version === 0 ? 'base58btc' : 'base32')
@@ -20415,12 +20010,11 @@ class CID {
   /**
    * The CID as a `Uint8Array`
    *
-   * @return {Uint8Array}
-   * @readonly
+   * @returns {Uint8Array}
    *
-   * @memberOf CID
    */
   get bytes () {
+    // @ts-ignore
     let bytes = this._bytes
 
     if (!bytes) {
@@ -20443,10 +20037,9 @@ class CID {
   }
 
   /**
-   * Get the prefix of the CID.
+   * The prefix of the CID.
    *
    * @returns {Uint8Array}
-   * @readonly
    */
   get prefix () {
     const codec = multicodec.getCodeVarint(this.codec)
@@ -20458,6 +20051,11 @@ class CID {
     return prefix
   }
 
+  /**
+   * The codec of the CID in its number form.
+   *
+   * @returns {CodecNumber}
+   */
   get code () {
     return codecs[this.codec]
   }
@@ -20482,7 +20080,7 @@ class CID {
       throw new Error('Cannot convert non 32 byte multihash CID to CIDv0')
     }
 
-    return new _CID(0, this.codec, this.multihash)
+    return new CID(0, this.codec, this.multihash)
   }
 
   /**
@@ -20491,20 +20089,22 @@ class CID {
    * @returns {CID}
    */
   toV1 () {
-    return new _CID(1, this.codec, this.multihash)
+    return new CID(1, this.codec, this.multihash)
   }
 
   /**
    * Encode the CID into a string.
    *
-   * @param {string} [base=this.multibaseName] - Base encoding to use.
+   * @param {BaseNameOrCode} [base=this.multibaseName] - Base encoding to use.
    * @returns {string}
    */
   toBaseEncodedString (base = this.multibaseName) {
-    if (this.string && base === this.multibaseName) {
+    // @ts-ignore non enumerable cache property
+    if (this.string && this.string.length !== 0 && base === this.multibaseName) {
+      // @ts-ignore non enumerable cache property
       return this.string
     }
-    let str = null
+    let str
     if (this.version === 0) {
       if (base !== 'base58btc') {
         throw new Error('not supported with CIDv0, to support different bases, please migrate the instance do CIDv1, you can do that through cid.toV1()')
@@ -20525,12 +20125,18 @@ class CID {
   /**
    * CID(QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n)
    *
-   * @returns {String}
+   * @returns {string}
    */
   [Symbol.for('nodejs.util.inspect.custom')] () {
     return 'CID(' + this.toString() + ')'
   }
 
+  /**
+   * Encode the CID into a string.
+   *
+   * @param {BaseNameOrCode} [base=this.multibaseName] - Base encoding to use.
+   * @returns {string}
+   */
   toString (base) {
     return this.toBaseEncodedString(base)
   }
@@ -20552,7 +20158,7 @@ class CID {
    * Compare equality with another CID.
    *
    * @param {CID} other
-   * @returns {bool}
+   * @returns {boolean}
    */
   equals (other) {
     return this.codec === other.codec &&
@@ -20564,7 +20170,7 @@ class CID {
    * Test if the given input is a valid CID object.
    * Throws if it is not.
    *
-   * @param {any} other
+   * @param {any} other - The other CID.
    * @returns {void}
    */
   static validateCID (other) {
@@ -20573,50 +20179,93 @@ class CID {
       throw new Error(errorMsg)
     }
   }
+
+  /**
+   * Check if object is a CID instance
+   *
+   * @param {any} value
+   * @returns {value is CID}
+   */
+  static isCID (value) {
+    return value instanceof CID || Boolean(value && value[symbol])
+  }
 }
 
-const _CID = withIs(CID, {
-  className: 'CID',
-  symbolName: '@ipld/js-cid/CID'
-})
+CID.codecs = codecs
 
-_CID.codecs = codecs
-
-module.exports = _CID
+module.exports = CID
 
 
 /***/ }),
 
-/***/ 447:
-/***/ (function(module) {
+/***/ 439:
+/***/ (function(module, __unusedexports, __webpack_require__) {
 
 "use strict";
 
 
+const { encoding: getCodec } = __webpack_require__(939)
+const { TextDecoder } = __webpack_require__(974)
+const utf8Decoder = new TextDecoder('utf8')
+
 /**
- * Returns a new Uint8Array created by concatenating the passed ArrayLikes
- *
- * @param {Array<ArrayLike<number>>} arrays
- * @param {Number} length
- * @returns {Uint8Array}
+ * @typedef {import('multibase/src/types').BaseName} BaseName
  */
-function concat (arrays, length) {
-  if (!length) {
-    length = arrays.reduce((acc, curr) => acc + curr.length, 0)
+
+/**
+ * Turns a Uint8Array of bytes into a string with each
+ * character being the char code of the corresponding byte
+ *
+ * @param {Uint8Array} array - The array to turn into a string
+ * @returns {string}
+ */
+function uint8ArrayToAsciiString (array) {
+  let string = ''
+
+  for (let i = 0; i < array.length; i++) {
+    string += String.fromCharCode(array[i])
   }
-
-  const output = new Uint8Array(length)
-  let offset = 0
-
-  for (const arr of arrays) {
-    output.set(arr, offset)
-    offset += arr.length
-  }
-
-  return output
+  return string
 }
 
-module.exports = concat
+/**
+ * Turns a `Uint8Array` into a string.
+ *
+ * Supports `utf8`, `utf-8` and any encoding supported by the multibase module.
+ *
+ * Also `ascii` which is similar to node's 'binary' encoding.
+ *
+ * @param {Uint8Array} array - The array to turn into a string
+ * @param {BaseName | 'utf8' | 'utf-8' | 'ascii'} [encoding=utf8] - The encoding to use
+ * @returns {string}
+ */
+function toString (array, encoding = 'utf8') {
+  if (encoding === 'utf8' || encoding === 'utf-8') {
+    return utf8Decoder.decode(array)
+  }
+
+  if (encoding === 'ascii') {
+    return uint8ArrayToAsciiString(array)
+  }
+
+  return getCodec(encoding).encode(array)
+}
+
+module.exports = toString
+
+
+/***/ }),
+
+/***/ 442:
+/***/ (function(module) {
+
+"use strict";
+(function(q){var C=String.fromCharCode,v={}.toString,w=q.SharedArrayBuffer,J=w?v.call(w):"",r=q.Uint8Array,K=r?v.call(ArrayBuffer.prototype):"",n=q.Buffer,a=new Uint16Array(32);try{!n&&q.require&&(n=q.require("Buffer"));var D=n.prototype;var L=n?v.call(D):""}catch(c){}var x=n.allocUnsafe,z=!!r&&!n,M=!n||!!r&&r.prototype.isPrototypeOf(D),A=q.TextEncoder,B=q.TextDecoder;if(z||n){var y=function(c){c.TextDecoder=B||E;c.TextEncoder=A||F;c!==q&&(c.decode=B?G(new B,"decode"):H,c.encode=A?G(new A,
+"encode"):I);return c},G=function(c,h,d){d=c[h];return function(){return d.apply(c,arguments)}},I=function(c){c=void 0===c?"":""+c;var h=c.length|0,d=z?new r((h<<1)+8|0):x?x((h<<1)+8|0):new n((h<<1)+8|0),b,e=0,u=!1;for(b=0;b<h;b=b+1|0,e=e+1|0){var g=c.charCodeAt(b)|0;if(127>=g)d[e]=g;else{if(2047>=g)d[e]=192|g>>6;else{a:{if(55296<=g)if(56320>g){var f=c.charCodeAt(b=b+1|0)|0;if(56320<=f&&57343>=f){g=(g<<10)+f-56613888|0;if(65535<g){d[e]=240|g>>18;d[e=e+1|0]=128|g>>12&63;d[e=e+1|0]=128|g>>6&63;d[e=
+e+1|0]=128|g&63;continue}break a}g=65533}else 57343>=g&&(g=65533);!u&&b<<1<e&&b<<1<(e-7|0)&&(u=!0,f=z?new r(3*h):x?x(3*h):new n(3*h),f.set(d),d=f)}d[e]=224|g>>12;d[e=e+1|0]=128|g>>6&63}d[e=e+1|0]=128|g&63}}return d.subarray(0,e)},F=function(){},H=function(c){var h=c&&c.buffer||c,d=v.call(h);if(d!==K&&d!==L&&d!==J&&"[object ArrayBuffer]"!==d&&void 0!==c)throw TypeError("Failed to execute 'decode' on 'TextDecoder': The provided value is not of type '(ArrayBuffer or ArrayBufferView)'");c=M?new r(h):
+h||[];d=h="";for(var b=0,e=c.length|0,u=e-32|0,g,f,k=0,t=0,m,l=0,p=-1;b<e;){for(g=b<=u?32:e-b|0;l<g;b=b+1|0,l=l+1|0){f=c[b]&255;switch(f>>4){case 15:m=c[b=b+1|0]&255;if(2!==m>>6||247<f){b=b-1|0;break}k=(f&7)<<6|m&63;t=5;f=256;case 14:m=c[b=b+1|0]&255,k<<=6,k|=(f&15)<<6|m&63,t=2===m>>6?t+4|0:24,f=f+256&768;case 13:case 12:m=c[b=b+1|0]&255,k<<=6,k|=(f&31)<<6|m&63,t=t+7|0,b<e&&2===m>>6&&k>>t&&1114112>k?(f=k,k=k-65536|0,0<=k&&(p=(k>>10)+55296|0,f=(k&1023)+56320|0,31>l?(a[l]=p,l=l+1|0,p=-1):(m=p,p=f,f=
+m))):(f>>=8,b=b-f-1|0,f=65533),k=t=0,g=b<=u?32:e-b|0;default:a[l]=f;continue;case 11:case 10:case 9:case 8:}a[l]=65533}d+=C(a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15],a[16],a[17],a[18],a[19],a[20],a[21],a[22],a[23],a[24],a[25],a[26],a[27],a[28],a[29],a[30],a[31]);32>l&&(d=d.slice(0,l-32|0));if(b<e){if(a[0]=p,l=~p>>>31,p=-1,d.length<h.length)continue}else-1!==p&&(d+=C(p));h+=d;d=""}return h},E=function(){};E.prototype.decode=H;w=F.prototype;w.encode=I; true?y(module.exports):undefined}})("undefined"==typeof global?"undefined"==typeof self?this||{}:self:global);//AnonyCo
+//# sourceMappingURL=https://cdn.jsdelivr.net/gh/AnonyCo/FastestSmallestTextEncoderDecoder/NodeJS/EncoderAndDecoderNodeJS.min.js.map
 
 
 /***/ }),
@@ -20866,80 +20515,6 @@ exports.getState = getState;
 
 /***/ }),
 
-/***/ 471:
-/***/ (function(module) {
-
-"use strict";
-
-
-function withIs(Class, { className, symbolName }) {
-    const symbol = Symbol.for(symbolName);
-
-    const ClassIsWrapper = {
-        // The code below assigns the class wrapper to an object to trick
-        // JavaScript engines to show the name of the extended class when
-        // logging an instances.
-        // We are assigning an anonymous class (class wrapper) to the object
-        // with key `className` to keep the correct name.
-        // If this is not supported it falls back to logging `ClassIsWrapper`.
-        [className]: class extends Class {
-            constructor(...args) {
-                super(...args);
-                Object.defineProperty(this, symbol, { value: true });
-            }
-
-            get [Symbol.toStringTag]() {
-                return className;
-            }
-        },
-    }[className];
-
-    ClassIsWrapper[`is${className}`] = (obj) => !!(obj && obj[symbol]);
-
-    return ClassIsWrapper;
-}
-
-function withIsProto(Class, { className, symbolName, withoutNew }) {
-    const symbol = Symbol.for(symbolName);
-
-    /* eslint-disable object-shorthand */
-    const ClassIsWrapper = {
-        [className]: function (...args) {
-            if (withoutNew && !(this instanceof ClassIsWrapper)) {
-                return new ClassIsWrapper(...args);
-            }
-
-            const _this = Class.call(this, ...args) || this;
-
-            if (_this && !_this[symbol]) {
-                Object.defineProperty(_this, symbol, { value: true });
-            }
-
-            return _this;
-        },
-    }[className];
-    /* eslint-enable object-shorthand */
-
-    ClassIsWrapper.prototype = Object.create(Class.prototype);
-    ClassIsWrapper.prototype.constructor = ClassIsWrapper;
-
-    Object.defineProperty(ClassIsWrapper.prototype, Symbol.toStringTag, {
-        get() {
-            return className;
-        },
-    });
-
-    ClassIsWrapper[`is${className}`] = (obj) => !!(obj && obj[symbol]);
-
-    return ClassIsWrapper;
-}
-
-module.exports = withIs;
-module.exports.proto = withIsProto;
-
-
-/***/ }),
-
 /***/ 507:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -20958,22 +20533,26 @@ module.exports = {
 "use strict";
 
 
-const table = __webpack_require__(923)
+/** @typedef {import('./generated-types').CodecName} CodecName */
+/** @typedef {import('./generated-types').NumberNameMap} NumberNameMap */
 
-// map for code -> print friendly name
-const tableByCode = {}
+const { baseTable } = __webpack_require__(607)
 
-for (const [name, code] of Object.entries(table)) {
-  if (tableByCode[code] === undefined) tableByCode[code] = name
+const tableByCode = /** @type {NumberNameMap} */({})
+
+for (const [name, code] of Object.entries(baseTable)) {
+  if (tableByCode[code] === undefined) {
+    tableByCode[code] = /** @type {CodecName} **/(name)
+  }
 }
 
-module.exports = Object.freeze(tableByCode)
+module.exports = /** @type {NumberNameMap} */(Object.freeze(tableByCode))
 
 
 /***/ }),
 
 /***/ 548:
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, __unusedexports, __webpack_require__) {
 
 "use strict";
 /**
@@ -20989,22 +20568,23 @@ module.exports = Object.freeze(tableByCode)
  */
 
 
-const varint = __webpack_require__(977)
+/** @typedef {import('./generated-types').CodecName} CodecName */
+/** @typedef {import('./generated-types').CodecNumber} CodecNumber */
+
+const varint = __webpack_require__(507)
 const intTable = __webpack_require__(422)
 const codecNameToCodeVarint = __webpack_require__(276)
 const util = __webpack_require__(902)
-const uint8ArrayConcat = __webpack_require__(447)
-
-exports = module.exports
+const uint8ArrayConcat = __webpack_require__(850)
 
 /**
  * Prefix a buffer with a multicodec-packed.
  *
- * @param {string|number} multicodecStrOrCode
+ * @param {CodecName|Uint8Array} multicodecStrOrCode
  * @param {Uint8Array} data
  * @returns {Uint8Array}
  */
-exports.addPrefix = (multicodecStrOrCode, data) => {
+function addPrefix (multicodecStrOrCode, data) {
   let prefix
 
   if (multicodecStrOrCode instanceof Uint8Array) {
@@ -21025,17 +20605,18 @@ exports.addPrefix = (multicodecStrOrCode, data) => {
  * @param {Uint8Array} data
  * @returns {Uint8Array}
  */
-exports.rmPrefix = (data) => {
+function rmPrefix (data) {
   varint.decode(data)
   return data.slice(varint.decode.bytes)
 }
 
 /**
  * Get the codec of the prefixed data.
+ *
  * @param {Uint8Array} prefixedData
- * @returns {string}
+ * @returns {CodecName}
  */
-exports.getCodec = (prefixedData) => {
+function getCodec (prefixedData) {
   const code = varint.decode(prefixedData)
   const codecName = intTable.get(code)
   if (codecName === undefined) {
@@ -21046,19 +20627,21 @@ exports.getCodec = (prefixedData) => {
 
 /**
  * Get the name of the codec.
- * @param {number} codec
- * @returns {string}
+ *
+ * @param {CodecNumber} codec
+ * @returns {CodecName|undefined}
  */
-exports.getName = (codec) => {
+function getName (codec) {
   return intTable.get(codec)
 }
 
 /**
  * Get the code of the codec
- * @param {string} name
- * @returns {number}
+ *
+ * @param {CodecName} name
+ * @returns {CodecNumber}
  */
-exports.getNumber = (name) => {
+function getNumber (name) {
   const code = codecNameToCodeVarint[name]
   if (code === undefined) {
     throw new Error('Codec `' + name + '` not found')
@@ -21068,19 +20651,21 @@ exports.getNumber = (name) => {
 
 /**
  * Get the code of the prefixed data.
+ *
  * @param {Uint8Array} prefixedData
- * @returns {number}
+ * @returns {CodecNumber}
  */
-exports.getCode = (prefixedData) => {
+function getCode (prefixedData) {
   return varint.decode(prefixedData)
 }
 
 /**
  * Get the code as varint of a codec name.
- * @param {string} codecName
+ *
+ * @param {CodecName} codecName
  * @returns {Uint8Array}
  */
-exports.getCodeVarint = (codecName) => {
+function getCodeVarint (codecName) {
   const code = codecNameToCodeVarint[codecName]
   if (code === undefined) {
     throw new Error('Codec `' + codecName + '` not found')
@@ -21090,19 +20675,32 @@ exports.getCodeVarint = (codecName) => {
 
 /**
  * Get the varint of a code.
- * @param {Number} code
+ *
+ * @param {CodecNumber} code
  * @returns {Array.<number>}
  */
-exports.getVarint = (code) => {
+function getVarint (code) {
   return varint.encode(code)
 }
 
 // Make the constants top-level constants
-const constants = __webpack_require__(359)
-Object.assign(exports, constants)
+const constants = __webpack_require__(66)
 
 // Human friendly names for printing, e.g. in error messages
-exports.print = __webpack_require__(519)
+const print = __webpack_require__(519)
+
+module.exports = {
+  addPrefix,
+  rmPrefix,
+  getCodec,
+  getName,
+  getNumber,
+  getCode,
+  getCodeVarint,
+  getVarint,
+  print,
+  ...constants
+}
 
 
 /***/ }),
@@ -21180,6 +20778,64 @@ exports.default = event_iterator_1.EventIterator;
 
 /***/ }),
 
+/***/ 556:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GrpcConnection = void 0;
+const grpc_web_1 = __webpack_require__(650);
+const context_1 = __webpack_require__(783);
+const grpc_transport_1 = __webpack_require__(282);
+class GrpcConnection {
+    /**
+     * Creates a new gRPC client instance for accessing the Textile Buckets API.
+     * @param context The context to use for interacting with the APIs. Can be modified later.
+     */
+    constructor(context = new context_1.Context(), debug = false) {
+        this.context = context;
+        const transport = grpc_transport_1.WebsocketTransport(); // Default to websocket always
+        this.serviceHost = context.host;
+        this.rpcOptions = {
+            transport,
+            debug,
+        };
+        // Set default transport to websocket "globally"
+        grpc_web_1.grpc.setDefaultTransport(transport);
+    }
+    unary(methodDescriptor, req, ctx) {
+        return new Promise((resolve, reject) => {
+            const metadata = ctx ? Object.assign({}, ctx.toJSON()) : Object.assign({}, this.context.toJSON());
+            grpc_web_1.grpc.unary(methodDescriptor, {
+                request: req,
+                host: this.serviceHost,
+                transport: this.rpcOptions.transport,
+                debug: this.rpcOptions.debug,
+                metadata,
+                onEnd: (res) => {
+                    const { status, statusMessage, message } = res;
+                    if (status === grpc_web_1.grpc.Code.OK) {
+                        resolve(message);
+                    }
+                    else {
+                        const err = {
+                            message: statusMessage,
+                            code: status,
+                            metadata,
+                        };
+                        reject(err);
+                    }
+                },
+            });
+        });
+    }
+}
+exports.GrpcConnection = GrpcConnection;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 561:
 /***/ (function(module) {
 
@@ -21254,35 +20910,842 @@ exports.isValidStatusCode = (code) => {
 
 /***/ }),
 
-/***/ 578:
+/***/ 582:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
 
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GrpcConnection = void 0;
-const grpc_web_1 = __webpack_require__(650);
+exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchives = exports.bucketsArchive = exports.bucketsSetDefaultArchiveConfig = exports.bucketsDefaultArchiveConfig = exports.bucketsPullPathAccessRoles = exports.bucketsPushPathAccessRoles = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPathNode = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.genChunks = exports.CHUNK_SIZE = void 0;
+const grpc_web_1 = __webpack_require__(837);
+const bucketsd_pb_1 = __webpack_require__(3);
+const bucketsd_pb_service_1 = __webpack_require__(322);
 const context_1 = __webpack_require__(783);
 const grpc_transport_1 = __webpack_require__(282);
-class GrpcConnection {
+const cids_1 = __importDefault(__webpack_require__(437));
+const event_iterator_1 = __webpack_require__(554);
+const loglevel_1 = __importDefault(__webpack_require__(104));
+const types_1 = __webpack_require__(125);
+const normalize_1 = __webpack_require__(29);
+const logger = loglevel_1.default.getLogger('buckets-api');
+function fromPbRootObject(root) {
+    return {
+        key: root.getKey(),
+        name: root.getName(),
+        path: root.getPath(),
+        createdAt: root.getCreatedAt(),
+        updatedAt: root.getUpdatedAt(),
+        thread: root.getThread(),
+    };
+}
+function fromPbRootObjectNullable(root) {
+    if (!root)
+        return;
+    return fromPbRootObject(root);
+}
+function fromPbMetadata(metadata) {
+    if (!metadata)
+        return;
+    const roles = metadata.getRolesMap();
+    const typedRoles = new Map();
+    roles.forEach((entry, key) => typedRoles.set(key, entry));
+    const response = {
+        updatedAt: metadata.getUpdatedAt(),
+        roles: typedRoles,
+    };
+    return response;
+}
+exports.CHUNK_SIZE = 1024;
+function fromPbPathItem(item) {
+    const list = item.getItemsList();
+    return {
+        cid: item.getCid(),
+        name: item.getName(),
+        path: item.getPath(),
+        size: item.getSize(),
+        isDir: item.getIsDir(),
+        items: list ? list.map(fromPbPathItem) : [],
+        count: item.getItemsCount(),
+        metadata: fromPbMetadata(item.getMetadata()),
+    };
+}
+function fromPbPathItemNullable(item) {
+    if (!item)
+        return;
+    return fromPbPathItem(item);
+}
+function fromProtoArchiveRenew(item) {
+    return Object.assign({}, item);
+}
+function fromProtoArchiveConfig(item) {
+    return Object.assign(Object.assign({}, item), { countryCodes: item.countryCodesList, excludedMiners: item.excludedMinersList, trustedMiners: item.trustedMinersList, renew: item.renew ? fromProtoArchiveRenew(item.renew) : undefined });
+}
+function toProtoArchiveConfig(config) {
+    const protoConfig = new bucketsd_pb_1.ArchiveConfig();
+    protoConfig.setCountryCodesList(config.countryCodes);
+    protoConfig.setDealMinDuration(config.dealMinDuration);
+    protoConfig.setDealStartOffset(config.dealStartOffset);
+    protoConfig.setExcludedMinersList(config.excludedMiners);
+    protoConfig.setFastRetrieval(config.fastRetrieval);
+    protoConfig.setMaxPrice(config.maxPrice);
+    protoConfig.setRepFactor(config.repFactor);
+    protoConfig.setTrustedMinersList(config.trustedMiners);
+    if (config.renew) {
+        const renew = new bucketsd_pb_1.ArchiveRenew();
+        renew.setEnabled(config.renew.enabled);
+        renew.setThreshold(config.renew.threshold);
+        protoConfig.setRenew(renew);
+    }
+    return protoConfig;
+}
+function fromPbDealInfo(item) {
+    return Object.assign({}, item);
+}
+function fromPbArchiveStatus(item) {
+    switch (item) {
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_CANCELED:
+            return types_1.ArchiveStatus.Canceled;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_EXECUTING:
+            return types_1.ArchiveStatus.Executing;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_FAILED:
+            return types_1.ArchiveStatus.Failed;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_QUEUED:
+            return types_1.ArchiveStatus.Queued;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_SUCCESS:
+            return types_1.ArchiveStatus.Success;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_UNSPECIFIED:
+            return types_1.ArchiveStatus.Unspecified;
+        default:
+            throw new Error('unknown status');
+    }
+}
+function fromPbArchive(item) {
+    return Object.assign(Object.assign({}, item), { 
+        // TODO: standardize units coming from server.
+        createdAt: new Date(item.createdAt * 1000), status: fromPbArchiveStatus(item.archiveStatus), dealInfo: item.dealInfoList.map(fromPbDealInfo) });
+}
+/**
+ * Ensures that a Root | string | undefined is converted into a string
+ */
+function ensureRootString(api, key, root, ctx) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        if (root) {
+            return typeof root === 'string' ? root : root.path;
+        }
+        else {
+            /* eslint-disable  @typescript-eslint/no-use-before-define */
+            const root = yield bucketsRoot(api, key, ctx);
+            return (_a = root === null || root === void 0 ? void 0 : root.path) !== null && _a !== void 0 ? _a : '';
+        }
+    });
+}
+function* genChunks(value, size) {
+    return yield* Array.from(Array(Math.ceil(value.byteLength / size)), (_, i) => value.slice(i * size, i * size + size));
+}
+exports.genChunks = genChunks;
+/**
+ * Creates a new bucket.
+ * @public
+ * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
+ * @param isPrivate encrypt the bucket contents (default `false`)
+ * @param cid (optional) Bootstrap the bucket with a UnixFS Cid from the IPFS network
+ * @example
+ * Creates a Bucket called "app-name-files"
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const create = async (buckets: Buckets) => {
+ *     return buckets.create("app-name-files")
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsCreate(api, name, isPrivate = false, cid, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('create request');
+        const req = new bucketsd_pb_1.CreateRequest();
+        req.setName(name);
+        if (cid) {
+            req.setBootstrapCid(cid);
+        }
+        req.setPrivate(isPrivate);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Create, req, ctx);
+        const links = res.getLinks();
+        return {
+            seed: res.getSeed_asU8(),
+            seedCid: res.getSeedCid(),
+            root: fromPbRootObjectNullable(res.getRoot()),
+            links: links ? links.toObject() : undefined,
+        };
+    });
+}
+exports.bucketsCreate = bucketsCreate;
+/**
+ * Returns the bucket root CID
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
+ */
+function bucketsRoot(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('root request');
+        const req = new bucketsd_pb_1.RootRequest();
+        req.setKey(key);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Root, req, ctx);
+        return fromPbRootObjectNullable(res.getRoot());
+    });
+}
+exports.bucketsRoot = bucketsRoot;
+/**
+ * Returns a list of bucket links.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @example
+ * Generate the HTTP, IPNS, and IPFS links for a Bucket
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const getLinks = async (buckets: Buckets) => {
+ *    const links = buckets.links(bucketKey)
+ *    return links.ipfs
+ * }
+ *
+ * const getIpfs = async (buckets: Buckets) => {
+ *    const links = buckets.links(bucketKey)
+ *    return links.ipfs
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsLinks(api, key, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('link request');
+        const req = new bucketsd_pb_1.LinksRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Links, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsLinks = bucketsLinks;
+/**
+ * Returns a list of all bucket roots.
+ * @example
+ * Find an existing Bucket named "app-name-files"
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const exists = async (buckets: Buckets) => {
+ *     const roots = await buckets.list();
+ *     return roots.find((bucket) => bucket.name ===  "app-name-files")
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsList(api, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list request');
+        const req = new bucketsd_pb_1.ListRequest();
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.List, req, ctx);
+        const roots = res.getRootsList();
+        const map = roots ? roots.map((m) => m).map((m) => fromPbRootObject(m)) : [];
+        return map;
+    });
+}
+exports.bucketsList = bucketsList;
+/**
+ * Returns information about a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ *
+ * @internal
+ */
+function bucketsListPath(api, key, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list path request');
+        const req = new bucketsd_pb_1.ListPathRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListPath, req, ctx);
+        return {
+            item: fromPbPathItemNullable(res.getItem()),
+            root: fromPbRootObjectNullable(res.getRoot()),
+        };
+    });
+}
+exports.bucketsListPath = bucketsListPath;
+/**
+ * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
+ * @param path UnixFS path
+ *
+ * @internal
+ */
+function bucketsListIpfsPath(api, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list path request');
+        const req = new bucketsd_pb_1.ListIpfsPathRequest();
+        req.setPath(path);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListIpfsPath, req, ctx);
+        return fromPbPathItemNullable(res.getItem());
+    });
+}
+exports.bucketsListIpfsPath = bucketsListIpfsPath;
+/**
+ * Pushes a file to a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param input The input file/stream/object.
+ * @param opts Options to control response stream.
+ * @remarks
+ * This will return the resolved path and the bucket's new root path.
+ * @example
+ * Push a file to the root of a bucket
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const pushFile = async (content: string, bucketKey: string) => {
+ *    const file = { path: '/index.html', content: Buffer.from(content) }
+ *    return await buckets.pushPath(bucketKey!, 'index.html', file)
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsPushPath(api, key, path, input, opts, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            var e_1, _a;
+            var _b, _c;
+            // Only process the first input if there are more than one
+            const source = (yield normalize_1.normaliseInput(input).next()).value;
+            const client = grpc_web_1.grpc.client(bucketsd_pb_service_1.APIService.PushPath, {
+                host: api.serviceHost,
+                transport: api.rpcOptions.transport,
+                debug: api.rpcOptions.debug,
+            });
+            // Send a close event to the bucket api upon abort
+            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
+                opts.signal.addEventListener('abort', () => {
+                    client.close();
+                    return reject(types_1.AbortError);
+                });
+            }
+            client.onMessage((message) => {
+                var _a, _b, _c, _d;
+                // Let's just make sure we haven't aborted this outside this function
+                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
+                    client.close();
+                    return reject(types_1.AbortError);
+                }
+                if (message.hasEvent()) {
+                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
+                    if (event === null || event === void 0 ? void 0 : event.path) {
+                        // @todo: Is there an standard library/tool for this step in JS?
+                        const pth = event.path.startsWith('/ipfs/')
+                            ? event.path.split('/ipfs/')[1]
+                            : event.path;
+                        const cid = new cids_1.default(pth);
+                        const res = {
+                            path: {
+                                path: `/ipfs/${cid.toString()}`,
+                                cid: cid,
+                                root: cid,
+                                remainder: '',
+                            },
+                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
+                        };
+                        return resolve(res);
+                    }
+                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
+                    }
+                }
+                else {
+                    return reject(new Error('Invalid reply'));
+                }
+            });
+            client.onEnd((code, msg) => {
+                if (code !== grpc_web_1.grpc.Code.OK) {
+                    const message = msg ? msg : code.toString();
+                    return reject(new Error(message));
+                }
+                else {
+                    return resolve();
+                }
+            });
+            if (source) {
+                const head = new bucketsd_pb_1.PushPathRequest.Header();
+                head.setPath(source.path || path);
+                head.setKey(key);
+                // Setting root here ensures pushes will error if root is out of date
+                const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+                head.setRoot(root);
+                const req = new bucketsd_pb_1.PushPathRequest();
+                req.setHeader(head);
+                const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+                // Let's just make sure we haven't aborted this outside this function
+                if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
+                    return reject(types_1.AbortError);
+                }
+                client.start(metadata);
+                client.send(req);
+                if (source.content) {
+                    try {
+                        for (var _d = __asyncValues(source.content), _e; _e = yield _d.next(), !_e.done;) {
+                            const chunk = _e.value;
+                            // Let's just make sure we haven't aborted this outside this function
+                            if ((_c = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _c === void 0 ? void 0 : _c.aborted) {
+                                try {
+                                    client.close();
+                                }
+                                catch (_f) { } // noop
+                                return reject(types_1.AbortError);
+                            }
+                            // Naively chunk into chunks smaller than CHUNK_SIZE bytes
+                            for (const chunklet of genChunks(chunk, exports.CHUNK_SIZE)) {
+                                const part = new bucketsd_pb_1.PushPathRequest();
+                                part.setChunk(chunklet);
+                                client.send(part);
+                            }
+                        }
+                    }
+                    catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                    finally {
+                        try {
+                            if (_e && !_e.done && (_a = _d.return)) yield _a.call(_d);
+                        }
+                        finally { if (e_1) throw e_1.error; }
+                    }
+                }
+                // We only need to finish send here if we actually started
+                client.finishSend();
+            }
+        }));
+    });
+}
+exports.bucketsPushPath = bucketsPushPath;
+function bucketsPushPathNode(api, key, path, input, opts, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            var e_2, _a;
+            var _b;
+            // Only process the first input if there are more than one
+            const source = (yield normalize_1.normaliseInput(input).next()).value;
+            if (!source) {
+                return reject(types_1.AbortError);
+            }
+            const clientjs = new bucketsd_pb_service_1.APIServiceClient(api.serviceHost, api.rpcOptions);
+            const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            const stream = clientjs.pushPath(metadata);
+            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
+                opts.signal.addEventListener('abort', () => {
+                    stream.cancel();
+                    return reject(types_1.AbortError);
+                });
+            }
+            stream.on('data', (message) => {
+                var _a, _b, _c, _d;
+                // Let's just make sure we haven't aborted this outside this function
+                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
+                    stream.cancel();
+                    return reject(types_1.AbortError);
+                }
+                if (message.hasEvent()) {
+                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
+                    if (event === null || event === void 0 ? void 0 : event.path) {
+                        // TODO: Is there an standard library/tool for this step in JS?
+                        const pth = event.path.startsWith('/ipfs/')
+                            ? event.path.split('/ipfs/')[1]
+                            : event.path;
+                        const cid = new cids_1.default(pth);
+                        const res = {
+                            path: {
+                                path: `/ipfs/${cid === null || cid === void 0 ? void 0 : cid.toString()}`,
+                                cid,
+                                root: cid,
+                                remainder: '',
+                            },
+                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
+                        };
+                        return resolve(res);
+                    }
+                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
+                    }
+                }
+                else {
+                    return reject(new Error('Invalid reply'));
+                }
+            });
+            stream.on('end', (status) => {
+                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
+                    return reject(new Error(status.details));
+                }
+                else {
+                    return resolve();
+                }
+            });
+            stream.on('status', (status) => {
+                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
+                    return reject(new Error(status.details));
+                }
+                else {
+                    return resolve();
+                }
+            });
+            const head = new bucketsd_pb_1.PushPathRequest.Header();
+            head.setPath(source.path || path);
+            head.setKey(key);
+            // Setting root here ensures pushes will error if root is out of date
+            const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+            head.setRoot(root);
+            const req = new bucketsd_pb_1.PushPathRequest();
+            req.setHeader(head);
+            stream.write(req);
+            if (source.content) {
+                try {
+                    for (var _c = __asyncValues(source.content), _d; _d = yield _c.next(), !_d.done;) {
+                        const chunk = _d.value;
+                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
+                            // Let's just make sure we haven't aborted this outside this function
+                            try {
+                                // Should already have been handled
+                                stream.cancel();
+                            }
+                            catch (_e) { } // noop
+                            return reject(types_1.AbortError);
+                        }
+                        // Naively chunk into chunks smaller than CHUNK_SIZE bytes
+                        for (const chunklet of genChunks(chunk, exports.CHUNK_SIZE)) {
+                            const part = new bucketsd_pb_1.PushPathRequest();
+                            part.setChunk(chunklet);
+                            stream.write(part);
+                        }
+                    }
+                }
+                catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                finally {
+                    try {
+                        if (_d && !_d.done && (_a = _c.return)) yield _a.call(_c);
+                    }
+                    finally { if (e_2) throw e_2.error; }
+                }
+            }
+            stream.end();
+        }));
+    });
+}
+exports.bucketsPushPathNode = bucketsPushPathNode;
+/**
+ * Pushes a file to a bucket path.
+ * @internal
+ */
+function bucketsSetPath(api, key, path, cid, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const request = new bucketsd_pb_1.SetPathRequest();
+        request.setKey(key);
+        request.setPath(path);
+        request.setCid(cid);
+        yield api.unary(bucketsd_pb_service_1.APIService.SetPath, request, ctx);
+    });
+}
+exports.bucketsSetPath = bucketsSetPath;
+/**
+ * Pulls the bucket path, returning the bytes of the given file.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
+ */
+function bucketsPullPath(api, key, path, opts, ctx) {
+    const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+    const request = new bucketsd_pb_1.PullPathRequest();
+    request.setKey(key);
+    request.setPath(path);
+    let written = 0;
+    const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
+        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullPath, {
+            host: api.serviceHost,
+            transport: api.rpcOptions.transport,
+            debug: api.rpcOptions.debug,
+            request,
+            metadata,
+            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
+                const chunk = res.getChunk_asU8();
+                push(chunk);
+                written += chunk.byteLength;
+                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                    opts.progress(written);
+                }
+            }),
+            onEnd: (status, message) => __awaiter(this, void 0, void 0, function* () {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    fail(new Error(message));
+                }
+                stop();
+            }),
+        });
+        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+        return () => resp.close();
+    });
+    const it = Object.assign({ [Symbol.asyncIterator]() {
+            return this;
+        } }, events[Symbol.asyncIterator]());
+    return it;
+}
+exports.bucketsPullPath = bucketsPullPath;
+/**
+ * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
+ */
+function bucketsPullIpfsPath(api, path, opts, ctx) {
+    const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+    const request = new bucketsd_pb_1.PullIpfsPathRequest();
+    request.setPath(path);
+    let written = 0;
+    const events = new event_iterator_1.EventIterator(({ push, stop, fail }) => {
+        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullIpfsPath, {
+            host: api.serviceHost,
+            transport: api.rpcOptions.transport,
+            debug: api.rpcOptions.debug,
+            request,
+            metadata,
+            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
+                const chunk = res.getChunk_asU8();
+                push(chunk);
+                written += chunk.byteLength;
+                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                    opts.progress(written);
+                }
+            }),
+            onEnd: (status, message) => __awaiter(this, void 0, void 0, function* () {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    fail(new Error(message));
+                }
+                stop();
+            }),
+        });
+        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+        return () => resp.close();
+    });
+    const it = Object.assign({ [Symbol.asyncIterator]() {
+            return this;
+        } }, events[Symbol.asyncIterator]());
+    return it;
+}
+exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
+/**
+ * Removes an entire bucket. Files and directories will be unpinned.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
+ */
+function bucketsRemove(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove request');
+        const req = new bucketsd_pb_1.RemoveRequest();
+        req.setKey(key);
+        yield api.unary(bucketsd_pb_service_1.APIService.Remove, req, ctx);
+        return;
+    });
+}
+exports.bucketsRemove = bucketsRemove;
+/**
+ * Returns information about a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param root optional to specify a root
+ *
+ * @internal
+ */
+function bucketsRemovePath(api, key, path, opts, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new bucketsd_pb_1.RemovePathRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+        req.setRoot(root);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.RemovePath, req, ctx);
+        return {
+            pinned: res.getPinned(),
+            root: fromPbRootObjectNullable(res.getRoot()),
+        };
+    });
+}
+exports.bucketsRemovePath = bucketsRemovePath;
+function bucketsPushPathAccessRoles(api, key, path, roles, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new bucketsd_pb_1.PushPathAccessRolesRequest();
+        req.setKey(key);
+        req.setPath(path);
+        roles.forEach((value, key) => req.getRolesMap().set(key, value));
+        yield api.unary(bucketsd_pb_service_1.APIService.PushPathAccessRoles, req, ctx);
+        return;
+    });
+}
+exports.bucketsPushPathAccessRoles = bucketsPushPathAccessRoles;
+function bucketsPullPathAccessRoles(api, key, path = '/', ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new bucketsd_pb_1.PullPathAccessRolesRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const response = yield api.unary(bucketsd_pb_service_1.APIService.PullPathAccessRoles, req, ctx);
+        const roles = response.getRolesMap();
+        const typedRoles = new Map();
+        roles.forEach((entry, key) => typedRoles.set(key, entry));
+        return typedRoles;
+    });
+}
+exports.bucketsPullPathAccessRoles = bucketsPullPathAccessRoles;
+/**
+ * @internal
+ */
+function bucketsDefaultArchiveConfig(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('default archive config request');
+        const req = new bucketsd_pb_1.DefaultArchiveConfigRequest();
+        req.setKey(key);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.DefaultArchiveConfig, req, ctx);
+        const config = res.getArchiveConfig();
+        if (!config) {
+            throw new Error('no archive config returned');
+        }
+        return fromProtoArchiveConfig(config.toObject());
+    });
+}
+exports.bucketsDefaultArchiveConfig = bucketsDefaultArchiveConfig;
+/**
+ * @internal
+ */
+function bucketsSetDefaultArchiveConfig(api, key, config, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('set default archive config request');
+        const req = new bucketsd_pb_1.SetDefaultArchiveConfigRequest();
+        req.setKey(key);
+        req.setArchiveConfig(toProtoArchiveConfig(config));
+        yield api.unary(bucketsd_pb_service_1.APIService.SetDefaultArchiveConfig, req, ctx);
+        return;
+    });
+}
+exports.bucketsSetDefaultArchiveConfig = bucketsSetDefaultArchiveConfig;
+/**
+ * archive creates a Filecoin bucket archive.
+ * @internal
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param options Options that control the behavior of the bucket archive
+ */
+function bucketsArchive(api, key, options, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive request');
+        const req = new bucketsd_pb_1.ArchiveRequest();
+        req.setKey(key);
+        if (options === null || options === void 0 ? void 0 : options.archiveConfig) {
+            req.setArchiveConfig(toProtoArchiveConfig(options.archiveConfig));
+        }
+        yield api.unary(bucketsd_pb_service_1.APIService.Archive, req, ctx);
+        return;
+    });
+}
+exports.bucketsArchive = bucketsArchive;
+/**
+ * @internal
+ */
+function bucketsArchives(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archives request');
+        const req = new bucketsd_pb_1.ArchivesRequest();
+        req.setKey(key);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Archives, req, ctx);
+        const current = res.toObject().current;
+        return {
+            current: current ? fromPbArchive(current) : undefined,
+            history: res.toObject().historyList.map(fromPbArchive),
+        };
+    });
+}
+exports.bucketsArchives = bucketsArchives;
+/**
+ * archiveWatch watches status events from a Filecoin bucket archive.
+ * @internal
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsArchiveWatch(api, key, callback, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive watch request');
+        const req = new bucketsd_pb_1.ArchiveWatchRequest();
+        req.setKey(key);
+        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+        const res = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.ArchiveWatch, {
+            host: api.context.host,
+            request: req,
+            metadata,
+            onMessage: (rec) => {
+                const response = {
+                    id: rec.getJsPbMessageId(),
+                    msg: rec.getMsg(),
+                };
+                callback(response);
+            },
+            onEnd: (status, message /** _trailers: grpc.Metadata */) => {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    return callback(undefined, new Error(message));
+                }
+                callback();
+            },
+        });
+        return res.close.bind(res);
+    });
+}
+exports.bucketsArchiveWatch = bucketsArchiveWatch;
+/**
+ * Raw API connected needed by Buckets CI code (compile friendly)
+ * see more https://github.com/textileio/github-action-buckets
+ */
+class BucketsGrpcClient {
     /**
      * Creates a new gRPC client instance for accessing the Textile Buckets API.
      * @param context The context to use for interacting with the APIs. Can be modified later.
      */
     constructor(context = new context_1.Context(), debug = false) {
         this.context = context;
-        const transport = grpc_transport_1.WebsocketTransport(); // Default to websocket always
         this.serviceHost = context.host;
         this.rpcOptions = {
-            transport,
+            transport: grpc_transport_1.WebsocketTransport(),
             debug,
         };
-        // Set default transport to websocket "globally"
-        grpc_web_1.grpc.setDefaultTransport(transport);
     }
     unary(methodDescriptor, req, ctx) {
         return new Promise((resolve, reject) => {
-            const metadata = ctx ? Object.assign({}, ctx.toJSON()) : Object.assign({}, this.context.toJSON());
+            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
             grpc_web_1.grpc.unary(methodDescriptor, {
                 request: req,
                 host: this.serviceHost,
@@ -21300,19 +21763,14 @@ class GrpcConnection {
                         }
                     }
                     else {
-                        const err = {
-                            message: statusMessage,
-                            code: status,
-                            metadata,
-                        };
-                        reject(err);
+                        reject(new Error(statusMessage));
                     }
                 },
             });
         });
     }
 }
-exports.GrpcConnection = GrpcConnection;
+exports.BucketsGrpcClient = BucketsGrpcClient;
 //# sourceMappingURL=index.js.map
 
 /***/ }),
@@ -21321,6 +21779,485 @@ exports.GrpcConnection = GrpcConnection;
 /***/ (function(module) {
 
 module.exports = require("http");
+
+/***/ }),
+
+/***/ 607:
+/***/ (function(module) {
+
+"use strict";
+// DO NOT CHANGE THIS FILE. IT IS GENERATED BY tools/update-table.js
+/* eslint quote-props: off */
+
+
+/**
+ * @type {import('./generated-types').NameNumberMap}
+ */
+const baseTable = Object.freeze({
+  'identity': 0x00,
+  'cidv1': 0x01,
+  'cidv2': 0x02,
+  'cidv3': 0x03,
+  'ip4': 0x04,
+  'tcp': 0x06,
+  'sha1': 0x11,
+  'sha2-256': 0x12,
+  'sha2-512': 0x13,
+  'sha3-512': 0x14,
+  'sha3-384': 0x15,
+  'sha3-256': 0x16,
+  'sha3-224': 0x17,
+  'shake-128': 0x18,
+  'shake-256': 0x19,
+  'keccak-224': 0x1a,
+  'keccak-256': 0x1b,
+  'keccak-384': 0x1c,
+  'keccak-512': 0x1d,
+  'blake3': 0x1e,
+  'dccp': 0x21,
+  'murmur3-128': 0x22,
+  'murmur3-32': 0x23,
+  'ip6': 0x29,
+  'ip6zone': 0x2a,
+  'path': 0x2f,
+  'multicodec': 0x30,
+  'multihash': 0x31,
+  'multiaddr': 0x32,
+  'multibase': 0x33,
+  'dns': 0x35,
+  'dns4': 0x36,
+  'dns6': 0x37,
+  'dnsaddr': 0x38,
+  'protobuf': 0x50,
+  'cbor': 0x51,
+  'raw': 0x55,
+  'dbl-sha2-256': 0x56,
+  'rlp': 0x60,
+  'bencode': 0x63,
+  'dag-pb': 0x70,
+  'dag-cbor': 0x71,
+  'libp2p-key': 0x72,
+  'git-raw': 0x78,
+  'torrent-info': 0x7b,
+  'torrent-file': 0x7c,
+  'leofcoin-block': 0x81,
+  'leofcoin-tx': 0x82,
+  'leofcoin-pr': 0x83,
+  'sctp': 0x84,
+  'dag-jose': 0x85,
+  'dag-cose': 0x86,
+  'eth-block': 0x90,
+  'eth-block-list': 0x91,
+  'eth-tx-trie': 0x92,
+  'eth-tx': 0x93,
+  'eth-tx-receipt-trie': 0x94,
+  'eth-tx-receipt': 0x95,
+  'eth-state-trie': 0x96,
+  'eth-account-snapshot': 0x97,
+  'eth-storage-trie': 0x98,
+  'bitcoin-block': 0xb0,
+  'bitcoin-tx': 0xb1,
+  'bitcoin-witness-commitment': 0xb2,
+  'zcash-block': 0xc0,
+  'zcash-tx': 0xc1,
+  'docid': 0xce,
+  'stellar-block': 0xd0,
+  'stellar-tx': 0xd1,
+  'md4': 0xd4,
+  'md5': 0xd5,
+  'bmt': 0xd6,
+  'decred-block': 0xe0,
+  'decred-tx': 0xe1,
+  'ipld-ns': 0xe2,
+  'ipfs-ns': 0xe3,
+  'swarm-ns': 0xe4,
+  'ipns-ns': 0xe5,
+  'zeronet': 0xe6,
+  'secp256k1-pub': 0xe7,
+  'bls12_381-g1-pub': 0xea,
+  'bls12_381-g2-pub': 0xeb,
+  'x25519-pub': 0xec,
+  'ed25519-pub': 0xed,
+  'bls12_381-g1g2-pub': 0xee,
+  'dash-block': 0xf0,
+  'dash-tx': 0xf1,
+  'swarm-manifest': 0xfa,
+  'swarm-feed': 0xfb,
+  'udp': 0x0111,
+  'p2p-webrtc-star': 0x0113,
+  'p2p-webrtc-direct': 0x0114,
+  'p2p-stardust': 0x0115,
+  'p2p-circuit': 0x0122,
+  'dag-json': 0x0129,
+  'udt': 0x012d,
+  'utp': 0x012e,
+  'unix': 0x0190,
+  'p2p': 0x01a5,
+  'ipfs': 0x01a5,
+  'https': 0x01bb,
+  'onion': 0x01bc,
+  'onion3': 0x01bd,
+  'garlic64': 0x01be,
+  'garlic32': 0x01bf,
+  'tls': 0x01c0,
+  'quic': 0x01cc,
+  'ws': 0x01dd,
+  'wss': 0x01de,
+  'p2p-websocket-star': 0x01df,
+  'http': 0x01e0,
+  'json': 0x0200,
+  'messagepack': 0x0201,
+  'libp2p-peer-record': 0x0301,
+  'sha2-256-trunc254-padded': 0x1012,
+  'ripemd-128': 0x1052,
+  'ripemd-160': 0x1053,
+  'ripemd-256': 0x1054,
+  'ripemd-320': 0x1055,
+  'x11': 0x1100,
+  'p256-pub': 0x1200,
+  'p384-pub': 0x1201,
+  'p521-pub': 0x1202,
+  'ed448-pub': 0x1203,
+  'x448-pub': 0x1204,
+  'ed25519-priv': 0x1300,
+  'kangarootwelve': 0x1d01,
+  'sm3-256': 0x534d,
+  'blake2b-8': 0xb201,
+  'blake2b-16': 0xb202,
+  'blake2b-24': 0xb203,
+  'blake2b-32': 0xb204,
+  'blake2b-40': 0xb205,
+  'blake2b-48': 0xb206,
+  'blake2b-56': 0xb207,
+  'blake2b-64': 0xb208,
+  'blake2b-72': 0xb209,
+  'blake2b-80': 0xb20a,
+  'blake2b-88': 0xb20b,
+  'blake2b-96': 0xb20c,
+  'blake2b-104': 0xb20d,
+  'blake2b-112': 0xb20e,
+  'blake2b-120': 0xb20f,
+  'blake2b-128': 0xb210,
+  'blake2b-136': 0xb211,
+  'blake2b-144': 0xb212,
+  'blake2b-152': 0xb213,
+  'blake2b-160': 0xb214,
+  'blake2b-168': 0xb215,
+  'blake2b-176': 0xb216,
+  'blake2b-184': 0xb217,
+  'blake2b-192': 0xb218,
+  'blake2b-200': 0xb219,
+  'blake2b-208': 0xb21a,
+  'blake2b-216': 0xb21b,
+  'blake2b-224': 0xb21c,
+  'blake2b-232': 0xb21d,
+  'blake2b-240': 0xb21e,
+  'blake2b-248': 0xb21f,
+  'blake2b-256': 0xb220,
+  'blake2b-264': 0xb221,
+  'blake2b-272': 0xb222,
+  'blake2b-280': 0xb223,
+  'blake2b-288': 0xb224,
+  'blake2b-296': 0xb225,
+  'blake2b-304': 0xb226,
+  'blake2b-312': 0xb227,
+  'blake2b-320': 0xb228,
+  'blake2b-328': 0xb229,
+  'blake2b-336': 0xb22a,
+  'blake2b-344': 0xb22b,
+  'blake2b-352': 0xb22c,
+  'blake2b-360': 0xb22d,
+  'blake2b-368': 0xb22e,
+  'blake2b-376': 0xb22f,
+  'blake2b-384': 0xb230,
+  'blake2b-392': 0xb231,
+  'blake2b-400': 0xb232,
+  'blake2b-408': 0xb233,
+  'blake2b-416': 0xb234,
+  'blake2b-424': 0xb235,
+  'blake2b-432': 0xb236,
+  'blake2b-440': 0xb237,
+  'blake2b-448': 0xb238,
+  'blake2b-456': 0xb239,
+  'blake2b-464': 0xb23a,
+  'blake2b-472': 0xb23b,
+  'blake2b-480': 0xb23c,
+  'blake2b-488': 0xb23d,
+  'blake2b-496': 0xb23e,
+  'blake2b-504': 0xb23f,
+  'blake2b-512': 0xb240,
+  'blake2s-8': 0xb241,
+  'blake2s-16': 0xb242,
+  'blake2s-24': 0xb243,
+  'blake2s-32': 0xb244,
+  'blake2s-40': 0xb245,
+  'blake2s-48': 0xb246,
+  'blake2s-56': 0xb247,
+  'blake2s-64': 0xb248,
+  'blake2s-72': 0xb249,
+  'blake2s-80': 0xb24a,
+  'blake2s-88': 0xb24b,
+  'blake2s-96': 0xb24c,
+  'blake2s-104': 0xb24d,
+  'blake2s-112': 0xb24e,
+  'blake2s-120': 0xb24f,
+  'blake2s-128': 0xb250,
+  'blake2s-136': 0xb251,
+  'blake2s-144': 0xb252,
+  'blake2s-152': 0xb253,
+  'blake2s-160': 0xb254,
+  'blake2s-168': 0xb255,
+  'blake2s-176': 0xb256,
+  'blake2s-184': 0xb257,
+  'blake2s-192': 0xb258,
+  'blake2s-200': 0xb259,
+  'blake2s-208': 0xb25a,
+  'blake2s-216': 0xb25b,
+  'blake2s-224': 0xb25c,
+  'blake2s-232': 0xb25d,
+  'blake2s-240': 0xb25e,
+  'blake2s-248': 0xb25f,
+  'blake2s-256': 0xb260,
+  'skein256-8': 0xb301,
+  'skein256-16': 0xb302,
+  'skein256-24': 0xb303,
+  'skein256-32': 0xb304,
+  'skein256-40': 0xb305,
+  'skein256-48': 0xb306,
+  'skein256-56': 0xb307,
+  'skein256-64': 0xb308,
+  'skein256-72': 0xb309,
+  'skein256-80': 0xb30a,
+  'skein256-88': 0xb30b,
+  'skein256-96': 0xb30c,
+  'skein256-104': 0xb30d,
+  'skein256-112': 0xb30e,
+  'skein256-120': 0xb30f,
+  'skein256-128': 0xb310,
+  'skein256-136': 0xb311,
+  'skein256-144': 0xb312,
+  'skein256-152': 0xb313,
+  'skein256-160': 0xb314,
+  'skein256-168': 0xb315,
+  'skein256-176': 0xb316,
+  'skein256-184': 0xb317,
+  'skein256-192': 0xb318,
+  'skein256-200': 0xb319,
+  'skein256-208': 0xb31a,
+  'skein256-216': 0xb31b,
+  'skein256-224': 0xb31c,
+  'skein256-232': 0xb31d,
+  'skein256-240': 0xb31e,
+  'skein256-248': 0xb31f,
+  'skein256-256': 0xb320,
+  'skein512-8': 0xb321,
+  'skein512-16': 0xb322,
+  'skein512-24': 0xb323,
+  'skein512-32': 0xb324,
+  'skein512-40': 0xb325,
+  'skein512-48': 0xb326,
+  'skein512-56': 0xb327,
+  'skein512-64': 0xb328,
+  'skein512-72': 0xb329,
+  'skein512-80': 0xb32a,
+  'skein512-88': 0xb32b,
+  'skein512-96': 0xb32c,
+  'skein512-104': 0xb32d,
+  'skein512-112': 0xb32e,
+  'skein512-120': 0xb32f,
+  'skein512-128': 0xb330,
+  'skein512-136': 0xb331,
+  'skein512-144': 0xb332,
+  'skein512-152': 0xb333,
+  'skein512-160': 0xb334,
+  'skein512-168': 0xb335,
+  'skein512-176': 0xb336,
+  'skein512-184': 0xb337,
+  'skein512-192': 0xb338,
+  'skein512-200': 0xb339,
+  'skein512-208': 0xb33a,
+  'skein512-216': 0xb33b,
+  'skein512-224': 0xb33c,
+  'skein512-232': 0xb33d,
+  'skein512-240': 0xb33e,
+  'skein512-248': 0xb33f,
+  'skein512-256': 0xb340,
+  'skein512-264': 0xb341,
+  'skein512-272': 0xb342,
+  'skein512-280': 0xb343,
+  'skein512-288': 0xb344,
+  'skein512-296': 0xb345,
+  'skein512-304': 0xb346,
+  'skein512-312': 0xb347,
+  'skein512-320': 0xb348,
+  'skein512-328': 0xb349,
+  'skein512-336': 0xb34a,
+  'skein512-344': 0xb34b,
+  'skein512-352': 0xb34c,
+  'skein512-360': 0xb34d,
+  'skein512-368': 0xb34e,
+  'skein512-376': 0xb34f,
+  'skein512-384': 0xb350,
+  'skein512-392': 0xb351,
+  'skein512-400': 0xb352,
+  'skein512-408': 0xb353,
+  'skein512-416': 0xb354,
+  'skein512-424': 0xb355,
+  'skein512-432': 0xb356,
+  'skein512-440': 0xb357,
+  'skein512-448': 0xb358,
+  'skein512-456': 0xb359,
+  'skein512-464': 0xb35a,
+  'skein512-472': 0xb35b,
+  'skein512-480': 0xb35c,
+  'skein512-488': 0xb35d,
+  'skein512-496': 0xb35e,
+  'skein512-504': 0xb35f,
+  'skein512-512': 0xb360,
+  'skein1024-8': 0xb361,
+  'skein1024-16': 0xb362,
+  'skein1024-24': 0xb363,
+  'skein1024-32': 0xb364,
+  'skein1024-40': 0xb365,
+  'skein1024-48': 0xb366,
+  'skein1024-56': 0xb367,
+  'skein1024-64': 0xb368,
+  'skein1024-72': 0xb369,
+  'skein1024-80': 0xb36a,
+  'skein1024-88': 0xb36b,
+  'skein1024-96': 0xb36c,
+  'skein1024-104': 0xb36d,
+  'skein1024-112': 0xb36e,
+  'skein1024-120': 0xb36f,
+  'skein1024-128': 0xb370,
+  'skein1024-136': 0xb371,
+  'skein1024-144': 0xb372,
+  'skein1024-152': 0xb373,
+  'skein1024-160': 0xb374,
+  'skein1024-168': 0xb375,
+  'skein1024-176': 0xb376,
+  'skein1024-184': 0xb377,
+  'skein1024-192': 0xb378,
+  'skein1024-200': 0xb379,
+  'skein1024-208': 0xb37a,
+  'skein1024-216': 0xb37b,
+  'skein1024-224': 0xb37c,
+  'skein1024-232': 0xb37d,
+  'skein1024-240': 0xb37e,
+  'skein1024-248': 0xb37f,
+  'skein1024-256': 0xb380,
+  'skein1024-264': 0xb381,
+  'skein1024-272': 0xb382,
+  'skein1024-280': 0xb383,
+  'skein1024-288': 0xb384,
+  'skein1024-296': 0xb385,
+  'skein1024-304': 0xb386,
+  'skein1024-312': 0xb387,
+  'skein1024-320': 0xb388,
+  'skein1024-328': 0xb389,
+  'skein1024-336': 0xb38a,
+  'skein1024-344': 0xb38b,
+  'skein1024-352': 0xb38c,
+  'skein1024-360': 0xb38d,
+  'skein1024-368': 0xb38e,
+  'skein1024-376': 0xb38f,
+  'skein1024-384': 0xb390,
+  'skein1024-392': 0xb391,
+  'skein1024-400': 0xb392,
+  'skein1024-408': 0xb393,
+  'skein1024-416': 0xb394,
+  'skein1024-424': 0xb395,
+  'skein1024-432': 0xb396,
+  'skein1024-440': 0xb397,
+  'skein1024-448': 0xb398,
+  'skein1024-456': 0xb399,
+  'skein1024-464': 0xb39a,
+  'skein1024-472': 0xb39b,
+  'skein1024-480': 0xb39c,
+  'skein1024-488': 0xb39d,
+  'skein1024-496': 0xb39e,
+  'skein1024-504': 0xb39f,
+  'skein1024-512': 0xb3a0,
+  'skein1024-520': 0xb3a1,
+  'skein1024-528': 0xb3a2,
+  'skein1024-536': 0xb3a3,
+  'skein1024-544': 0xb3a4,
+  'skein1024-552': 0xb3a5,
+  'skein1024-560': 0xb3a6,
+  'skein1024-568': 0xb3a7,
+  'skein1024-576': 0xb3a8,
+  'skein1024-584': 0xb3a9,
+  'skein1024-592': 0xb3aa,
+  'skein1024-600': 0xb3ab,
+  'skein1024-608': 0xb3ac,
+  'skein1024-616': 0xb3ad,
+  'skein1024-624': 0xb3ae,
+  'skein1024-632': 0xb3af,
+  'skein1024-640': 0xb3b0,
+  'skein1024-648': 0xb3b1,
+  'skein1024-656': 0xb3b2,
+  'skein1024-664': 0xb3b3,
+  'skein1024-672': 0xb3b4,
+  'skein1024-680': 0xb3b5,
+  'skein1024-688': 0xb3b6,
+  'skein1024-696': 0xb3b7,
+  'skein1024-704': 0xb3b8,
+  'skein1024-712': 0xb3b9,
+  'skein1024-720': 0xb3ba,
+  'skein1024-728': 0xb3bb,
+  'skein1024-736': 0xb3bc,
+  'skein1024-744': 0xb3bd,
+  'skein1024-752': 0xb3be,
+  'skein1024-760': 0xb3bf,
+  'skein1024-768': 0xb3c0,
+  'skein1024-776': 0xb3c1,
+  'skein1024-784': 0xb3c2,
+  'skein1024-792': 0xb3c3,
+  'skein1024-800': 0xb3c4,
+  'skein1024-808': 0xb3c5,
+  'skein1024-816': 0xb3c6,
+  'skein1024-824': 0xb3c7,
+  'skein1024-832': 0xb3c8,
+  'skein1024-840': 0xb3c9,
+  'skein1024-848': 0xb3ca,
+  'skein1024-856': 0xb3cb,
+  'skein1024-864': 0xb3cc,
+  'skein1024-872': 0xb3cd,
+  'skein1024-880': 0xb3ce,
+  'skein1024-888': 0xb3cf,
+  'skein1024-896': 0xb3d0,
+  'skein1024-904': 0xb3d1,
+  'skein1024-912': 0xb3d2,
+  'skein1024-920': 0xb3d3,
+  'skein1024-928': 0xb3d4,
+  'skein1024-936': 0xb3d5,
+  'skein1024-944': 0xb3d6,
+  'skein1024-952': 0xb3d7,
+  'skein1024-960': 0xb3d8,
+  'skein1024-968': 0xb3d9,
+  'skein1024-976': 0xb3da,
+  'skein1024-984': 0xb3db,
+  'skein1024-992': 0xb3dc,
+  'skein1024-1000': 0xb3dd,
+  'skein1024-1008': 0xb3de,
+  'skein1024-1016': 0xb3df,
+  'skein1024-1024': 0xb3e0,
+  'poseidon-bls12_381-a2-fc1': 0xb401,
+  'poseidon-bls12_381-a2-fc1-sc': 0xb402,
+  'zeroxcert-imprint-256': 0xce11,
+  'fil-commitment-unsealed': 0xf101,
+  'fil-commitment-sealed': 0xf102,
+  'holochain-adr-v0': 0x807124,
+  'holochain-adr-v1': 0x817124,
+  'holochain-key-v0': 0x947124,
+  'holochain-key-v1': 0x957124,
+  'holochain-sig-v0': 0xa27124,
+  'holochain-sig-v1': 0xa37124,
+  'skynet-ns': 0xb19910
+})
+
+module.exports = { baseTable }
+
 
 /***/ }),
 
@@ -21742,43 +22679,6 @@ function abortHandshake(socket, code, message, headers) {
 /***/ (function(module) {
 
 module.exports = require("events");
-
-/***/ }),
-
-/***/ 618:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const { names } = __webpack_require__(952)
-const { TextEncoder } = __webpack_require__(974)
-const utf8Encoder = new TextEncoder()
-
-/**
- * Create a `Uint8Array` from the passed string
- *
- * @param {String} string
- * @param {String} [encoding=utf8] utf8, base16, base64, base64urlpad, etc
- * @returns {Uint8Array}
- * @see {@link https://www.npmjs.com/package/multibase|multibase} for supported encodings other than `utf8`
- */
-function fromString (string, encoding = 'utf8') {
-  if (encoding === 'utf8' || encoding === 'utf-8') {
-    return utf8Encoder.encode(string)
-  }
-
-  const codec = names[encoding]
-
-  if (!codec) {
-    throw new Error('Unknown base')
-  }
-
-  return codec.decode(string)
-}
-
-module.exports = fromString
-
 
 /***/ }),
 
@@ -22269,416 +23169,6 @@ function slice (args) {
 
 /***/ }),
 
-/***/ 675:
-/***/ (function(module) {
-
-module.exports = read
-
-var MSB = 0x80
-  , REST = 0x7F
-
-function read(buf, offset) {
-  var res    = 0
-    , offset = offset || 0
-    , shift  = 0
-    , counter = offset
-    , b
-    , l = buf.length
-
-  do {
-    if (counter >= l) {
-      read.bytes = 0
-      throw new RangeError('Could not decode varint')
-    }
-    b = buf[counter++]
-    res += shift < 28
-      ? (b & REST) << shift
-      : (b & REST) * Math.pow(2, shift)
-    shift += 7
-  } while (b >= MSB)
-
-  read.bytes = counter - offset
-
-  return res
-}
-
-
-/***/ }),
-
-/***/ 678:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
-var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var g = generator.apply(thisArg, _arguments || []), i, q = [];
-    return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i;
-    function verb(n) { if (g[n]) i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; }
-    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
-    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
-    function fulfill(value) { resume("next", value); }
-    function reject(value) { resume("throw", value); }
-    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __asyncDelegator = (this && this.__asyncDelegator) || function (o) {
-    var i, p;
-    return i = {}, verb("next"), verb("throw", function (e) { throw e; }), verb("return"), i[Symbol.iterator] = function () { return this; }, i;
-    function verb(n, f) { i[n] = o[n] ? function (v) { return (p = !p) ? { value: __await(o[n](v)), done: n === "return" } : f ? f(v) : v; } : f; }
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.normaliseInput = void 0;
-/* eslint-disable @typescript-eslint/no-use-before-define */
-const buffer_1 = __webpack_require__(293);
-/**
- * Transform types
- *
- * @remarks
- * This function comes from {@link https://github.com/ipfs/js-ipfs-utils/blob/master/src/files/normalise-input.js}
- * @example
- * Supported types
- * ```yaml
- * // INPUT TYPES
- * Bytes (Buffer|ArrayBuffer|TypedArray) [single file]
- * Bloby (Blob|File) [single file]
- * String [single file]
- * { path, content: Bytes } [single file]
- * { path, content: Bloby } [single file]
- * { path, content: String } [single file]
- * { path, content: Iterable<Number> } [single file]
- * { path, content: Iterable<Bytes> } [single file]
- * { path, content: AsyncIterable<Bytes> } [single file]
- * Iterable<Number> [single file]
- * Iterable<Bytes> [single file]
- * Iterable<Bloby> [multiple files]
- * Iterable<String> [multiple files]
- * Iterable<{ path, content: Bytes }> [multiple files]
- * Iterable<{ path, content: Bloby }> [multiple files]
- * Iterable<{ path, content: String }> [multiple files]
- * Iterable<{ path, content: Iterable<Number> }> [multiple files]
- * Iterable<{ path, content: Iterable<Bytes> }> [multiple files]
- * Iterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
- * AsyncIterable<Bytes> [single file]
- * AsyncIterable<Bloby> [multiple files]
- * AsyncIterable<String> [multiple files]
- * AsyncIterable<{ path, content: Bytes }> [multiple files]
- * AsyncIterable<{ path, content: Bloby }> [multiple files]
- * AsyncIterable<{ path, content: String }> [multiple files]
- * AsyncIterable<{ path, content: Iterable<Number> }> [multiple files]
- * AsyncIterable<{ path, content: Iterable<Bytes> }> [multiple files]
- * AsyncIterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
- *
- * // OUTPUT
- * AsyncIterable<{ path, content: AsyncIterable<Buffer> }>
- * ```
- *
- * @public
- *
- * @param {Object} input
- * @return AsyncInterable<{ path, content: AsyncIterable<Buffer> }>
- */
-function normaliseInput(input) {
-    // must give us something
-    if (input === null || input === undefined) {
-        throw new Error(`Unexpected input: ${input}`);
-    }
-    // String
-    if (typeof input === 'string' || input instanceof String) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    // Buffer|ArrayBuffer|TypedArray
-    // Blob|File
-    if (isBytes(input) || isBloby(input)) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    // Iterable<?>
-    if (input[Symbol.iterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                const iterator = input[Symbol.iterator]();
-                const first = iterator.next();
-                if (first.done)
-                    return yield __await(iterator
-                    // Iterable<Number>
-                    // Iterable<Bytes>
-                    );
-                // Iterable<Number>
-                // Iterable<Bytes>
-                if (Number.isInteger(first.value) || isBytes(first.value)) {
-                    yield yield __await(toFileObject((function* () {
-                        yield first.value;
-                        yield* iterator;
-                    })()));
-                    return yield __await(void 0);
-                }
-                // Iterable<Bloby>
-                // Iterable<String>
-                // Iterable<{ path, content }>
-                if (isFileObject(first.value) || isBloby(first.value) || typeof first.value === 'string') {
-                    yield yield __await(toFileObject(first.value));
-                    for (const obj of iterator) {
-                        yield yield __await(toFileObject(obj));
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // window.ReadableStream
-    if (typeof input.getReader === 'function') {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_1, _a;
-                try {
-                    for (var _b = __asyncValues(browserStreamToIt(input)), _c; _c = yield __await(_b.next()), !_c.done;) {
-                        const obj = _c.value;
-                        yield yield __await(toFileObject(obj));
-                    }
-                }
-                catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                finally {
-                    try {
-                        if (_c && !_c.done && (_a = _b.return)) yield __await(_a.call(_b));
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                }
-            });
-        })();
-    }
-    // AsyncIterable<?>
-    if (input[Symbol.asyncIterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_2, _a;
-                const iterator = input[Symbol.asyncIterator]();
-                const first = yield __await(iterator.next());
-                if (first.done)
-                    return yield __await(iterator
-                    // AsyncIterable<Bytes>
-                    );
-                // AsyncIterable<Bytes>
-                if (isBytes(first.value)) {
-                    yield yield __await(toFileObject((function () {
-                        return __asyncGenerator(this, arguments, function* () {
-                            // eslint-disable-line require-await
-                            yield yield __await(first.value);
-                            yield __await(yield* __asyncDelegator(__asyncValues(iterator)));
-                        });
-                    })()));
-                    return yield __await(void 0);
-                }
-                // AsyncIterable<Bloby>
-                // AsyncIterable<String>
-                // AsyncIterable<{ path, content }>
-                if (isFileObject(first.value) || isBloby(first.value) || typeof first.value === 'string') {
-                    yield yield __await(toFileObject(first.value));
-                    try {
-                        for (var iterator_1 = __asyncValues(iterator), iterator_1_1; iterator_1_1 = yield __await(iterator_1.next()), !iterator_1_1.done;) {
-                            const obj = iterator_1_1.value;
-                            yield yield __await(toFileObject(obj));
-                        }
-                    }
-                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                    finally {
-                        try {
-                            if (iterator_1_1 && !iterator_1_1.done && (_a = iterator_1.return)) yield __await(_a.call(iterator_1));
-                        }
-                        finally { if (e_2) throw e_2.error; }
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // { path, content: ? }
-    // Note: Detected _after_ AsyncIterable<?> because Node.js streams have a
-    // `path` property that passes this check.
-    if (isFileObject(input)) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    throw new Error('Unexpected input: ' + typeof input);
-}
-exports.normaliseInput = normaliseInput;
-function toFileObject(input) {
-    const obj = {
-        path: input.path || '',
-        mode: input.mode,
-        mtime: input.mtime,
-    };
-    if (input.content) {
-        obj.content = toAsyncIterable(input.content);
-    }
-    else if (!input.path) {
-        // Not already a file object with path or content prop
-        obj.content = toAsyncIterable(input);
-    }
-    return obj;
-}
-function toAsyncIterable(input) {
-    // Bytes | String
-    if (isBytes(input) || typeof input === 'string') {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toBuffer(input));
-            });
-        })();
-    }
-    // Bloby
-    if (isBloby(input)) {
-        return blobToAsyncGenerator(input);
-    }
-    // Browser stream
-    if (typeof input.getReader === 'function') {
-        return browserStreamToIt(input);
-    }
-    // Iterator<?>
-    if (input[Symbol.iterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                const iterator = input[Symbol.iterator]();
-                const first = iterator.next();
-                if (first.done)
-                    return yield __await(iterator
-                    // Iterable<Number>
-                    );
-                // Iterable<Number>
-                if (Number.isInteger(first.value)) {
-                    yield yield __await(toBuffer(Array.from((function* () {
-                        yield first.value;
-                        yield* iterator;
-                    })())));
-                    return yield __await(void 0);
-                }
-                // Iterable<Bytes>
-                if (isBytes(first.value)) {
-                    yield yield __await(toBuffer(first.value));
-                    for (const chunk of iterator) {
-                        yield yield __await(toBuffer(chunk));
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // AsyncIterable<Bytes>
-    if (input[Symbol.asyncIterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_3, _a;
-                try {
-                    for (var input_1 = __asyncValues(input), input_1_1; input_1_1 = yield __await(input_1.next()), !input_1_1.done;) {
-                        const chunk = input_1_1.value;
-                        yield yield __await(toBuffer(chunk));
-                    }
-                }
-                catch (e_3_1) { e_3 = { error: e_3_1 }; }
-                finally {
-                    try {
-                        if (input_1_1 && !input_1_1.done && (_a = input_1.return)) yield __await(_a.call(input_1));
-                    }
-                    finally { if (e_3) throw e_3.error; }
-                }
-            });
-        })();
-    }
-    throw new Error(`Unexpected input: ${input}`);
-}
-function toBuffer(chunk) {
-    return isBytes(chunk) ? chunk : buffer_1.Buffer.from(chunk);
-}
-function isBytes(obj) {
-    return buffer_1.Buffer.isBuffer(obj) || ArrayBuffer.isView(obj) || obj instanceof ArrayBuffer;
-}
-function isBloby(obj) {
-    return typeof globalThis.Blob !== 'undefined' && obj instanceof globalThis.Blob;
-}
-// An object with a path or content property
-function isFileObject(obj) {
-    return typeof obj === 'object' && (obj.path || obj.content);
-}
-function blobToAsyncGenerator(blob) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-    // @ts-ignore
-    if (typeof blob.stream === 'function') {
-        // firefox < 69 does not support blob.stream()
-        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-        // @ts-ignore
-        return browserStreamToIt(blob.stream());
-    }
-    return readBlob(blob);
-}
-function browserStreamToIt(stream) {
-    return __asyncGenerator(this, arguments, function* browserStreamToIt_1() {
-        const reader = stream.getReader();
-        while (true) {
-            const result = yield __await(reader.read());
-            if (result.done) {
-                return yield __await(void 0);
-            }
-            yield yield __await(result.value);
-        }
-    });
-}
-function readBlob(blob, options) {
-    return __asyncGenerator(this, arguments, function* readBlob_1() {
-        options = options || {};
-        const reader = new globalThis.FileReader();
-        const chunkSize = options.chunkSize || 1024 * 1024;
-        let offset = options.offset || 0;
-        const getNextChunk = () => new Promise((resolve, reject) => {
-            reader.onloadend = (e) => {
-                var _a;
-                const data = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
-                resolve(data.byteLength === 0 ? null : data);
-            };
-            reader.onerror = reject;
-            const end = offset + chunkSize;
-            const slice = blob.slice(offset, end);
-            reader.readAsArrayBuffer(slice);
-            offset = end;
-        });
-        while (true) {
-            const data = yield __await(getNextChunk());
-            if (data == null) {
-                return yield __await(void 0);
-            }
-            yield yield __await(buffer_1.Buffer.from(data));
-        }
-    });
-}
-//# sourceMappingURL=normalize.js.map
-
-/***/ }),
-
 /***/ 681:
 /***/ (function(module) {
 
@@ -22723,38 +23213,6 @@ try {
 
 /***/ }),
 
-/***/ 705:
-/***/ (function(module) {
-
-
-var N1 = Math.pow(2,  7)
-var N2 = Math.pow(2, 14)
-var N3 = Math.pow(2, 21)
-var N4 = Math.pow(2, 28)
-var N5 = Math.pow(2, 35)
-var N6 = Math.pow(2, 42)
-var N7 = Math.pow(2, 49)
-var N8 = Math.pow(2, 56)
-var N9 = Math.pow(2, 63)
-
-module.exports = function (value) {
-  return (
-    value < N1 ? 1
-  : value < N2 ? 2
-  : value < N3 ? 3
-  : value < N4 ? 4
-  : value < N5 ? 5
-  : value < N6 ? 6
-  : value < N7 ? 7
-  : value < N8 ? 8
-  : value < N9 ? 9
-  :              10
-  )
-}
-
-
-/***/ }),
-
 /***/ 723:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -22769,55 +23227,6 @@ module.exports = __webpack_require__(237);
 /***/ (function(module) {
 
 module.exports = require("fs");
-
-/***/ }),
-
-/***/ 757:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ArchiveStatus = exports.PathAccessRole = exports.AbortError = void 0;
-exports.AbortError = new Error('aborted');
-var PathAccessRole;
-(function (PathAccessRole) {
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_UNSPECIFIED"] = 0] = "PATH_ACCESS_ROLE_UNSPECIFIED";
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_READER"] = 1] = "PATH_ACCESS_ROLE_READER";
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_WRITER"] = 2] = "PATH_ACCESS_ROLE_WRITER";
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_ADMIN"] = 3] = "PATH_ACCESS_ROLE_ADMIN";
-})(PathAccessRole = exports.PathAccessRole || (exports.PathAccessRole = {}));
-/**
- * Archive job status codes
- */
-var ArchiveStatus;
-(function (ArchiveStatus) {
-    /**
-     * Status is not specified.
-     */
-    ArchiveStatus[ArchiveStatus["Unspecified"] = 0] = "Unspecified";
-    /**
-     * The archive job is queued.
-     */
-    ArchiveStatus[ArchiveStatus["Queued"] = 1] = "Queued";
-    /**
-     * The archive job is executing.
-     */
-    ArchiveStatus[ArchiveStatus["Executing"] = 2] = "Executing";
-    /**
-     * The archive job has failed.
-     */
-    ArchiveStatus[ArchiveStatus["Failed"] = 3] = "Failed";
-    /**
-     * The archive job was canceled.
-     */
-    ArchiveStatus[ArchiveStatus["Canceled"] = 4] = "Canceled";
-    /**
-     * The archive job succeeded.
-     */
-    ArchiveStatus[ArchiveStatus["Success"] = 5] = "Success";
-})(ArchiveStatus = exports.ArchiveStatus || (exports.ArchiveStatus = {}));
-//# sourceMappingURL=types.js.map
 
 /***/ }),
 
@@ -22843,7 +23252,7 @@ const CIDUtil = {
    * Returns undefined if it is a valid CID.
    *
    * @param {any} other
-   * @returns {string}
+   * @returns {string|undefined}
    */
   checkCIDComponents: function (other) {
     if (other == null) {
@@ -22914,9 +23323,16 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Context = exports.defaultHost = void 0;
+exports.Context = exports.defaultHost = exports.errors = void 0;
 const grpc_web_1 = __webpack_require__(837);
 const security_1 = __webpack_require__(924);
+exports.errors = {
+    /**
+     * expirationError is an error your app will receive anytime your credentials have expired.
+     * @public
+     */
+    expirationError: new Error("Auth expired. Consider calling withKeyInfo or withAPISig to refresh."),
+};
 exports.defaultHost = "https://webapi.hub.textile.io";
 /**
  * Context provides context management for gRPC credentials and config settings.
@@ -23012,8 +23428,7 @@ class Context {
     withContext(value) {
         if (value === undefined)
             return this;
-        // Spread to copy rather than reference
-        this._context = value.toJSON();
+        this._context = Object.assign(Object.assign({}, this._context), value.toJSON());
         return this;
     }
     /**
@@ -23051,12 +23466,10 @@ class Context {
      * @see toMetadata for an alternative for gRPC clients that supports auto-renewal.
      */
     toJSON() {
-        const json = __rest(this._context
-        // If we're expired, throw...
-        , []);
+        const json = Object.assign({}, this._context);
         // If we're expired, throw...
         if (this.isExpired) {
-            throw security_1.expirationError;
+            throw exports.errors.expirationError;
         }
         return json;
     }
@@ -23123,10 +23536,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ThreadKey = exports.keyToString = exports.keyFromString = exports.randomBytes = exports.invalidKeyError = void 0;
+exports.ThreadKey = exports.keyToString = exports.keyFromString = exports.randomBytes = exports.errors = void 0;
 const sync_randombytes_1 = __importDefault(__webpack_require__(651));
 const multibase_1 = __importDefault(__webpack_require__(939));
-exports.invalidKeyError = new Error("Invalid key");
+exports.errors = {
+    invalidKeyError: new Error("Invalid key"),
+};
 const randomBytes = (byteLength) => {
     return sync_randombytes_1.default(new Uint8Array(byteLength));
 };
@@ -23173,7 +23588,7 @@ class ThreadKey {
      */
     static fromBytes(bytes) {
         if (bytes.byteLength !== keyBytes && bytes.byteLength !== keyBytes * 2) {
-            throw exports.invalidKeyError;
+            throw exports.errors.invalidKeyError;
         }
         const sk = bytes.slice(0, keyBytes);
         let rk;
@@ -24126,9 +24541,9 @@ var isArray = Array.isArray || function (xs) {
 "use strict";
 
 
-const varint = __webpack_require__(977)
-const uint8ArrayToString = __webpack_require__(66)
-const uint8ArrayFromString = __webpack_require__(618)
+const varint = __webpack_require__(507)
+const uint8ArrayToString = __webpack_require__(945)
+const uint8ArrayFromString = __webpack_require__(870)
 
 module.exports = {
   numberToUint8Array,
@@ -24160,43 +24575,37 @@ function varintEncode (num) {
 
 /***/ }),
 
-/***/ 911:
+/***/ 912:
 /***/ (function(module) {
 
-module.exports = encode
+"use strict";
 
-var MSB = 0x80
-  , REST = 0x7F
-  , MSBALL = ~REST
-  , INT = Math.pow(2, 31)
 
-function encode(num, out, offset) {
-  out = out || []
-  offset = offset || 0
-  var oldOffset = offset
-
-  while(num >= INT) {
-    out[offset++] = (num & 0xFF) | MSB
-    num /= 128
+/**
+ * Returns a new Uint8Array created by concatenating the passed ArrayLikes
+ *
+ * @param {Array<ArrayLike<number>>} arrays
+ * @param {number} [length]
+ * @returns {Uint8Array}
+ */
+function concat (arrays, length) {
+  if (!length) {
+    length = arrays.reduce((acc, curr) => acc + curr.length, 0)
   }
-  while(num & MSBALL) {
-    out[offset++] = (num & 0xFF) | MSB
-    num >>>= 7
+
+  const output = new Uint8Array(length)
+  let offset = 0
+
+  for (const arr of arrays) {
+    output.set(arr, offset)
+    offset += arr.length
   }
-  out[offset] = num | 0
-  
-  encode.bytes = offset - oldOffset + 1
-  
-  return out
+
+  return output
 }
 
+module.exports = concat
 
-/***/ }),
-
-/***/ 923:
-/***/ (function(module) {
-
-module.exports = {"identity":0,"ip4":4,"tcp":6,"sha1":17,"sha2-256":18,"sha2-512":19,"sha3-512":20,"sha3-384":21,"sha3-256":22,"sha3-224":23,"shake-128":24,"shake-256":25,"keccak-224":26,"keccak-256":27,"keccak-384":28,"keccak-512":29,"blake3":30,"dccp":33,"murmur3-128":34,"murmur3-32":35,"ip6":41,"ip6zone":42,"path":47,"multicodec":48,"multihash":49,"multiaddr":50,"multibase":51,"dns":53,"dns4":54,"dns6":55,"dnsaddr":56,"protobuf":80,"cbor":81,"raw":85,"dbl-sha2-256":86,"rlp":96,"bencode":99,"dag-pb":112,"dag-cbor":113,"libp2p-key":114,"git-raw":120,"torrent-info":123,"torrent-file":124,"leofcoin-block":129,"leofcoin-tx":130,"leofcoin-pr":131,"sctp":132,"dag-jose":133,"dag-cose":134,"eth-block":144,"eth-block-list":145,"eth-tx-trie":146,"eth-tx":147,"eth-tx-receipt-trie":148,"eth-tx-receipt":149,"eth-state-trie":150,"eth-account-snapshot":151,"eth-storage-trie":152,"bitcoin-block":176,"bitcoin-tx":177,"bitcoin-witness-commitment":178,"zcash-block":192,"zcash-tx":193,"stellar-block":208,"stellar-tx":209,"md4":212,"md5":213,"bmt":214,"decred-block":224,"decred-tx":225,"ipld-ns":226,"ipfs-ns":227,"swarm-ns":228,"ipns-ns":229,"zeronet":230,"secp256k1-pub":231,"bls12_381-g1-pub":234,"bls12_381-g2-pub":235,"x25519-pub":236,"ed25519-pub":237,"dash-block":240,"dash-tx":241,"swarm-manifest":250,"swarm-feed":251,"udp":273,"p2p-webrtc-star":275,"p2p-webrtc-direct":276,"p2p-stardust":277,"p2p-circuit":290,"dag-json":297,"udt":301,"utp":302,"unix":400,"p2p":421,"ipfs":421,"https":443,"onion":444,"onion3":445,"garlic64":446,"garlic32":447,"tls":448,"quic":460,"ws":477,"wss":478,"p2p-websocket-star":479,"http":480,"json":512,"messagepack":513,"libp2p-peer-record":769,"sha2-256-trunc254-padded":4114,"ripemd-128":4178,"ripemd-160":4179,"ripemd-256":4180,"ripemd-320":4181,"x11":4352,"sm3-256":21325,"blake2b-8":45569,"blake2b-16":45570,"blake2b-24":45571,"blake2b-32":45572,"blake2b-40":45573,"blake2b-48":45574,"blake2b-56":45575,"blake2b-64":45576,"blake2b-72":45577,"blake2b-80":45578,"blake2b-88":45579,"blake2b-96":45580,"blake2b-104":45581,"blake2b-112":45582,"blake2b-120":45583,"blake2b-128":45584,"blake2b-136":45585,"blake2b-144":45586,"blake2b-152":45587,"blake2b-160":45588,"blake2b-168":45589,"blake2b-176":45590,"blake2b-184":45591,"blake2b-192":45592,"blake2b-200":45593,"blake2b-208":45594,"blake2b-216":45595,"blake2b-224":45596,"blake2b-232":45597,"blake2b-240":45598,"blake2b-248":45599,"blake2b-256":45600,"blake2b-264":45601,"blake2b-272":45602,"blake2b-280":45603,"blake2b-288":45604,"blake2b-296":45605,"blake2b-304":45606,"blake2b-312":45607,"blake2b-320":45608,"blake2b-328":45609,"blake2b-336":45610,"blake2b-344":45611,"blake2b-352":45612,"blake2b-360":45613,"blake2b-368":45614,"blake2b-376":45615,"blake2b-384":45616,"blake2b-392":45617,"blake2b-400":45618,"blake2b-408":45619,"blake2b-416":45620,"blake2b-424":45621,"blake2b-432":45622,"blake2b-440":45623,"blake2b-448":45624,"blake2b-456":45625,"blake2b-464":45626,"blake2b-472":45627,"blake2b-480":45628,"blake2b-488":45629,"blake2b-496":45630,"blake2b-504":45631,"blake2b-512":45632,"blake2s-8":45633,"blake2s-16":45634,"blake2s-24":45635,"blake2s-32":45636,"blake2s-40":45637,"blake2s-48":45638,"blake2s-56":45639,"blake2s-64":45640,"blake2s-72":45641,"blake2s-80":45642,"blake2s-88":45643,"blake2s-96":45644,"blake2s-104":45645,"blake2s-112":45646,"blake2s-120":45647,"blake2s-128":45648,"blake2s-136":45649,"blake2s-144":45650,"blake2s-152":45651,"blake2s-160":45652,"blake2s-168":45653,"blake2s-176":45654,"blake2s-184":45655,"blake2s-192":45656,"blake2s-200":45657,"blake2s-208":45658,"blake2s-216":45659,"blake2s-224":45660,"blake2s-232":45661,"blake2s-240":45662,"blake2s-248":45663,"blake2s-256":45664,"skein256-8":45825,"skein256-16":45826,"skein256-24":45827,"skein256-32":45828,"skein256-40":45829,"skein256-48":45830,"skein256-56":45831,"skein256-64":45832,"skein256-72":45833,"skein256-80":45834,"skein256-88":45835,"skein256-96":45836,"skein256-104":45837,"skein256-112":45838,"skein256-120":45839,"skein256-128":45840,"skein256-136":45841,"skein256-144":45842,"skein256-152":45843,"skein256-160":45844,"skein256-168":45845,"skein256-176":45846,"skein256-184":45847,"skein256-192":45848,"skein256-200":45849,"skein256-208":45850,"skein256-216":45851,"skein256-224":45852,"skein256-232":45853,"skein256-240":45854,"skein256-248":45855,"skein256-256":45856,"skein512-8":45857,"skein512-16":45858,"skein512-24":45859,"skein512-32":45860,"skein512-40":45861,"skein512-48":45862,"skein512-56":45863,"skein512-64":45864,"skein512-72":45865,"skein512-80":45866,"skein512-88":45867,"skein512-96":45868,"skein512-104":45869,"skein512-112":45870,"skein512-120":45871,"skein512-128":45872,"skein512-136":45873,"skein512-144":45874,"skein512-152":45875,"skein512-160":45876,"skein512-168":45877,"skein512-176":45878,"skein512-184":45879,"skein512-192":45880,"skein512-200":45881,"skein512-208":45882,"skein512-216":45883,"skein512-224":45884,"skein512-232":45885,"skein512-240":45886,"skein512-248":45887,"skein512-256":45888,"skein512-264":45889,"skein512-272":45890,"skein512-280":45891,"skein512-288":45892,"skein512-296":45893,"skein512-304":45894,"skein512-312":45895,"skein512-320":45896,"skein512-328":45897,"skein512-336":45898,"skein512-344":45899,"skein512-352":45900,"skein512-360":45901,"skein512-368":45902,"skein512-376":45903,"skein512-384":45904,"skein512-392":45905,"skein512-400":45906,"skein512-408":45907,"skein512-416":45908,"skein512-424":45909,"skein512-432":45910,"skein512-440":45911,"skein512-448":45912,"skein512-456":45913,"skein512-464":45914,"skein512-472":45915,"skein512-480":45916,"skein512-488":45917,"skein512-496":45918,"skein512-504":45919,"skein512-512":45920,"skein1024-8":45921,"skein1024-16":45922,"skein1024-24":45923,"skein1024-32":45924,"skein1024-40":45925,"skein1024-48":45926,"skein1024-56":45927,"skein1024-64":45928,"skein1024-72":45929,"skein1024-80":45930,"skein1024-88":45931,"skein1024-96":45932,"skein1024-104":45933,"skein1024-112":45934,"skein1024-120":45935,"skein1024-128":45936,"skein1024-136":45937,"skein1024-144":45938,"skein1024-152":45939,"skein1024-160":45940,"skein1024-168":45941,"skein1024-176":45942,"skein1024-184":45943,"skein1024-192":45944,"skein1024-200":45945,"skein1024-208":45946,"skein1024-216":45947,"skein1024-224":45948,"skein1024-232":45949,"skein1024-240":45950,"skein1024-248":45951,"skein1024-256":45952,"skein1024-264":45953,"skein1024-272":45954,"skein1024-280":45955,"skein1024-288":45956,"skein1024-296":45957,"skein1024-304":45958,"skein1024-312":45959,"skein1024-320":45960,"skein1024-328":45961,"skein1024-336":45962,"skein1024-344":45963,"skein1024-352":45964,"skein1024-360":45965,"skein1024-368":45966,"skein1024-376":45967,"skein1024-384":45968,"skein1024-392":45969,"skein1024-400":45970,"skein1024-408":45971,"skein1024-416":45972,"skein1024-424":45973,"skein1024-432":45974,"skein1024-440":45975,"skein1024-448":45976,"skein1024-456":45977,"skein1024-464":45978,"skein1024-472":45979,"skein1024-480":45980,"skein1024-488":45981,"skein1024-496":45982,"skein1024-504":45983,"skein1024-512":45984,"skein1024-520":45985,"skein1024-528":45986,"skein1024-536":45987,"skein1024-544":45988,"skein1024-552":45989,"skein1024-560":45990,"skein1024-568":45991,"skein1024-576":45992,"skein1024-584":45993,"skein1024-592":45994,"skein1024-600":45995,"skein1024-608":45996,"skein1024-616":45997,"skein1024-624":45998,"skein1024-632":45999,"skein1024-640":46000,"skein1024-648":46001,"skein1024-656":46002,"skein1024-664":46003,"skein1024-672":46004,"skein1024-680":46005,"skein1024-688":46006,"skein1024-696":46007,"skein1024-704":46008,"skein1024-712":46009,"skein1024-720":46010,"skein1024-728":46011,"skein1024-736":46012,"skein1024-744":46013,"skein1024-752":46014,"skein1024-760":46015,"skein1024-768":46016,"skein1024-776":46017,"skein1024-784":46018,"skein1024-792":46019,"skein1024-800":46020,"skein1024-808":46021,"skein1024-816":46022,"skein1024-824":46023,"skein1024-832":46024,"skein1024-840":46025,"skein1024-848":46026,"skein1024-856":46027,"skein1024-864":46028,"skein1024-872":46029,"skein1024-880":46030,"skein1024-888":46031,"skein1024-896":46032,"skein1024-904":46033,"skein1024-912":46034,"skein1024-920":46035,"skein1024-928":46036,"skein1024-936":46037,"skein1024-944":46038,"skein1024-952":46039,"skein1024-960":46040,"skein1024-968":46041,"skein1024-976":46042,"skein1024-984":46043,"skein1024-992":46044,"skein1024-1000":46045,"skein1024-1008":46046,"skein1024-1016":46047,"skein1024-1024":46048,"poseidon-bls12_381-a2-fc1":46081,"poseidon-bls12_381-a2-fc1-sc":46082,"zeroxcert-imprint-256":52753,"fil-commitment-unsealed":61697,"fil-commitment-sealed":61698,"holochain-adr-v0":8417572,"holochain-adr-v1":8483108,"holochain-key-v0":9728292,"holochain-key-v1":9793828,"holochain-sig-v0":10645796,"holochain-sig-v1":10711332};
 
 /***/ }),
 
@@ -24228,7 +24637,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expirationError = exports.createUserAuth = exports.createAPISig = void 0;
+exports.createUserAuth = exports.createAPISig = void 0;
 /**
  * Common types/methods for Textile security including authentication and authorization.
  *
@@ -24237,6 +24646,7 @@ exports.expirationError = exports.createUserAuth = exports.createAPISig = void 0
  * @packageDocumentation
  */
 const fast_sha256_1 = __webpack_require__(362);
+__webpack_require__(442);
 const multibase_1 = __importDefault(__webpack_require__(939));
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -24305,11 +24715,6 @@ function createUserAuth(key, secret, date, token) {
     });
 }
 exports.createUserAuth = createUserAuth;
-/**
- * expirationError is an error your app will receive anytime your credentials have expired.
- * @public
- */
-exports.expirationError = new Error("Auth expired. Consider calling withKeyInfo or withAPISig to refresh.");
 __exportStar(__webpack_require__(806), exports);
 //# sourceMappingURL=index.js.map
 
@@ -24331,6 +24736,7 @@ const { encodeText, decodeText, concat } = __webpack_require__(266)
 /** @typedef {import('./base')} Base */
 /** @typedef {import("./types").BaseNameOrCode} BaseNameOrCode */
 /** @typedef {import("./types").BaseCode} BaseCode */
+/** @typedef {import("./types").BaseName} BaseName */
 
 /**
  * Create a new Uint8Array with the multibase varint+code.
@@ -24434,10 +24840,10 @@ function validEncode (name, buf) {
  * @throws {Error} Will throw if the encoding is not supported
  */
 function encoding (nameOrCode) {
-  if (constants.names[nameOrCode]) {
-    return constants.names[nameOrCode]
-  } else if (constants.codes[nameOrCode]) {
-    return constants.codes[nameOrCode]
+  if (constants.names[/** @type {BaseName} */(nameOrCode)]) {
+    return constants.names[/** @type {BaseName} */(nameOrCode)]
+  } else if (constants.codes[/** @type {BaseCode} */(nameOrCode)]) {
+    return constants.codes[/** @type {BaseCode} */(nameOrCode)]
   } else {
     throw new Error(`Unsupported encoding: ${nameOrCode}`)
   }
@@ -24799,7 +25205,7 @@ module.exports = {
  */
 
 /**
- * @type { Object<HashName,HashCode> }
+ * @type { Record<HashName,HashCode> }
  */
 const names = Object.freeze({
   'identity': 0x00,
@@ -25160,6 +25566,40 @@ module.exports = { names }
 
 /***/ }),
 
+/***/ 958:
+/***/ (function(module) {
+
+"use strict";
+
+
+/**
+ * Returns a new Uint8Array created by concatenating the passed ArrayLikes
+ *
+ * @param {Array<ArrayLike<number>>} arrays
+ * @param {number} [length]
+ * @returns {Uint8Array}
+ */
+function concat (arrays, length) {
+  if (!length) {
+    length = arrays.reduce((acc, curr) => acc + curr.length, 0)
+  }
+
+  const output = new Uint8Array(length)
+  let offset = 0
+
+  for (const arr of arrays) {
+    output.set(arr, offset)
+    offset += arr.length
+  }
+
+  return output
+}
+
+module.exports = concat
+
+
+/***/ }),
+
 /***/ 974:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -25175,14 +25615,60 @@ exports.TextDecoder =
 
 /***/ }),
 
-/***/ 977:
+/***/ 997:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
-module.exports = {
-    encode: __webpack_require__(911)
-  , decode: __webpack_require__(675)
-  , encodingLength: __webpack_require__(705)
+"use strict";
+
+
+const { encoding: getCodec } = __webpack_require__(939)
+const { TextDecoder } = __webpack_require__(974)
+const utf8Decoder = new TextDecoder('utf8')
+
+/**
+ * @typedef {import('multibase/src/types').BaseName} BaseName
+ */
+
+/**
+ * Turns a Uint8Array of bytes into a string with each
+ * character being the char code of the corresponding byte
+ *
+ * @param {Uint8Array} array - The array to turn into a string
+ * @returns {string}
+ */
+function uint8ArrayToAsciiString (array) {
+  let string = ''
+
+  for (let i = 0; i < array.length; i++) {
+    string += String.fromCharCode(array[i])
+  }
+  return string
 }
+
+/**
+ * Turns a `Uint8Array` into a string.
+ *
+ * Supports `utf8`, `utf-8` and any encoding supported by the multibase module.
+ *
+ * Also `ascii` which is similar to node's 'binary' encoding.
+ *
+ * @param {Uint8Array} array - The array to turn into a string
+ * @param {BaseName | 'utf8' | 'utf-8' | 'ascii'} [encoding=utf8] - The encoding to use
+ * @returns {string}
+ */
+function toString (array, encoding = 'utf8') {
+  if (encoding === 'utf8' || encoding === 'utf-8') {
+    return utf8Decoder.decode(array)
+  }
+
+  if (encoding === 'ascii') {
+    return uint8ArrayToAsciiString(array)
+  }
+
+  return getCodec(encoding).encode(array)
+}
+
+module.exports = toString
 
 
 /***/ })
