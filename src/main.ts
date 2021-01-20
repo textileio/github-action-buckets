@@ -15,10 +15,10 @@ import {
   bucketsListPath,
   bucketsRemovePath,
   bucketsRoot,
-} from '@textile/buckets/dist/api'
+} from '@textile/buckets/dist/cjs/api'
 import { Context } from '@textile/context'
 import { GrpcConnection } from '@textile/grpc-connection'
-import { Root } from '@textile/buckets/dist/types'
+import { Root } from '@textile/buckets/dist/cjs/types'
 
 const readFile = util.promisify(fs.readFile)
 const globDir = util.promisify(glob)

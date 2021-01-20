@@ -60,8 +60,9 @@ test('test core runs', () => {
   const options: cp.ExecSyncOptions = {
     env: { ...input },
   }
+  const envPath = 'PATH='+process.env.PATH;
   try {
-    cp.execSync(`node ${ip}`, options).toString()
+    cp.execSync(`${envPath} node ${ip}`, options).toString()
     throw new Error('okay')
   } catch (error) {
     expect(error.message).toEqual('okay')
