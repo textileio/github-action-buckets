@@ -30,6 +30,7 @@
   "dependencies": {
     "@actions/core": "^1.2.0",
     "@improbable-eng/grpc-web": "^0.13.0",
+    "@textile/buck-util": "file:../js-textile/packages/buck-util/",
     "@textile/buckets": "^5.2.0",
     "@textile/context": "^0.10.0",
     "glob": "^7.1.6",
@@ -37,7 +38,7 @@
     "ws": "^7.3.0"
   },
   "devDependencies": {
-    "@textile/hub-grpc": "2.5.1",
+    "@textile/hub-grpc": "2.6.0",
     "@textile/security": "^0.7.0",
     "@textile/grpc-transport": "^0.3.0",
     "@textile/grpc-connection": "^2.3.0",
