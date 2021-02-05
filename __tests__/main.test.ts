@@ -3,13 +3,12 @@ import * as cp from 'child_process'
 import * as path from 'path'
 import axios from 'axios'
 import delay from 'delay'
-import { createAPISig, createUserAuth } from '@textile/security'
 import { Context, ContextInterface } from '@textile/context'
 import * as pb from '@textile/hub-grpc/api/hubd/pb/hubd_pb'
 import { WebsocketTransport } from '@textile/grpc-transport'
 import { APIServiceClient, ServiceError } from '@textile/hub-grpc/api/hubd/pb/hubd_pb_service'
 import { Buckets } from '@textile/buckets'
-import { execute } from '../src/main'
+import { execute } from '@textile/buck-util'
 
 jest.setTimeout(20000)
 
