@@ -10,7 +10,7 @@ import { APIServiceClient, ServiceError } from '@textile/hub-grpc/api/hubd/pb/hu
 import { Buckets } from '@textile/buckets'
 import { execute } from '@textile/buck-util'
 
-jest.setTimeout(20000)
+jest.setTimeout(60000)
 
 // Settings for localhost development and testing
 const addrApiurl = 'http://127.0.0.1:3007'
@@ -38,7 +38,12 @@ beforeAll(async () => {
 })
 
 test('test raw runs', async () => {
-  const result = await execute(addrApiurl, key, secret, testThread, 'test', 'false', '**/*', 'website', './')
+  const result = await execute(addrApiurl, key, secret, testThread, 'test', 'false', '**/*', 'website/one', './')
+  expect(result.get('ipfs')).toBeDefined()
+})
+
+test('test run with deletion', async () => {
+  const result = await execute(addrApiurl, key, secret, testThread, 'test', 'false', '**/*', 'website/two', './')
   expect(result.get('ipfs')).toBeDefined()
 })
 
@@ -59,7 +64,7 @@ test('test core runs', () => {
   const options: cp.ExecSyncOptions = {
     env: { ...input },
   }
-  const envPath = 'PATH='+process.env.PATH;
+  const envPath = 'PATH=' + process.env.PATH
   try {
     cp.execSync(`${envPath} node ${ip}`, options).toString()
     throw new Error('okay')

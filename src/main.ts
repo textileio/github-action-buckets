@@ -1,7 +1,6 @@
 import * as core from '@actions/core'
 import { execute } from '@textile/buck-util'
 
-
 async function run(): Promise<void> {
   const api = core.getInput('api') || ''
   const key: string = core.getInput('key') || ''
