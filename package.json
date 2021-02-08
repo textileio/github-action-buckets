@@ -29,7 +29,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.0",
-    "@improbable-eng/grpc-web": "^0.13.0",
+    "@improbable-eng/grpc-web": "^0.14.0",
     "@textile/buck-util": "1.0.4",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
