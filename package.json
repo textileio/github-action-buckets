@@ -30,14 +30,14 @@
   "dependencies": {
     "@actions/core": "^1.2.0",
     "@improbable-eng/grpc-web": "^0.13.0",
-    "@textile/buck-util": "1.0.2",
-    "@textile/buckets": "^6.0.1",
-    "@textile/context": "^0.11.1",
+    "@textile/buck-util": "1.0.4",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
     "ws": "^7.3.0"
   },
   "devDependencies": {
+    "@textile/buckets": "^6.0.2",
+    "@textile/context": "^0.11.1",
     "@textile/hub-grpc": "2.6.0",
     "@textile/security": "^0.8.1",
     "@textile/grpc-transport": "^0.4.0",
