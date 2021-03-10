@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { execute } from '@textile/buck-util'
+import { execute } from '@textile/buckr'
 
 async function run(): Promise<void> {
   const api = core.getInput('api') || ''

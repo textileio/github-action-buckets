@@ -51,7 +51,2074 @@ module.exports =
 /************************************************************************/
 /******/ ({
 
-/***/ 3:
+/***/ 10:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const { randomFillSync } = __webpack_require__(417);
+
+const PerMessageDeflate = __webpack_require__(301);
+const { EMPTY_BUFFER } = __webpack_require__(799);
+const { isValidStatusCode } = __webpack_require__(562);
+const { mask: applyMask, toBuffer } = __webpack_require__(349);
+
+const mask = Buffer.alloc(4);
+
+/**
+ * HyBi Sender implementation.
+ */
+class Sender {
+  /**
+   * Creates a Sender instance.
+   *
+   * @param {net.Socket} socket The connection socket
+   * @param {Object} [extensions] An object containing the negotiated extensions
+   */
+  constructor(socket, extensions) {
+    this._extensions = extensions || {};
+    this._socket = socket;
+
+    this._firstFragment = true;
+    this._compress = false;
+
+    this._bufferedBytes = 0;
+    this._deflating = false;
+    this._queue = [];
+  }
+
+  /**
+   * Frames a piece of data according to the HyBi WebSocket protocol.
+   *
+   * @param {Buffer} data The data to frame
+   * @param {Object} options Options object
+   * @param {Number} options.opcode The opcode
+   * @param {Boolean} [options.readOnly=false] Specifies whether `data` can be
+   *     modified
+   * @param {Boolean} [options.fin=false] Specifies whether or not to set the
+   *     FIN bit
+   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
+   *     `data`
+   * @param {Boolean} [options.rsv1=false] Specifies whether or not to set the
+   *     RSV1 bit
+   * @return {Buffer[]} The framed data as a list of `Buffer` instances
+   * @public
+   */
+  static frame(data, options) {
+    const merge = options.mask && options.readOnly;
+    let offset = options.mask ? 6 : 2;
+    let payloadLength = data.length;
+
+    if (data.length >= 65536) {
+      offset += 8;
+      payloadLength = 127;
+    } else if (data.length > 125) {
+      offset += 2;
+      payloadLength = 126;
+    }
+
+    const target = Buffer.allocUnsafe(merge ? data.length + offset : offset);
+
+    target[0] = options.fin ? options.opcode | 0x80 : options.opcode;
+    if (options.rsv1) target[0] |= 0x40;
+
+    target[1] = payloadLength;
+
+    if (payloadLength === 126) {
+      target.writeUInt16BE(data.length, 2);
+    } else if (payloadLength === 127) {
+      target.writeUInt32BE(0, 2);
+      target.writeUInt32BE(data.length, 6);
+    }
+
+    if (!options.mask) return [target, data];
+
+    randomFillSync(mask, 0, 4);
+
+    target[1] |= 0x80;
+    target[offset - 4] = mask[0];
+    target[offset - 3] = mask[1];
+    target[offset - 2] = mask[2];
+    target[offset - 1] = mask[3];
+
+    if (merge) {
+      applyMask(data, mask, target, offset, data.length);
+      return [target];
+    }
+
+    applyMask(data, mask, data, 0, data.length);
+    return [target, data];
+  }
+
+  /**
+   * Sends a close message to the other peer.
+   *
+   * @param {Number} [code] The status code component of the body
+   * @param {String} [data] The message component of the body
+   * @param {Boolean} [mask=false] Specifies whether or not to mask the message
+   * @param {Function} [cb] Callback
+   * @public
+   */
+  close(code, data, mask, cb) {
+    let buf;
+
+    if (code === undefined) {
+      buf = EMPTY_BUFFER;
+    } else if (typeof code !== 'number' || !isValidStatusCode(code)) {
+      throw new TypeError('First argument must be a valid error code number');
+    } else if (data === undefined || data === '') {
+      buf = Buffer.allocUnsafe(2);
+      buf.writeUInt16BE(code, 0);
+    } else {
+      const length = Buffer.byteLength(data);
+
+      if (length > 123) {
+        throw new RangeError('The message must not be greater than 123 bytes');
+      }
+
+      buf = Buffer.allocUnsafe(2 + length);
+      buf.writeUInt16BE(code, 0);
+      buf.write(data, 2);
+    }
+
+    if (this._deflating) {
+      this.enqueue([this.doClose, buf, mask, cb]);
+    } else {
+      this.doClose(buf, mask, cb);
+    }
+  }
+
+  /**
+   * Frames and sends a close message.
+   *
+   * @param {Buffer} data The message to send
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback
+   * @private
+   */
+  doClose(data, mask, cb) {
+    this.sendFrame(
+      Sender.frame(data, {
+        fin: true,
+        rsv1: false,
+        opcode: 0x08,
+        mask,
+        readOnly: false
+      }),
+      cb
+    );
+  }
+
+  /**
+   * Sends a ping message to the other peer.
+   *
+   * @param {*} data The message to send
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback
+   * @public
+   */
+  ping(data, mask, cb) {
+    const buf = toBuffer(data);
+
+    if (buf.length > 125) {
+      throw new RangeError('The data size must not be greater than 125 bytes');
+    }
+
+    if (this._deflating) {
+      this.enqueue([this.doPing, buf, mask, toBuffer.readOnly, cb]);
+    } else {
+      this.doPing(buf, mask, toBuffer.readOnly, cb);
+    }
+  }
+
+  /**
+   * Frames and sends a ping message.
+   *
+   * @param {Buffer} data The message to send
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Boolean} [readOnly=false] Specifies whether `data` can be modified
+   * @param {Function} [cb] Callback
+   * @private
+   */
+  doPing(data, mask, readOnly, cb) {
+    this.sendFrame(
+      Sender.frame(data, {
+        fin: true,
+        rsv1: false,
+        opcode: 0x09,
+        mask,
+        readOnly
+      }),
+      cb
+    );
+  }
+
+  /**
+   * Sends a pong message to the other peer.
+   *
+   * @param {*} data The message to send
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback
+   * @public
+   */
+  pong(data, mask, cb) {
+    const buf = toBuffer(data);
+
+    if (buf.length > 125) {
+      throw new RangeError('The data size must not be greater than 125 bytes');
+    }
+
+    if (this._deflating) {
+      this.enqueue([this.doPong, buf, mask, toBuffer.readOnly, cb]);
+    } else {
+      this.doPong(buf, mask, toBuffer.readOnly, cb);
+    }
+  }
+
+  /**
+   * Frames and sends a pong message.
+   *
+   * @param {Buffer} data The message to send
+   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
+   * @param {Boolean} [readOnly=false] Specifies whether `data` can be modified
+   * @param {Function} [cb] Callback
+   * @private
+   */
+  doPong(data, mask, readOnly, cb) {
+    this.sendFrame(
+      Sender.frame(data, {
+        fin: true,
+        rsv1: false,
+        opcode: 0x0a,
+        mask,
+        readOnly
+      }),
+      cb
+    );
+  }
+
+  /**
+   * Sends a data message to the other peer.
+   *
+   * @param {*} data The message to send
+   * @param {Object} options Options object
+   * @param {Boolean} [options.compress=false] Specifies whether or not to
+   *     compress `data`
+   * @param {Boolean} [options.binary=false] Specifies whether `data` is binary
+   *     or text
+   * @param {Boolean} [options.fin=false] Specifies whether the fragment is the
+   *     last one
+   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
+   *     `data`
+   * @param {Function} [cb] Callback
+   * @public
+   */
+  send(data, options, cb) {
+    const buf = toBuffer(data);
+    const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
+    let opcode = options.binary ? 2 : 1;
+    let rsv1 = options.compress;
+
+    if (this._firstFragment) {
+      this._firstFragment = false;
+      if (rsv1 && perMessageDeflate) {
+        rsv1 = buf.length >= perMessageDeflate._threshold;
+      }
+      this._compress = rsv1;
+    } else {
+      rsv1 = false;
+      opcode = 0;
+    }
+
+    if (options.fin) this._firstFragment = true;
+
+    if (perMessageDeflate) {
+      const opts = {
+        fin: options.fin,
+        rsv1,
+        opcode,
+        mask: options.mask,
+        readOnly: toBuffer.readOnly
+      };
+
+      if (this._deflating) {
+        this.enqueue([this.dispatch, buf, this._compress, opts, cb]);
+      } else {
+        this.dispatch(buf, this._compress, opts, cb);
+      }
+    } else {
+      this.sendFrame(
+        Sender.frame(buf, {
+          fin: options.fin,
+          rsv1: false,
+          opcode,
+          mask: options.mask,
+          readOnly: toBuffer.readOnly
+        }),
+        cb
+      );
+    }
+  }
+
+  /**
+   * Dispatches a data message.
+   *
+   * @param {Buffer} data The message to send
+   * @param {Boolean} [compress=false] Specifies whether or not to compress
+   *     `data`
+   * @param {Object} options Options object
+   * @param {Number} options.opcode The opcode
+   * @param {Boolean} [options.readOnly=false] Specifies whether `data` can be
+   *     modified
+   * @param {Boolean} [options.fin=false] Specifies whether or not to set the
+   *     FIN bit
+   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
+   *     `data`
+   * @param {Boolean} [options.rsv1=false] Specifies whether or not to set the
+   *     RSV1 bit
+   * @param {Function} [cb] Callback
+   * @private
+   */
+  dispatch(data, compress, options, cb) {
+    if (!compress) {
+      this.sendFrame(Sender.frame(data, options), cb);
+      return;
+    }
+
+    const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
+
+    this._bufferedBytes += data.length;
+    this._deflating = true;
+    perMessageDeflate.compress(data, options.fin, (_, buf) => {
+      if (this._socket.destroyed) {
+        const err = new Error(
+          'The socket was closed while data was being compressed'
+        );
+
+        if (typeof cb === 'function') cb(err);
+
+        for (let i = 0; i < this._queue.length; i++) {
+          const callback = this._queue[i][4];
+
+          if (typeof callback === 'function') callback(err);
+        }
+
+        return;
+      }
+
+      this._bufferedBytes -= data.length;
+      this._deflating = false;
+      options.readOnly = false;
+      this.sendFrame(Sender.frame(buf, options), cb);
+      this.dequeue();
+    });
+  }
+
+  /**
+   * Executes queued send operations.
+   *
+   * @private
+   */
+  dequeue() {
+    while (!this._deflating && this._queue.length) {
+      const params = this._queue.shift();
+
+      this._bufferedBytes -= params[1].length;
+      Reflect.apply(params[0], this, params.slice(1));
+    }
+  }
+
+  /**
+   * Enqueues a send operation.
+   *
+   * @param {Array} params Send operation parameters.
+   * @private
+   */
+  enqueue(params) {
+    this._bufferedBytes += params[1].length;
+    this._queue.push(params);
+  }
+
+  /**
+   * Sends a frame.
+   *
+   * @param {Buffer[]} list The frame to send
+   * @param {Function} [cb] Callback
+   * @private
+   */
+  sendFrame(list, cb) {
+    if (list.length === 2) {
+      this._socket.cork();
+      this._socket.write(list[0]);
+      this._socket.write(list[1], cb);
+      this._socket.uncork();
+    } else {
+      this._socket.write(list[0], cb);
+    }
+  }
+}
+
+module.exports = Sender;
+
+
+/***/ }),
+
+/***/ 11:
+/***/ (function(module) {
+
+// Returns a wrapper function that returns a wrapped callback
+// The wrapper function should do some stuff, and return a
+// presumably different callback function.
+// This makes sure that own properties are retained, so that
+// decorations and such are not lost along the way.
+module.exports = wrappy
+function wrappy (fn, cb) {
+  if (fn && cb) return wrappy(fn)(cb)
+
+  if (typeof fn !== 'function')
+    throw new TypeError('need wrapper function')
+
+  Object.keys(fn).forEach(function (k) {
+    wrapper[k] = fn[k]
+  })
+
+  return wrapper
+
+  function wrapper() {
+    var args = new Array(arguments.length)
+    for (var i = 0; i < args.length; i++) {
+      args[i] = arguments[i]
+    }
+    var ret = fn.apply(this, args)
+    var cb = args[args.length-1]
+    if (typeof ret === 'function' && ret !== cb) {
+      Object.keys(cb).forEach(function (k) {
+        ret[k] = cb[k]
+      })
+    }
+    return ret
+  }
+}
+
+
+/***/ }),
+
+/***/ 16:
+/***/ (function(module) {
+
+module.exports = require("tls");
+
+/***/ }),
+
+/***/ 21:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const EventEmitter = __webpack_require__(614);
+const https = __webpack_require__(211);
+const http = __webpack_require__(605);
+const net = __webpack_require__(631);
+const tls = __webpack_require__(16);
+const { randomBytes, createHash } = __webpack_require__(417);
+const { URL } = __webpack_require__(835);
+
+const PerMessageDeflate = __webpack_require__(301);
+const Receiver = __webpack_require__(312);
+const Sender = __webpack_require__(10);
+const {
+  BINARY_TYPES,
+  EMPTY_BUFFER,
+  GUID,
+  kStatusCode,
+  kWebSocket,
+  NOOP
+} = __webpack_require__(799);
+const { addEventListener, removeEventListener } = __webpack_require__(646);
+const { format, parse } = __webpack_require__(330);
+const { toBuffer } = __webpack_require__(349);
+
+const readyStates = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+const protocolVersions = [8, 13];
+const closeTimeout = 30 * 1000;
+
+/**
+ * Class representing a WebSocket.
+ *
+ * @extends EventEmitter
+ */
+class WebSocket extends EventEmitter {
+  /**
+   * Create a new `WebSocket`.
+   *
+   * @param {(String|url.URL)} address The URL to which to connect
+   * @param {(String|String[])} [protocols] The subprotocols
+   * @param {Object} [options] Connection options
+   */
+  constructor(address, protocols, options) {
+    super();
+
+    this._binaryType = BINARY_TYPES[0];
+    this._closeCode = 1006;
+    this._closeFrameReceived = false;
+    this._closeFrameSent = false;
+    this._closeMessage = '';
+    this._closeTimer = null;
+    this._extensions = {};
+    this._protocol = '';
+    this._readyState = WebSocket.CONNECTING;
+    this._receiver = null;
+    this._sender = null;
+    this._socket = null;
+
+    if (address !== null) {
+      this._bufferedAmount = 0;
+      this._isServer = false;
+      this._redirects = 0;
+
+      if (Array.isArray(protocols)) {
+        protocols = protocols.join(', ');
+      } else if (typeof protocols === 'object' && protocols !== null) {
+        options = protocols;
+        protocols = undefined;
+      }
+
+      initAsClient(this, address, protocols, options);
+    } else {
+      this._isServer = true;
+    }
+  }
+
+  /**
+   * This deviates from the WHATWG interface since ws doesn't support the
+   * required default "blob" type (instead we define a custom "nodebuffer"
+   * type).
+   *
+   * @type {String}
+   */
+  get binaryType() {
+    return this._binaryType;
+  }
+
+  set binaryType(type) {
+    if (!BINARY_TYPES.includes(type)) return;
+
+    this._binaryType = type;
+
+    //
+    // Allow to change `binaryType` on the fly.
+    //
+    if (this._receiver) this._receiver._binaryType = type;
+  }
+
+  /**
+   * @type {Number}
+   */
+  get bufferedAmount() {
+    if (!this._socket) return this._bufferedAmount;
+
+    return this._socket._writableState.length + this._sender._bufferedBytes;
+  }
+
+  /**
+   * @type {String}
+   */
+  get extensions() {
+    return Object.keys(this._extensions).join();
+  }
+
+  /**
+   * @type {String}
+   */
+  get protocol() {
+    return this._protocol;
+  }
+
+  /**
+   * @type {Number}
+   */
+  get readyState() {
+    return this._readyState;
+  }
+
+  /**
+   * @type {String}
+   */
+  get url() {
+    return this._url;
+  }
+
+  /**
+   * Set up the socket and the internal resources.
+   *
+   * @param {net.Socket} socket The network socket between the server and client
+   * @param {Buffer} head The first packet of the upgraded stream
+   * @param {Number} [maxPayload=0] The maximum allowed message size
+   * @private
+   */
+  setSocket(socket, head, maxPayload) {
+    const receiver = new Receiver(
+      this.binaryType,
+      this._extensions,
+      this._isServer,
+      maxPayload
+    );
+
+    this._sender = new Sender(socket, this._extensions);
+    this._receiver = receiver;
+    this._socket = socket;
+
+    receiver[kWebSocket] = this;
+    socket[kWebSocket] = this;
+
+    receiver.on('conclude', receiverOnConclude);
+    receiver.on('drain', receiverOnDrain);
+    receiver.on('error', receiverOnError);
+    receiver.on('message', receiverOnMessage);
+    receiver.on('ping', receiverOnPing);
+    receiver.on('pong', receiverOnPong);
+
+    socket.setTimeout(0);
+    socket.setNoDelay();
+
+    if (head.length > 0) socket.unshift(head);
+
+    socket.on('close', socketOnClose);
+    socket.on('data', socketOnData);
+    socket.on('end', socketOnEnd);
+    socket.on('error', socketOnError);
+
+    this._readyState = WebSocket.OPEN;
+    this.emit('open');
+  }
+
+  /**
+   * Emit the `'close'` event.
+   *
+   * @private
+   */
+  emitClose() {
+    if (!this._socket) {
+      this._readyState = WebSocket.CLOSED;
+      this.emit('close', this._closeCode, this._closeMessage);
+      return;
+    }
+
+    if (this._extensions[PerMessageDeflate.extensionName]) {
+      this._extensions[PerMessageDeflate.extensionName].cleanup();
+    }
+
+    this._receiver.removeAllListeners();
+    this._readyState = WebSocket.CLOSED;
+    this.emit('close', this._closeCode, this._closeMessage);
+  }
+
+  /**
+   * Start a closing handshake.
+   *
+   *          +----------+   +-----------+   +----------+
+   *     - - -|ws.close()|-->|close frame|-->|ws.close()|- - -
+   *    |     +----------+   +-----------+   +----------+     |
+   *          +----------+   +-----------+         |
+   * CLOSING  |ws.close()|<--|close frame|<--+-----+       CLOSING
+   *          +----------+   +-----------+   |
+   *    |           |                        |   +---+        |
+   *                +------------------------+-->|fin| - - - -
+   *    |         +---+                      |   +---+
+   *     - - - - -|fin|<---------------------+
+   *              +---+
+   *
+   * @param {Number} [code] Status code explaining why the connection is closing
+   * @param {String} [data] A string explaining why the connection is closing
+   * @public
+   */
+  close(code, data) {
+    if (this.readyState === WebSocket.CLOSED) return;
+    if (this.readyState === WebSocket.CONNECTING) {
+      const msg = 'WebSocket was closed before the connection was established';
+      return abortHandshake(this, this._req, msg);
+    }
+
+    if (this.readyState === WebSocket.CLOSING) {
+      if (this._closeFrameSent && this._closeFrameReceived) this._socket.end();
+      return;
+    }
+
+    this._readyState = WebSocket.CLOSING;
+    this._sender.close(code, data, !this._isServer, (err) => {
+      //
+      // This error is handled by the `'error'` listener on the socket. We only
+      // want to know if the close frame has been sent here.
+      //
+      if (err) return;
+
+      this._closeFrameSent = true;
+      if (this._closeFrameReceived) this._socket.end();
+    });
+
+    //
+    // Specify a timeout for the closing handshake to complete.
+    //
+    this._closeTimer = setTimeout(
+      this._socket.destroy.bind(this._socket),
+      closeTimeout
+    );
+  }
+
+  /**
+   * Send a ping.
+   *
+   * @param {*} [data] The data to send
+   * @param {Boolean} [mask] Indicates whether or not to mask `data`
+   * @param {Function} [cb] Callback which is executed when the ping is sent
+   * @public
+   */
+  ping(data, mask, cb) {
+    if (this.readyState === WebSocket.CONNECTING) {
+      throw new Error('WebSocket is not open: readyState 0 (CONNECTING)');
+    }
+
+    if (typeof data === 'function') {
+      cb = data;
+      data = mask = undefined;
+    } else if (typeof mask === 'function') {
+      cb = mask;
+      mask = undefined;
+    }
+
+    if (typeof data === 'number') data = data.toString();
+
+    if (this.readyState !== WebSocket.OPEN) {
+      sendAfterClose(this, data, cb);
+      return;
+    }
+
+    if (mask === undefined) mask = !this._isServer;
+    this._sender.ping(data || EMPTY_BUFFER, mask, cb);
+  }
+
+  /**
+   * Send a pong.
+   *
+   * @param {*} [data] The data to send
+   * @param {Boolean} [mask] Indicates whether or not to mask `data`
+   * @param {Function} [cb] Callback which is executed when the pong is sent
+   * @public
+   */
+  pong(data, mask, cb) {
+    if (this.readyState === WebSocket.CONNECTING) {
+      throw new Error('WebSocket is not open: readyState 0 (CONNECTING)');
+    }
+
+    if (typeof data === 'function') {
+      cb = data;
+      data = mask = undefined;
+    } else if (typeof mask === 'function') {
+      cb = mask;
+      mask = undefined;
+    }
+
+    if (typeof data === 'number') data = data.toString();
+
+    if (this.readyState !== WebSocket.OPEN) {
+      sendAfterClose(this, data, cb);
+      return;
+    }
+
+    if (mask === undefined) mask = !this._isServer;
+    this._sender.pong(data || EMPTY_BUFFER, mask, cb);
+  }
+
+  /**
+   * Send a data message.
+   *
+   * @param {*} data The message to send
+   * @param {Object} [options] Options object
+   * @param {Boolean} [options.compress] Specifies whether or not to compress
+   *     `data`
+   * @param {Boolean} [options.binary] Specifies whether `data` is binary or
+   *     text
+   * @param {Boolean} [options.fin=true] Specifies whether the fragment is the
+   *     last one
+   * @param {Boolean} [options.mask] Specifies whether or not to mask `data`
+   * @param {Function} [cb] Callback which is executed when data is written out
+   * @public
+   */
+  send(data, options, cb) {
+    if (this.readyState === WebSocket.CONNECTING) {
+      throw new Error('WebSocket is not open: readyState 0 (CONNECTING)');
+    }
+
+    if (typeof options === 'function') {
+      cb = options;
+      options = {};
+    }
+
+    if (typeof data === 'number') data = data.toString();
+
+    if (this.readyState !== WebSocket.OPEN) {
+      sendAfterClose(this, data, cb);
+      return;
+    }
+
+    const opts = {
+      binary: typeof data !== 'string',
+      mask: !this._isServer,
+      compress: true,
+      fin: true,
+      ...options
+    };
+
+    if (!this._extensions[PerMessageDeflate.extensionName]) {
+      opts.compress = false;
+    }
+
+    this._sender.send(data || EMPTY_BUFFER, opts, cb);
+  }
+
+  /**
+   * Forcibly close the connection.
+   *
+   * @public
+   */
+  terminate() {
+    if (this.readyState === WebSocket.CLOSED) return;
+    if (this.readyState === WebSocket.CONNECTING) {
+      const msg = 'WebSocket was closed before the connection was established';
+      return abortHandshake(this, this._req, msg);
+    }
+
+    if (this._socket) {
+      this._readyState = WebSocket.CLOSING;
+      this._socket.destroy();
+    }
+  }
+}
+
+readyStates.forEach((readyState, i) => {
+  const descriptor = { enumerable: true, value: i };
+
+  Object.defineProperty(WebSocket.prototype, readyState, descriptor);
+  Object.defineProperty(WebSocket, readyState, descriptor);
+});
+
+[
+  'binaryType',
+  'bufferedAmount',
+  'extensions',
+  'protocol',
+  'readyState',
+  'url'
+].forEach((property) => {
+  Object.defineProperty(WebSocket.prototype, property, { enumerable: true });
+});
+
+//
+// Add the `onopen`, `onerror`, `onclose`, and `onmessage` attributes.
+// See https://html.spec.whatwg.org/multipage/comms.html#the-websocket-interface
+//
+['open', 'error', 'close', 'message'].forEach((method) => {
+  Object.defineProperty(WebSocket.prototype, `on${method}`, {
+    configurable: true,
+    enumerable: true,
+    /**
+     * Return the listener of the event.
+     *
+     * @return {(Function|undefined)} The event listener or `undefined`
+     * @public
+     */
+    get() {
+      const listeners = this.listeners(method);
+      for (let i = 0; i < listeners.length; i++) {
+        if (listeners[i]._listener) return listeners[i]._listener;
+      }
+
+      return undefined;
+    },
+    /**
+     * Add a listener for the event.
+     *
+     * @param {Function} listener The listener to add
+     * @public
+     */
+    set(listener) {
+      const listeners = this.listeners(method);
+      for (let i = 0; i < listeners.length; i++) {
+        //
+        // Remove only the listeners added via `addEventListener`.
+        //
+        if (listeners[i]._listener) this.removeListener(method, listeners[i]);
+      }
+      this.addEventListener(method, listener);
+    }
+  });
+});
+
+WebSocket.prototype.addEventListener = addEventListener;
+WebSocket.prototype.removeEventListener = removeEventListener;
+
+module.exports = WebSocket;
+
+/**
+ * Initialize a WebSocket client.
+ *
+ * @param {WebSocket} websocket The client to initialize
+ * @param {(String|url.URL)} address The URL to which to connect
+ * @param {String} [protocols] The subprotocols
+ * @param {Object} [options] Connection options
+ * @param {(Boolean|Object)} [options.perMessageDeflate=true] Enable/disable
+ *     permessage-deflate
+ * @param {Number} [options.handshakeTimeout] Timeout in milliseconds for the
+ *     handshake request
+ * @param {Number} [options.protocolVersion=13] Value of the
+ *     `Sec-WebSocket-Version` header
+ * @param {String} [options.origin] Value of the `Origin` or
+ *     `Sec-WebSocket-Origin` header
+ * @param {Number} [options.maxPayload=104857600] The maximum allowed message
+ *     size
+ * @param {Boolean} [options.followRedirects=false] Whether or not to follow
+ *     redirects
+ * @param {Number} [options.maxRedirects=10] The maximum number of redirects
+ *     allowed
+ * @private
+ */
+function initAsClient(websocket, address, protocols, options) {
+  const opts = {
+    protocolVersion: protocolVersions[1],
+    maxPayload: 100 * 1024 * 1024,
+    perMessageDeflate: true,
+    followRedirects: false,
+    maxRedirects: 10,
+    ...options,
+    createConnection: undefined,
+    socketPath: undefined,
+    hostname: undefined,
+    protocol: undefined,
+    timeout: undefined,
+    method: undefined,
+    host: undefined,
+    path: undefined,
+    port: undefined
+  };
+
+  if (!protocolVersions.includes(opts.protocolVersion)) {
+    throw new RangeError(
+      `Unsupported protocol version: ${opts.protocolVersion} ` +
+        `(supported versions: ${protocolVersions.join(', ')})`
+    );
+  }
+
+  let parsedUrl;
+
+  if (address instanceof URL) {
+    parsedUrl = address;
+    websocket._url = address.href;
+  } else {
+    parsedUrl = new URL(address);
+    websocket._url = address;
+  }
+
+  const isUnixSocket = parsedUrl.protocol === 'ws+unix:';
+
+  if (!parsedUrl.host && (!isUnixSocket || !parsedUrl.pathname)) {
+    throw new Error(`Invalid URL: ${websocket.url}`);
+  }
+
+  const isSecure =
+    parsedUrl.protocol === 'wss:' || parsedUrl.protocol === 'https:';
+  const defaultPort = isSecure ? 443 : 80;
+  const key = randomBytes(16).toString('base64');
+  const get = isSecure ? https.get : http.get;
+  let perMessageDeflate;
+
+  opts.createConnection = isSecure ? tlsConnect : netConnect;
+  opts.defaultPort = opts.defaultPort || defaultPort;
+  opts.port = parsedUrl.port || defaultPort;
+  opts.host = parsedUrl.hostname.startsWith('[')
+    ? parsedUrl.hostname.slice(1, -1)
+    : parsedUrl.hostname;
+  opts.headers = {
+    'Sec-WebSocket-Version': opts.protocolVersion,
+    'Sec-WebSocket-Key': key,
+    Connection: 'Upgrade',
+    Upgrade: 'websocket',
+    ...opts.headers
+  };
+  opts.path = parsedUrl.pathname + parsedUrl.search;
+  opts.timeout = opts.handshakeTimeout;
+
+  if (opts.perMessageDeflate) {
+    perMessageDeflate = new PerMessageDeflate(
+      opts.perMessageDeflate !== true ? opts.perMessageDeflate : {},
+      false,
+      opts.maxPayload
+    );
+    opts.headers['Sec-WebSocket-Extensions'] = format({
+      [PerMessageDeflate.extensionName]: perMessageDeflate.offer()
+    });
+  }
+  if (protocols) {
+    opts.headers['Sec-WebSocket-Protocol'] = protocols;
+  }
+  if (opts.origin) {
+    if (opts.protocolVersion < 13) {
+      opts.headers['Sec-WebSocket-Origin'] = opts.origin;
+    } else {
+      opts.headers.Origin = opts.origin;
+    }
+  }
+  if (parsedUrl.username || parsedUrl.password) {
+    opts.auth = `${parsedUrl.username}:${parsedUrl.password}`;
+  }
+
+  if (isUnixSocket) {
+    const parts = opts.path.split(':');
+
+    opts.socketPath = parts[0];
+    opts.path = parts[1];
+  }
+
+  let req = (websocket._req = get(opts));
+
+  if (opts.timeout) {
+    req.on('timeout', () => {
+      abortHandshake(websocket, req, 'Opening handshake has timed out');
+    });
+  }
+
+  req.on('error', (err) => {
+    if (req === null || req.aborted) return;
+
+    req = websocket._req = null;
+    websocket._readyState = WebSocket.CLOSING;
+    websocket.emit('error', err);
+    websocket.emitClose();
+  });
+
+  req.on('response', (res) => {
+    const location = res.headers.location;
+    const statusCode = res.statusCode;
+
+    if (
+      location &&
+      opts.followRedirects &&
+      statusCode >= 300 &&
+      statusCode < 400
+    ) {
+      if (++websocket._redirects > opts.maxRedirects) {
+        abortHandshake(websocket, req, 'Maximum redirects exceeded');
+        return;
+      }
+
+      req.abort();
+
+      const addr = new URL(location, address);
+
+      initAsClient(websocket, addr, protocols, options);
+    } else if (!websocket.emit('unexpected-response', req, res)) {
+      abortHandshake(
+        websocket,
+        req,
+        `Unexpected server response: ${res.statusCode}`
+      );
+    }
+  });
+
+  req.on('upgrade', (res, socket, head) => {
+    websocket.emit('upgrade', res);
+
+    //
+    // The user may have closed the connection from a listener of the `upgrade`
+    // event.
+    //
+    if (websocket.readyState !== WebSocket.CONNECTING) return;
+
+    req = websocket._req = null;
+
+    const digest = createHash('sha1')
+      .update(key + GUID)
+      .digest('base64');
+
+    if (res.headers['sec-websocket-accept'] !== digest) {
+      abortHandshake(websocket, socket, 'Invalid Sec-WebSocket-Accept header');
+      return;
+    }
+
+    const serverProt = res.headers['sec-websocket-protocol'];
+    const protList = (protocols || '').split(/, */);
+    let protError;
+
+    if (!protocols && serverProt) {
+      protError = 'Server sent a subprotocol but none was requested';
+    } else if (protocols && !serverProt) {
+      protError = 'Server sent no subprotocol';
+    } else if (serverProt && !protList.includes(serverProt)) {
+      protError = 'Server sent an invalid subprotocol';
+    }
+
+    if (protError) {
+      abortHandshake(websocket, socket, protError);
+      return;
+    }
+
+    if (serverProt) websocket._protocol = serverProt;
+
+    if (perMessageDeflate) {
+      try {
+        const extensions = parse(res.headers['sec-websocket-extensions']);
+
+        if (extensions[PerMessageDeflate.extensionName]) {
+          perMessageDeflate.accept(extensions[PerMessageDeflate.extensionName]);
+          websocket._extensions[
+            PerMessageDeflate.extensionName
+          ] = perMessageDeflate;
+        }
+      } catch (err) {
+        abortHandshake(
+          websocket,
+          socket,
+          'Invalid Sec-WebSocket-Extensions header'
+        );
+        return;
+      }
+    }
+
+    websocket.setSocket(socket, head, opts.maxPayload);
+  });
+}
+
+/**
+ * Create a `net.Socket` and initiate a connection.
+ *
+ * @param {Object} options Connection options
+ * @return {net.Socket} The newly created socket used to start the connection
+ * @private
+ */
+function netConnect(options) {
+  options.path = options.socketPath;
+  return net.connect(options);
+}
+
+/**
+ * Create a `tls.TLSSocket` and initiate a connection.
+ *
+ * @param {Object} options Connection options
+ * @return {tls.TLSSocket} The newly created socket used to start the connection
+ * @private
+ */
+function tlsConnect(options) {
+  options.path = undefined;
+
+  if (!options.servername && options.servername !== '') {
+    options.servername = net.isIP(options.host) ? '' : options.host;
+  }
+
+  return tls.connect(options);
+}
+
+/**
+ * Abort the handshake and emit an error.
+ *
+ * @param {WebSocket} websocket The WebSocket instance
+ * @param {(http.ClientRequest|net.Socket)} stream The request to abort or the
+ *     socket to destroy
+ * @param {String} message The error message
+ * @private
+ */
+function abortHandshake(websocket, stream, message) {
+  websocket._readyState = WebSocket.CLOSING;
+
+  const err = new Error(message);
+  Error.captureStackTrace(err, abortHandshake);
+
+  if (stream.setHeader) {
+    stream.abort();
+    stream.once('abort', websocket.emitClose.bind(websocket));
+    websocket.emit('error', err);
+  } else {
+    stream.destroy(err);
+    stream.once('error', websocket.emit.bind(websocket, 'error'));
+    stream.once('close', websocket.emitClose.bind(websocket));
+  }
+}
+
+/**
+ * Handle cases where the `ping()`, `pong()`, or `send()` methods are called
+ * when the `readyState` attribute is `CLOSING` or `CLOSED`.
+ *
+ * @param {WebSocket} websocket The WebSocket instance
+ * @param {*} [data] The data to send
+ * @param {Function} [cb] Callback
+ * @private
+ */
+function sendAfterClose(websocket, data, cb) {
+  if (data) {
+    const length = toBuffer(data).length;
+
+    //
+    // The `_bufferedAmount` property is used only when the peer is a client and
+    // the opening handshake fails. Under these circumstances, in fact, the
+    // `setSocket()` method is not called, so the `_socket` and `_sender`
+    // properties are set to `null`.
+    //
+    if (websocket._socket) websocket._sender._bufferedBytes += length;
+    else websocket._bufferedAmount += length;
+  }
+
+  if (cb) {
+    const err = new Error(
+      `WebSocket is not open: readyState ${websocket.readyState} ` +
+        `(${readyStates[websocket.readyState]})`
+    );
+    cb(err);
+  }
+}
+
+/**
+ * The listener of the `Receiver` `'conclude'` event.
+ *
+ * @param {Number} code The status code
+ * @param {String} reason The reason for closing
+ * @private
+ */
+function receiverOnConclude(code, reason) {
+  const websocket = this[kWebSocket];
+
+  websocket._socket.removeListener('data', socketOnData);
+  websocket._socket.resume();
+
+  websocket._closeFrameReceived = true;
+  websocket._closeMessage = reason;
+  websocket._closeCode = code;
+
+  if (code === 1005) websocket.close();
+  else websocket.close(code, reason);
+}
+
+/**
+ * The listener of the `Receiver` `'drain'` event.
+ *
+ * @private
+ */
+function receiverOnDrain() {
+  this[kWebSocket]._socket.resume();
+}
+
+/**
+ * The listener of the `Receiver` `'error'` event.
+ *
+ * @param {(RangeError|Error)} err The emitted error
+ * @private
+ */
+function receiverOnError(err) {
+  const websocket = this[kWebSocket];
+
+  websocket._socket.removeListener('data', socketOnData);
+
+  websocket._readyState = WebSocket.CLOSING;
+  websocket._closeCode = err[kStatusCode];
+  websocket.emit('error', err);
+  websocket._socket.destroy();
+}
+
+/**
+ * The listener of the `Receiver` `'finish'` event.
+ *
+ * @private
+ */
+function receiverOnFinish() {
+  this[kWebSocket].emitClose();
+}
+
+/**
+ * The listener of the `Receiver` `'message'` event.
+ *
+ * @param {(String|Buffer|ArrayBuffer|Buffer[])} data The message
+ * @private
+ */
+function receiverOnMessage(data) {
+  this[kWebSocket].emit('message', data);
+}
+
+/**
+ * The listener of the `Receiver` `'ping'` event.
+ *
+ * @param {Buffer} data The data included in the ping frame
+ * @private
+ */
+function receiverOnPing(data) {
+  const websocket = this[kWebSocket];
+
+  websocket.pong(data, !websocket._isServer, NOOP);
+  websocket.emit('ping', data);
+}
+
+/**
+ * The listener of the `Receiver` `'pong'` event.
+ *
+ * @param {Buffer} data The data included in the pong frame
+ * @private
+ */
+function receiverOnPong(data) {
+  this[kWebSocket].emit('pong', data);
+}
+
+/**
+ * The listener of the `net.Socket` `'close'` event.
+ *
+ * @private
+ */
+function socketOnClose() {
+  const websocket = this[kWebSocket];
+
+  this.removeListener('close', socketOnClose);
+  this.removeListener('end', socketOnEnd);
+
+  websocket._readyState = WebSocket.CLOSING;
+
+  //
+  // The close frame might not have been received or the `'end'` event emitted,
+  // for example, if the socket was destroyed due to an error. Ensure that the
+  // `receiver` stream is closed after writing any remaining buffered data to
+  // it. If the readable side of the socket is in flowing mode then there is no
+  // buffered data as everything has been already written and `readable.read()`
+  // will return `null`. If instead, the socket is paused, any possible buffered
+  // data will be read as a single chunk and emitted synchronously in a single
+  // `'data'` event.
+  //
+  websocket._socket.read();
+  websocket._receiver.end();
+
+  this.removeListener('data', socketOnData);
+  this[kWebSocket] = undefined;
+
+  clearTimeout(websocket._closeTimer);
+
+  if (
+    websocket._receiver._writableState.finished ||
+    websocket._receiver._writableState.errorEmitted
+  ) {
+    websocket.emitClose();
+  } else {
+    websocket._receiver.on('error', receiverOnFinish);
+    websocket._receiver.on('finish', receiverOnFinish);
+  }
+}
+
+/**
+ * The listener of the `net.Socket` `'data'` event.
+ *
+ * @param {Buffer} chunk A chunk of data
+ * @private
+ */
+function socketOnData(chunk) {
+  if (!this[kWebSocket]._receiver.write(chunk)) {
+    this.pause();
+  }
+}
+
+/**
+ * The listener of the `net.Socket` `'end'` event.
+ *
+ * @private
+ */
+function socketOnEnd() {
+  const websocket = this[kWebSocket];
+
+  websocket._readyState = WebSocket.CLOSING;
+  websocket._receiver.end();
+  this.end();
+}
+
+/**
+ * The listener of the `net.Socket` `'error'` event.
+ *
+ * @private
+ */
+function socketOnError() {
+  const websocket = this[kWebSocket];
+
+  this.removeListener('error', socketOnError);
+  this.on('error', NOOP);
+
+  if (websocket) {
+    websocket._readyState = WebSocket.CLOSING;
+    this.destroy();
+  }
+}
+
+
+/***/ }),
+
+/***/ 24:
+/***/ (function(module) {
+
+module.exports = eval("require")("bufferutil");
+
+
+/***/ }),
+
+/***/ 28:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+const { Duplex } = __webpack_require__(413);
+
+/**
+ * Emits the `'close'` event on a stream.
+ *
+ * @param {stream.Duplex} The stream.
+ * @private
+ */
+function emitClose(stream) {
+  stream.emit('close');
+}
+
+/**
+ * The listener of the `'end'` event.
+ *
+ * @private
+ */
+function duplexOnEnd() {
+  if (!this.destroyed && this._writableState.finished) {
+    this.destroy();
+  }
+}
+
+/**
+ * The listener of the `'error'` event.
+ *
+ * @param {Error} err The error
+ * @private
+ */
+function duplexOnError(err) {
+  this.removeListener('error', duplexOnError);
+  this.destroy();
+  if (this.listenerCount('error') === 0) {
+    // Do not suppress the throwing behavior.
+    this.emit('error', err);
+  }
+}
+
+/**
+ * Wraps a `WebSocket` in a duplex stream.
+ *
+ * @param {WebSocket} ws The `WebSocket` to wrap
+ * @param {Object} [options] The options for the `Duplex` constructor
+ * @return {stream.Duplex} The duplex stream
+ * @public
+ */
+function createWebSocketStream(ws, options) {
+  let resumeOnReceiverDrain = true;
+
+  function receiverOnDrain() {
+    if (resumeOnReceiverDrain) ws._socket.resume();
+  }
+
+  if (ws.readyState === ws.CONNECTING) {
+    ws.once('open', function open() {
+      ws._receiver.removeAllListeners('drain');
+      ws._receiver.on('drain', receiverOnDrain);
+    });
+  } else {
+    ws._receiver.removeAllListeners('drain');
+    ws._receiver.on('drain', receiverOnDrain);
+  }
+
+  const duplex = new Duplex({
+    ...options,
+    autoDestroy: false,
+    emitClose: false,
+    objectMode: false,
+    writableObjectMode: false
+  });
+
+  ws.on('message', function message(msg) {
+    if (!duplex.push(msg)) {
+      resumeOnReceiverDrain = false;
+      ws._socket.pause();
+    }
+  });
+
+  ws.once('error', function error(err) {
+    if (duplex.destroyed) return;
+
+    duplex.destroy(err);
+  });
+
+  ws.once('close', function close() {
+    if (duplex.destroyed) return;
+
+    duplex.push(null);
+  });
+
+  duplex._destroy = function (err, callback) {
+    if (ws.readyState === ws.CLOSED) {
+      callback(err);
+      process.nextTick(emitClose, duplex);
+      return;
+    }
+
+    let called = false;
+
+    ws.once('error', function error(err) {
+      called = true;
+      callback(err);
+    });
+
+    ws.once('close', function close() {
+      if (!called) callback(err);
+      process.nextTick(emitClose, duplex);
+    });
+    ws.terminate();
+  };
+
+  duplex._final = function (callback) {
+    if (ws.readyState === ws.CONNECTING) {
+      ws.once('open', function open() {
+        duplex._final(callback);
+      });
+      return;
+    }
+
+    // If the value of the `_socket` property is `null` it means that `ws` is a
+    // client websocket and the handshake failed. In fact, when this happens, a
+    // socket is never assigned to the websocket. Wait for the `'error'` event
+    // that will be emitted by the websocket.
+    if (ws._socket === null) return;
+
+    if (ws._socket._writableState.finished) {
+      callback();
+      if (duplex._readableState.endEmitted) duplex.destroy();
+    } else {
+      ws._socket.once('finish', function finish() {
+        // `duplex` is not destroyed here because the `'end'` event will be
+        // emitted on `duplex` after this `'finish'` event. The EOF signaling
+        // `null` chunk is, in fact, pushed when the websocket emits `'close'`.
+        callback();
+      });
+      ws.close();
+    }
+  };
+
+  duplex._read = function () {
+    if (ws.readyState === ws.OPEN && !resumeOnReceiverDrain) {
+      resumeOnReceiverDrain = true;
+      if (!ws._receiver._writableState.needDrain) ws._socket.resume();
+    }
+  };
+
+  duplex._write = function (chunk, encoding, callback) {
+    if (ws.readyState === ws.CONNECTING) {
+      ws.once('open', function open() {
+        duplex._write(chunk, encoding, callback);
+      });
+      return;
+    }
+
+    ws.send(chunk, callback);
+  };
+
+  duplex.on('end', duplexOnEnd);
+  duplex.on('error', duplexOnError);
+  return duplex;
+}
+
+module.exports = createWebSocketStream;
+
+
+/***/ }),
+
+/***/ 46:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
+var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var g = generator.apply(thisArg, _arguments || []), i, q = [];
+    return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i;
+    function verb(n) { if (g[n]) i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; }
+    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
+    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
+    function fulfill(value) { resume("next", value); }
+    function reject(value) { resume("throw", value); }
+    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __asyncDelegator = (this && this.__asyncDelegator) || function (o) {
+    var i, p;
+    return i = {}, verb("next"), verb("throw", function (e) { throw e; }), verb("return"), i[Symbol.iterator] = function () { return this; }, i;
+    function verb(n, f) { i[n] = o[n] ? function (v) { return (p = !p) ? { value: __await(o[n](v)), done: n === "return" } : f ? f(v) : v; } : f; }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.normaliseInput = void 0;
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+/* eslint-disable @typescript-eslint/no-use-before-define */
+const buffer_1 = __webpack_require__(293);
+/**
+ * Transform types
+ *
+ * @remarks
+ * This function comes from {@link https://github.com/ipfs/js-ipfs-utils/blob/master/src/files/normalise-input.js}
+ * @example
+ * Supported types
+ * ```yaml
+ * // INPUT TYPES
+ * Bytes (Buffer|ArrayBuffer|TypedArray) [single file]
+ * Bloby (Blob|File) [single file]
+ * String [single file]
+ * { path, content: Bytes } [single file]
+ * { path, content: Bloby } [single file]
+ * { path, content: String } [single file]
+ * { path, content: Iterable<Number> } [single file]
+ * { path, content: Iterable<Bytes> } [single file]
+ * { path, content: AsyncIterable<Bytes> } [single file]
+ * Iterable<Number> [single file]
+ * Iterable<Bytes> [single file]
+ * Iterable<Bloby> [multiple files]
+ * Iterable<String> [multiple files]
+ * Iterable<{ path, content: Bytes }> [multiple files]
+ * Iterable<{ path, content: Bloby }> [multiple files]
+ * Iterable<{ path, content: String }> [multiple files]
+ * Iterable<{ path, content: Iterable<Number> }> [multiple files]
+ * Iterable<{ path, content: Iterable<Bytes> }> [multiple files]
+ * Iterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
+ * AsyncIterable<Bytes> [single file]
+ * AsyncIterable<Bloby> [multiple files]
+ * AsyncIterable<String> [multiple files]
+ * AsyncIterable<{ path, content: Bytes }> [multiple files]
+ * AsyncIterable<{ path, content: Bloby }> [multiple files]
+ * AsyncIterable<{ path, content: String }> [multiple files]
+ * AsyncIterable<{ path, content: Iterable<Number> }> [multiple files]
+ * AsyncIterable<{ path, content: Iterable<Bytes> }> [multiple files]
+ * AsyncIterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
+ *
+ * // OUTPUT
+ * AsyncIterable<{ path, content: AsyncIterable<Buffer> }>
+ * ```
+ *
+ * @public
+ *
+ * @param {Object} input
+ * @return AsyncInterable<{ path, content: AsyncIterable<Buffer> }>
+ */
+function normaliseInput(input) {
+    // must give us something
+    if (input === null || input === undefined) {
+        throw new Error(`Unexpected input: ${input}`);
+    }
+    // String
+    if (typeof input === 'string' || input instanceof String) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    // Buffer|ArrayBuffer|TypedArray
+    // Blob|File
+    if (isBytes(input) || isBloby(input)) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    // Iterable<?>
+    if (input[Symbol.iterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                const iterator = input[Symbol.iterator]();
+                const first = iterator.next();
+                if (first.done)
+                    return yield __await(iterator
+                    // Iterable<Number>
+                    // Iterable<Bytes>
+                    );
+                // Iterable<Number>
+                // Iterable<Bytes>
+                if (Number.isInteger(first.value) || isBytes(first.value)) {
+                    yield yield __await(toFileObject((function* () {
+                        yield first.value;
+                        yield* iterator;
+                    })()));
+                    return yield __await(void 0);
+                }
+                // Iterable<Bloby>
+                // Iterable<String>
+                // Iterable<{ path, content }>
+                if (isFileObject(first.value) ||
+                    isBloby(first.value) ||
+                    typeof first.value === 'string') {
+                    yield yield __await(toFileObject(first.value));
+                    for (const obj of iterator) {
+                        yield yield __await(toFileObject(obj));
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // window.ReadableStream
+    if (typeof input.getReader === 'function') {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_1, _a;
+                try {
+                    for (var _b = __asyncValues(browserStreamToIt(input)), _c; _c = yield __await(_b.next()), !_c.done;) {
+                        const obj = _c.value;
+                        yield yield __await(toFileObject(obj));
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (_c && !_c.done && (_a = _b.return)) yield __await(_a.call(_b));
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+            });
+        })();
+    }
+    // AsyncIterable<?>
+    if (input[Symbol.asyncIterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_2, _a;
+                const iterator = input[Symbol.asyncIterator]();
+                const first = yield __await(iterator.next());
+                if (first.done)
+                    return yield __await(iterator
+                    // AsyncIterable<Bytes>
+                    );
+                // AsyncIterable<Bytes>
+                if (isBytes(first.value)) {
+                    yield yield __await(toFileObject((function () {
+                        return __asyncGenerator(this, arguments, function* () {
+                            // eslint-disable-line require-await
+                            yield yield __await(first.value);
+                            yield __await(yield* __asyncDelegator(__asyncValues(iterator)));
+                        });
+                    })()));
+                    return yield __await(void 0);
+                }
+                // AsyncIterable<Bloby>
+                // AsyncIterable<String>
+                // AsyncIterable<{ path, content }>
+                if (isFileObject(first.value) ||
+                    isBloby(first.value) ||
+                    typeof first.value === 'string') {
+                    yield yield __await(toFileObject(first.value));
+                    try {
+                        for (var iterator_1 = __asyncValues(iterator), iterator_1_1; iterator_1_1 = yield __await(iterator_1.next()), !iterator_1_1.done;) {
+                            const obj = iterator_1_1.value;
+                            yield yield __await(toFileObject(obj));
+                        }
+                    }
+                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                    finally {
+                        try {
+                            if (iterator_1_1 && !iterator_1_1.done && (_a = iterator_1.return)) yield __await(_a.call(iterator_1));
+                        }
+                        finally { if (e_2) throw e_2.error; }
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // { path, content: ? }
+    // Note: Detected _after_ AsyncIterable<?> because Node.js streams have a
+    // `path` property that passes this check.
+    if (isFileObject(input)) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toFileObject(input));
+            });
+        })();
+    }
+    throw new Error('Unexpected input: ' + typeof input);
+}
+exports.normaliseInput = normaliseInput;
+function toFileObject(input) {
+    const obj = {
+        path: input.path || '',
+        mode: input.mode,
+        mtime: input.mtime,
+    };
+    if (input.content) {
+        obj.content = toAsyncIterable(input.content);
+    }
+    else if (!input.path) {
+        // Not already a file object with path or content prop
+        obj.content = toAsyncIterable(input);
+    }
+    return obj;
+}
+function toAsyncIterable(input) {
+    // Bytes | String
+    if (isBytes(input) || typeof input === 'string') {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                yield yield __await(toBuffer(input));
+            });
+        })();
+    }
+    // Bloby
+    if (isBloby(input)) {
+        return blobToAsyncGenerator(input);
+    }
+    // Browser stream
+    if (typeof input.getReader === 'function') {
+        return browserStreamToIt(input);
+    }
+    // Iterator<?>
+    if (input[Symbol.iterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                // eslint-disable-line require-await
+                const iterator = input[Symbol.iterator]();
+                const first = iterator.next();
+                if (first.done)
+                    return yield __await(iterator
+                    // Iterable<Number>
+                    );
+                // Iterable<Number>
+                if (Number.isInteger(first.value)) {
+                    yield yield __await(toBuffer(Array.from((function* () {
+                        yield first.value;
+                        yield* iterator;
+                    })())));
+                    return yield __await(void 0);
+                }
+                // Iterable<Bytes>
+                if (isBytes(first.value)) {
+                    yield yield __await(toBuffer(first.value));
+                    for (const chunk of iterator) {
+                        yield yield __await(toBuffer(chunk));
+                    }
+                    return yield __await(void 0);
+                }
+                throw new Error('Unexpected input: ' + typeof input);
+            });
+        })();
+    }
+    // AsyncIterable<Bytes>
+    if (input[Symbol.asyncIterator]) {
+        return (function () {
+            return __asyncGenerator(this, arguments, function* () {
+                var e_3, _a;
+                try {
+                    for (var input_1 = __asyncValues(input), input_1_1; input_1_1 = yield __await(input_1.next()), !input_1_1.done;) {
+                        const chunk = input_1_1.value;
+                        yield yield __await(toBuffer(chunk));
+                    }
+                }
+                catch (e_3_1) { e_3 = { error: e_3_1 }; }
+                finally {
+                    try {
+                        if (input_1_1 && !input_1_1.done && (_a = input_1.return)) yield __await(_a.call(input_1));
+                    }
+                    finally { if (e_3) throw e_3.error; }
+                }
+            });
+        })();
+    }
+    throw new Error(`Unexpected input: ${input}`);
+}
+function toBuffer(chunk) {
+    return isBytes(chunk) ? chunk : buffer_1.Buffer.from(chunk);
+}
+function isBytes(obj) {
+    return (buffer_1.Buffer.isBuffer(obj) ||
+        ArrayBuffer.isView(obj) ||
+        obj instanceof ArrayBuffer);
+}
+function isBloby(obj) {
+    return (typeof globalThis.Blob !== 'undefined' && obj instanceof globalThis.Blob);
+}
+// An object with a path or content property
+function isFileObject(obj) {
+    return typeof obj === 'object' && (obj.path || obj.content);
+}
+function blobToAsyncGenerator(blob) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+    // @ts-ignore
+    if (typeof blob.stream === 'function') {
+        // firefox < 69 does not support blob.stream()
+        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+        // @ts-ignore
+        return browserStreamToIt(blob.stream());
+    }
+    return readBlob(blob);
+}
+function browserStreamToIt(stream) {
+    return __asyncGenerator(this, arguments, function* browserStreamToIt_1() {
+        const reader = stream.getReader();
+        while (true) {
+            const result = yield __await(reader.read());
+            if (result.done) {
+                return yield __await(void 0);
+            }
+            yield yield __await(result.value);
+        }
+    });
+}
+function readBlob(blob, options) {
+    return __asyncGenerator(this, arguments, function* readBlob_1() {
+        options = options || {};
+        const reader = new globalThis.FileReader();
+        const chunkSize = options.chunkSize || 1024 * 1024;
+        let offset = options.offset || 0;
+        const getNextChunk = () => new Promise((resolve, reject) => {
+            reader.onloadend = (e) => {
+                var _a;
+                const data = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
+                resolve(data.byteLength === 0 ? null : data);
+            };
+            reader.onerror = reject;
+            const end = offset + chunkSize;
+            const slice = blob.slice(offset, end);
+            reader.readAsArrayBuffer(slice);
+            offset = end;
+        });
+        while (true) {
+            const data = yield __await(getNextChunk());
+            if (data == null) {
+                return yield __await(void 0);
+            }
+            yield yield __await(buffer_1.Buffer.from(data));
+        }
+    });
+}
+//# sourceMappingURL=normalize.js.map
+
+/***/ }),
+
+/***/ 49:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+var wrappy = __webpack_require__(11)
+module.exports = wrappy(once)
+module.exports.strict = wrappy(onceStrict)
+
+once.proto = once(function () {
+  Object.defineProperty(Function.prototype, 'once', {
+    value: function () {
+      return once(this)
+    },
+    configurable: true
+  })
+
+  Object.defineProperty(Function.prototype, 'onceStrict', {
+    value: function () {
+      return onceStrict(this)
+    },
+    configurable: true
+  })
+})
+
+function once (fn) {
+  var f = function () {
+    if (f.called) return f.value
+    f.called = true
+    return f.value = fn.apply(this, arguments)
+  }
+  f.called = false
+  return f
+}
+
+function onceStrict (fn) {
+  var f = function () {
+    if (f.called)
+      throw new Error(f.onceError)
+    f.called = true
+    return f.value = fn.apply(this, arguments)
+  }
+  var name = fn.name || 'Function wrapped with `once`'
+  f.onceError = name + " shouldn't be called more than once"
+  f.called = false
+  return f
+}
+
+
+/***/ }),
+
+/***/ 66:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+/** @typedef {import('./generated-types').ConstantNumberMap} ConstantNumberMap */
+
+const { baseTable } = __webpack_require__(607)
+
+const constants = /** @type {ConstantNumberMap} */({})
+
+for (const [name, code] of Object.entries(baseTable)) {
+  const constant = name.toUpperCase().replace(/-/g, '_')
+  constants[constant] = code
+}
+
+module.exports = Object.freeze(constants)
+
+
+/***/ }),
+
+/***/ 82:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Sanitizes an input into a string so it can be passed into issueCommand safely
+ * @param input input to sanitize into a string
+ */
+function toCommandValue(input) {
+    if (input === null || input === undefined) {
+        return '';
+    }
+    else if (typeof input === 'string' || input instanceof String) {
+        return input;
+    }
+    return JSON.stringify(input);
+}
+exports.toCommandValue = toCommandValue;
+//# sourceMappingURL=utils.js.map
+
+/***/ }),
+
+/***/ 87:
+/***/ (function(module) {
+
+module.exports = require("os");
+
+/***/ }),
+
+/***/ 91:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 // source: api/bucketsd/pb/bucketsd.proto
@@ -93,6 +2160,8 @@ goog.exportSymbol('proto.api.bucketsd.pb.ListPathResponse', null, global);
 goog.exportSymbol('proto.api.bucketsd.pb.ListRequest', null, global);
 goog.exportSymbol('proto.api.bucketsd.pb.ListResponse', null, global);
 goog.exportSymbol('proto.api.bucketsd.pb.Metadata', null, global);
+goog.exportSymbol('proto.api.bucketsd.pb.MovePathRequest', null, global);
+goog.exportSymbol('proto.api.bucketsd.pb.MovePathResponse', null, global);
 goog.exportSymbol('proto.api.bucketsd.pb.PathAccessRole', null, global);
 goog.exportSymbol('proto.api.bucketsd.pb.PathItem', null, global);
 goog.exportSymbol('proto.api.bucketsd.pb.PullIpfsPathRequest', null, global);
@@ -732,6 +2801,48 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.api.bucketsd.pb.SetPathResponse.displayName = 'proto.api.bucketsd.pb.SetPathResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.bucketsd.pb.MovePathRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.bucketsd.pb.MovePathRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.bucketsd.pb.MovePathRequest.displayName = 'proto.api.bucketsd.pb.MovePathRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.api.bucketsd.pb.MovePathResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.api.bucketsd.pb.MovePathResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.api.bucketsd.pb.MovePathResponse.displayName = 'proto.api.bucketsd.pb.MovePathResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -7074,6 +9185,297 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
+proto.api.bucketsd.pb.MovePathRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.bucketsd.pb.MovePathRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.bucketsd.pb.MovePathRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.bucketsd.pb.MovePathRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    fromPath: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    toPath: jspb.Message.getFieldWithDefault(msg, 3, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.bucketsd.pb.MovePathRequest}
+ */
+proto.api.bucketsd.pb.MovePathRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.bucketsd.pb.MovePathRequest;
+  return proto.api.bucketsd.pb.MovePathRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.bucketsd.pb.MovePathRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.bucketsd.pb.MovePathRequest}
+ */
+proto.api.bucketsd.pb.MovePathRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setKey(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setFromPath(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setToPath(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.bucketsd.pb.MovePathRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.bucketsd.pb.MovePathRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.bucketsd.pb.MovePathRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getKey();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getFromPath();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getToPath();
+  if (f.length > 0) {
+    writer.writeString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string key = 1;
+ * @return {string}
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.getKey = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.bucketsd.pb.MovePathRequest} returns this
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.setKey = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string from_path = 2;
+ * @return {string}
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.getFromPath = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.bucketsd.pb.MovePathRequest} returns this
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.setFromPath = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional string to_path = 3;
+ * @return {string}
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.getToPath = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.api.bucketsd.pb.MovePathRequest} returns this
+ */
+proto.api.bucketsd.pb.MovePathRequest.prototype.setToPath = function(value) {
+  return jspb.Message.setProto3StringField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.api.bucketsd.pb.MovePathResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.api.bucketsd.pb.MovePathResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.api.bucketsd.pb.MovePathResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.bucketsd.pb.MovePathResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.api.bucketsd.pb.MovePathResponse}
+ */
+proto.api.bucketsd.pb.MovePathResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.api.bucketsd.pb.MovePathResponse;
+  return proto.api.bucketsd.pb.MovePathResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.api.bucketsd.pb.MovePathResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.api.bucketsd.pb.MovePathResponse}
+ */
+proto.api.bucketsd.pb.MovePathResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.api.bucketsd.pb.MovePathResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.api.bucketsd.pb.MovePathResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.api.bucketsd.pb.MovePathResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.api.bucketsd.pb.MovePathResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
 proto.api.bucketsd.pb.RemoveRequest.prototype.toObject = function(opt_includeInstance) {
   return proto.api.bucketsd.pb.RemoveRequest.toObject(opt_includeInstance, this);
 };
@@ -8352,7 +10754,8 @@ proto.api.bucketsd.pb.ArchiveConfig.toObject = function(includeInstance, msg) {
     renew: (f = msg.getRenew()) && proto.api.bucketsd.pb.ArchiveRenew.toObject(includeInstance, f),
     maxPrice: jspb.Message.getFieldWithDefault(msg, 7, 0),
     fastRetrieval: jspb.Message.getBooleanFieldWithDefault(msg, 8, false),
-    dealStartOffset: jspb.Message.getFieldWithDefault(msg, 9, 0)
+    dealStartOffset: jspb.Message.getFieldWithDefault(msg, 9, 0),
+    verifiedDeal: jspb.Message.getBooleanFieldWithDefault(msg, 10, false)
   };
 
   if (includeInstance) {
@@ -8425,6 +10828,10 @@ proto.api.bucketsd.pb.ArchiveConfig.deserializeBinaryFromReader = function(msg, 
     case 9:
       var value = /** @type {number} */ (reader.readInt64());
       msg.setDealStartOffset(value);
+      break;
+    case 10:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setVerifiedDeal(value);
       break;
     default:
       reader.skipField();
@@ -8516,6 +10923,13 @@ proto.api.bucketsd.pb.ArchiveConfig.serializeBinaryToWriter = function(message, 
   if (f !== 0) {
     writer.writeInt64(
       9,
+      f
+    );
+  }
+  f = message.getVerifiedDeal();
+  if (f) {
+    writer.writeBool(
+      10,
       f
     );
   }
@@ -8757,6 +11171,24 @@ proto.api.bucketsd.pb.ArchiveConfig.prototype.getDealStartOffset = function() {
  */
 proto.api.bucketsd.pb.ArchiveConfig.prototype.setDealStartOffset = function(value) {
   return jspb.Message.setProto3IntField(this, 9, value);
+};
+
+
+/**
+ * optional bool verified_deal = 10;
+ * @return {boolean}
+ */
+proto.api.bucketsd.pb.ArchiveConfig.prototype.getVerifiedDeal = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 10, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.api.bucketsd.pb.ArchiveConfig} returns this
+ */
+proto.api.bucketsd.pb.ArchiveConfig.prototype.setVerifiedDeal = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 10, value);
 };
 
 
@@ -11434,2073 +13866,6 @@ goog.object.extend(exports, proto.api.bucketsd.pb);
 
 /***/ }),
 
-/***/ 10:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const { randomFillSync } = __webpack_require__(417);
-
-const PerMessageDeflate = __webpack_require__(301);
-const { EMPTY_BUFFER } = __webpack_require__(799);
-const { isValidStatusCode } = __webpack_require__(562);
-const { mask: applyMask, toBuffer } = __webpack_require__(349);
-
-const mask = Buffer.alloc(4);
-
-/**
- * HyBi Sender implementation.
- */
-class Sender {
-  /**
-   * Creates a Sender instance.
-   *
-   * @param {net.Socket} socket The connection socket
-   * @param {Object} [extensions] An object containing the negotiated extensions
-   */
-  constructor(socket, extensions) {
-    this._extensions = extensions || {};
-    this._socket = socket;
-
-    this._firstFragment = true;
-    this._compress = false;
-
-    this._bufferedBytes = 0;
-    this._deflating = false;
-    this._queue = [];
-  }
-
-  /**
-   * Frames a piece of data according to the HyBi WebSocket protocol.
-   *
-   * @param {Buffer} data The data to frame
-   * @param {Object} options Options object
-   * @param {Number} options.opcode The opcode
-   * @param {Boolean} [options.readOnly=false] Specifies whether `data` can be
-   *     modified
-   * @param {Boolean} [options.fin=false] Specifies whether or not to set the
-   *     FIN bit
-   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
-   *     `data`
-   * @param {Boolean} [options.rsv1=false] Specifies whether or not to set the
-   *     RSV1 bit
-   * @return {Buffer[]} The framed data as a list of `Buffer` instances
-   * @public
-   */
-  static frame(data, options) {
-    const merge = options.mask && options.readOnly;
-    let offset = options.mask ? 6 : 2;
-    let payloadLength = data.length;
-
-    if (data.length >= 65536) {
-      offset += 8;
-      payloadLength = 127;
-    } else if (data.length > 125) {
-      offset += 2;
-      payloadLength = 126;
-    }
-
-    const target = Buffer.allocUnsafe(merge ? data.length + offset : offset);
-
-    target[0] = options.fin ? options.opcode | 0x80 : options.opcode;
-    if (options.rsv1) target[0] |= 0x40;
-
-    target[1] = payloadLength;
-
-    if (payloadLength === 126) {
-      target.writeUInt16BE(data.length, 2);
-    } else if (payloadLength === 127) {
-      target.writeUInt32BE(0, 2);
-      target.writeUInt32BE(data.length, 6);
-    }
-
-    if (!options.mask) return [target, data];
-
-    randomFillSync(mask, 0, 4);
-
-    target[1] |= 0x80;
-    target[offset - 4] = mask[0];
-    target[offset - 3] = mask[1];
-    target[offset - 2] = mask[2];
-    target[offset - 1] = mask[3];
-
-    if (merge) {
-      applyMask(data, mask, target, offset, data.length);
-      return [target];
-    }
-
-    applyMask(data, mask, data, 0, data.length);
-    return [target, data];
-  }
-
-  /**
-   * Sends a close message to the other peer.
-   *
-   * @param {Number} [code] The status code component of the body
-   * @param {String} [data] The message component of the body
-   * @param {Boolean} [mask=false] Specifies whether or not to mask the message
-   * @param {Function} [cb] Callback
-   * @public
-   */
-  close(code, data, mask, cb) {
-    let buf;
-
-    if (code === undefined) {
-      buf = EMPTY_BUFFER;
-    } else if (typeof code !== 'number' || !isValidStatusCode(code)) {
-      throw new TypeError('First argument must be a valid error code number');
-    } else if (data === undefined || data === '') {
-      buf = Buffer.allocUnsafe(2);
-      buf.writeUInt16BE(code, 0);
-    } else {
-      const length = Buffer.byteLength(data);
-
-      if (length > 123) {
-        throw new RangeError('The message must not be greater than 123 bytes');
-      }
-
-      buf = Buffer.allocUnsafe(2 + length);
-      buf.writeUInt16BE(code, 0);
-      buf.write(data, 2);
-    }
-
-    if (this._deflating) {
-      this.enqueue([this.doClose, buf, mask, cb]);
-    } else {
-      this.doClose(buf, mask, cb);
-    }
-  }
-
-  /**
-   * Frames and sends a close message.
-   *
-   * @param {Buffer} data The message to send
-   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
-   * @param {Function} [cb] Callback
-   * @private
-   */
-  doClose(data, mask, cb) {
-    this.sendFrame(
-      Sender.frame(data, {
-        fin: true,
-        rsv1: false,
-        opcode: 0x08,
-        mask,
-        readOnly: false
-      }),
-      cb
-    );
-  }
-
-  /**
-   * Sends a ping message to the other peer.
-   *
-   * @param {*} data The message to send
-   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
-   * @param {Function} [cb] Callback
-   * @public
-   */
-  ping(data, mask, cb) {
-    const buf = toBuffer(data);
-
-    if (buf.length > 125) {
-      throw new RangeError('The data size must not be greater than 125 bytes');
-    }
-
-    if (this._deflating) {
-      this.enqueue([this.doPing, buf, mask, toBuffer.readOnly, cb]);
-    } else {
-      this.doPing(buf, mask, toBuffer.readOnly, cb);
-    }
-  }
-
-  /**
-   * Frames and sends a ping message.
-   *
-   * @param {Buffer} data The message to send
-   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
-   * @param {Boolean} [readOnly=false] Specifies whether `data` can be modified
-   * @param {Function} [cb] Callback
-   * @private
-   */
-  doPing(data, mask, readOnly, cb) {
-    this.sendFrame(
-      Sender.frame(data, {
-        fin: true,
-        rsv1: false,
-        opcode: 0x09,
-        mask,
-        readOnly
-      }),
-      cb
-    );
-  }
-
-  /**
-   * Sends a pong message to the other peer.
-   *
-   * @param {*} data The message to send
-   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
-   * @param {Function} [cb] Callback
-   * @public
-   */
-  pong(data, mask, cb) {
-    const buf = toBuffer(data);
-
-    if (buf.length > 125) {
-      throw new RangeError('The data size must not be greater than 125 bytes');
-    }
-
-    if (this._deflating) {
-      this.enqueue([this.doPong, buf, mask, toBuffer.readOnly, cb]);
-    } else {
-      this.doPong(buf, mask, toBuffer.readOnly, cb);
-    }
-  }
-
-  /**
-   * Frames and sends a pong message.
-   *
-   * @param {Buffer} data The message to send
-   * @param {Boolean} [mask=false] Specifies whether or not to mask `data`
-   * @param {Boolean} [readOnly=false] Specifies whether `data` can be modified
-   * @param {Function} [cb] Callback
-   * @private
-   */
-  doPong(data, mask, readOnly, cb) {
-    this.sendFrame(
-      Sender.frame(data, {
-        fin: true,
-        rsv1: false,
-        opcode: 0x0a,
-        mask,
-        readOnly
-      }),
-      cb
-    );
-  }
-
-  /**
-   * Sends a data message to the other peer.
-   *
-   * @param {*} data The message to send
-   * @param {Object} options Options object
-   * @param {Boolean} [options.compress=false] Specifies whether or not to
-   *     compress `data`
-   * @param {Boolean} [options.binary=false] Specifies whether `data` is binary
-   *     or text
-   * @param {Boolean} [options.fin=false] Specifies whether the fragment is the
-   *     last one
-   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
-   *     `data`
-   * @param {Function} [cb] Callback
-   * @public
-   */
-  send(data, options, cb) {
-    const buf = toBuffer(data);
-    const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
-    let opcode = options.binary ? 2 : 1;
-    let rsv1 = options.compress;
-
-    if (this._firstFragment) {
-      this._firstFragment = false;
-      if (rsv1 && perMessageDeflate) {
-        rsv1 = buf.length >= perMessageDeflate._threshold;
-      }
-      this._compress = rsv1;
-    } else {
-      rsv1 = false;
-      opcode = 0;
-    }
-
-    if (options.fin) this._firstFragment = true;
-
-    if (perMessageDeflate) {
-      const opts = {
-        fin: options.fin,
-        rsv1,
-        opcode,
-        mask: options.mask,
-        readOnly: toBuffer.readOnly
-      };
-
-      if (this._deflating) {
-        this.enqueue([this.dispatch, buf, this._compress, opts, cb]);
-      } else {
-        this.dispatch(buf, this._compress, opts, cb);
-      }
-    } else {
-      this.sendFrame(
-        Sender.frame(buf, {
-          fin: options.fin,
-          rsv1: false,
-          opcode,
-          mask: options.mask,
-          readOnly: toBuffer.readOnly
-        }),
-        cb
-      );
-    }
-  }
-
-  /**
-   * Dispatches a data message.
-   *
-   * @param {Buffer} data The message to send
-   * @param {Boolean} [compress=false] Specifies whether or not to compress
-   *     `data`
-   * @param {Object} options Options object
-   * @param {Number} options.opcode The opcode
-   * @param {Boolean} [options.readOnly=false] Specifies whether `data` can be
-   *     modified
-   * @param {Boolean} [options.fin=false] Specifies whether or not to set the
-   *     FIN bit
-   * @param {Boolean} [options.mask=false] Specifies whether or not to mask
-   *     `data`
-   * @param {Boolean} [options.rsv1=false] Specifies whether or not to set the
-   *     RSV1 bit
-   * @param {Function} [cb] Callback
-   * @private
-   */
-  dispatch(data, compress, options, cb) {
-    if (!compress) {
-      this.sendFrame(Sender.frame(data, options), cb);
-      return;
-    }
-
-    const perMessageDeflate = this._extensions[PerMessageDeflate.extensionName];
-
-    this._bufferedBytes += data.length;
-    this._deflating = true;
-    perMessageDeflate.compress(data, options.fin, (_, buf) => {
-      if (this._socket.destroyed) {
-        const err = new Error(
-          'The socket was closed while data was being compressed'
-        );
-
-        if (typeof cb === 'function') cb(err);
-
-        for (let i = 0; i < this._queue.length; i++) {
-          const callback = this._queue[i][4];
-
-          if (typeof callback === 'function') callback(err);
-        }
-
-        return;
-      }
-
-      this._bufferedBytes -= data.length;
-      this._deflating = false;
-      options.readOnly = false;
-      this.sendFrame(Sender.frame(buf, options), cb);
-      this.dequeue();
-    });
-  }
-
-  /**
-   * Executes queued send operations.
-   *
-   * @private
-   */
-  dequeue() {
-    while (!this._deflating && this._queue.length) {
-      const params = this._queue.shift();
-
-      this._bufferedBytes -= params[1].length;
-      Reflect.apply(params[0], this, params.slice(1));
-    }
-  }
-
-  /**
-   * Enqueues a send operation.
-   *
-   * @param {Array} params Send operation parameters.
-   * @private
-   */
-  enqueue(params) {
-    this._bufferedBytes += params[1].length;
-    this._queue.push(params);
-  }
-
-  /**
-   * Sends a frame.
-   *
-   * @param {Buffer[]} list The frame to send
-   * @param {Function} [cb] Callback
-   * @private
-   */
-  sendFrame(list, cb) {
-    if (list.length === 2) {
-      this._socket.cork();
-      this._socket.write(list[0]);
-      this._socket.write(list[1], cb);
-      this._socket.uncork();
-    } else {
-      this._socket.write(list[0], cb);
-    }
-  }
-}
-
-module.exports = Sender;
-
-
-/***/ }),
-
-/***/ 11:
-/***/ (function(module) {
-
-// Returns a wrapper function that returns a wrapped callback
-// The wrapper function should do some stuff, and return a
-// presumably different callback function.
-// This makes sure that own properties are retained, so that
-// decorations and such are not lost along the way.
-module.exports = wrappy
-function wrappy (fn, cb) {
-  if (fn && cb) return wrappy(fn)(cb)
-
-  if (typeof fn !== 'function')
-    throw new TypeError('need wrapper function')
-
-  Object.keys(fn).forEach(function (k) {
-    wrapper[k] = fn[k]
-  })
-
-  return wrapper
-
-  function wrapper() {
-    var args = new Array(arguments.length)
-    for (var i = 0; i < args.length; i++) {
-      args[i] = arguments[i]
-    }
-    var ret = fn.apply(this, args)
-    var cb = args[args.length-1]
-    if (typeof ret === 'function' && ret !== cb) {
-      Object.keys(cb).forEach(function (k) {
-        ret[k] = cb[k]
-      })
-    }
-    return ret
-  }
-}
-
-
-/***/ }),
-
-/***/ 16:
-/***/ (function(module) {
-
-module.exports = require("tls");
-
-/***/ }),
-
-/***/ 21:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const EventEmitter = __webpack_require__(614);
-const https = __webpack_require__(211);
-const http = __webpack_require__(605);
-const net = __webpack_require__(631);
-const tls = __webpack_require__(16);
-const { randomBytes, createHash } = __webpack_require__(417);
-const { URL } = __webpack_require__(835);
-
-const PerMessageDeflate = __webpack_require__(301);
-const Receiver = __webpack_require__(312);
-const Sender = __webpack_require__(10);
-const {
-  BINARY_TYPES,
-  EMPTY_BUFFER,
-  GUID,
-  kStatusCode,
-  kWebSocket,
-  NOOP
-} = __webpack_require__(799);
-const { addEventListener, removeEventListener } = __webpack_require__(646);
-const { format, parse } = __webpack_require__(330);
-const { toBuffer } = __webpack_require__(349);
-
-const readyStates = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
-const protocolVersions = [8, 13];
-const closeTimeout = 30 * 1000;
-
-/**
- * Class representing a WebSocket.
- *
- * @extends EventEmitter
- */
-class WebSocket extends EventEmitter {
-  /**
-   * Create a new `WebSocket`.
-   *
-   * @param {(String|url.URL)} address The URL to which to connect
-   * @param {(String|String[])} [protocols] The subprotocols
-   * @param {Object} [options] Connection options
-   */
-  constructor(address, protocols, options) {
-    super();
-
-    this._binaryType = BINARY_TYPES[0];
-    this._closeCode = 1006;
-    this._closeFrameReceived = false;
-    this._closeFrameSent = false;
-    this._closeMessage = '';
-    this._closeTimer = null;
-    this._extensions = {};
-    this._protocol = '';
-    this._readyState = WebSocket.CONNECTING;
-    this._receiver = null;
-    this._sender = null;
-    this._socket = null;
-
-    if (address !== null) {
-      this._bufferedAmount = 0;
-      this._isServer = false;
-      this._redirects = 0;
-
-      if (Array.isArray(protocols)) {
-        protocols = protocols.join(', ');
-      } else if (typeof protocols === 'object' && protocols !== null) {
-        options = protocols;
-        protocols = undefined;
-      }
-
-      initAsClient(this, address, protocols, options);
-    } else {
-      this._isServer = true;
-    }
-  }
-
-  /**
-   * This deviates from the WHATWG interface since ws doesn't support the
-   * required default "blob" type (instead we define a custom "nodebuffer"
-   * type).
-   *
-   * @type {String}
-   */
-  get binaryType() {
-    return this._binaryType;
-  }
-
-  set binaryType(type) {
-    if (!BINARY_TYPES.includes(type)) return;
-
-    this._binaryType = type;
-
-    //
-    // Allow to change `binaryType` on the fly.
-    //
-    if (this._receiver) this._receiver._binaryType = type;
-  }
-
-  /**
-   * @type {Number}
-   */
-  get bufferedAmount() {
-    if (!this._socket) return this._bufferedAmount;
-
-    return this._socket._writableState.length + this._sender._bufferedBytes;
-  }
-
-  /**
-   * @type {String}
-   */
-  get extensions() {
-    return Object.keys(this._extensions).join();
-  }
-
-  /**
-   * @type {String}
-   */
-  get protocol() {
-    return this._protocol;
-  }
-
-  /**
-   * @type {Number}
-   */
-  get readyState() {
-    return this._readyState;
-  }
-
-  /**
-   * @type {String}
-   */
-  get url() {
-    return this._url;
-  }
-
-  /**
-   * Set up the socket and the internal resources.
-   *
-   * @param {net.Socket} socket The network socket between the server and client
-   * @param {Buffer} head The first packet of the upgraded stream
-   * @param {Number} [maxPayload=0] The maximum allowed message size
-   * @private
-   */
-  setSocket(socket, head, maxPayload) {
-    const receiver = new Receiver(
-      this.binaryType,
-      this._extensions,
-      this._isServer,
-      maxPayload
-    );
-
-    this._sender = new Sender(socket, this._extensions);
-    this._receiver = receiver;
-    this._socket = socket;
-
-    receiver[kWebSocket] = this;
-    socket[kWebSocket] = this;
-
-    receiver.on('conclude', receiverOnConclude);
-    receiver.on('drain', receiverOnDrain);
-    receiver.on('error', receiverOnError);
-    receiver.on('message', receiverOnMessage);
-    receiver.on('ping', receiverOnPing);
-    receiver.on('pong', receiverOnPong);
-
-    socket.setTimeout(0);
-    socket.setNoDelay();
-
-    if (head.length > 0) socket.unshift(head);
-
-    socket.on('close', socketOnClose);
-    socket.on('data', socketOnData);
-    socket.on('end', socketOnEnd);
-    socket.on('error', socketOnError);
-
-    this._readyState = WebSocket.OPEN;
-    this.emit('open');
-  }
-
-  /**
-   * Emit the `'close'` event.
-   *
-   * @private
-   */
-  emitClose() {
-    if (!this._socket) {
-      this._readyState = WebSocket.CLOSED;
-      this.emit('close', this._closeCode, this._closeMessage);
-      return;
-    }
-
-    if (this._extensions[PerMessageDeflate.extensionName]) {
-      this._extensions[PerMessageDeflate.extensionName].cleanup();
-    }
-
-    this._receiver.removeAllListeners();
-    this._readyState = WebSocket.CLOSED;
-    this.emit('close', this._closeCode, this._closeMessage);
-  }
-
-  /**
-   * Start a closing handshake.
-   *
-   *          +----------+   +-----------+   +----------+
-   *     - - -|ws.close()|-->|close frame|-->|ws.close()|- - -
-   *    |     +----------+   +-----------+   +----------+     |
-   *          +----------+   +-----------+         |
-   * CLOSING  |ws.close()|<--|close frame|<--+-----+       CLOSING
-   *          +----------+   +-----------+   |
-   *    |           |                        |   +---+        |
-   *                +------------------------+-->|fin| - - - -
-   *    |         +---+                      |   +---+
-   *     - - - - -|fin|<---------------------+
-   *              +---+
-   *
-   * @param {Number} [code] Status code explaining why the connection is closing
-   * @param {String} [data] A string explaining why the connection is closing
-   * @public
-   */
-  close(code, data) {
-    if (this.readyState === WebSocket.CLOSED) return;
-    if (this.readyState === WebSocket.CONNECTING) {
-      const msg = 'WebSocket was closed before the connection was established';
-      return abortHandshake(this, this._req, msg);
-    }
-
-    if (this.readyState === WebSocket.CLOSING) {
-      if (this._closeFrameSent && this._closeFrameReceived) this._socket.end();
-      return;
-    }
-
-    this._readyState = WebSocket.CLOSING;
-    this._sender.close(code, data, !this._isServer, (err) => {
-      //
-      // This error is handled by the `'error'` listener on the socket. We only
-      // want to know if the close frame has been sent here.
-      //
-      if (err) return;
-
-      this._closeFrameSent = true;
-      if (this._closeFrameReceived) this._socket.end();
-    });
-
-    //
-    // Specify a timeout for the closing handshake to complete.
-    //
-    this._closeTimer = setTimeout(
-      this._socket.destroy.bind(this._socket),
-      closeTimeout
-    );
-  }
-
-  /**
-   * Send a ping.
-   *
-   * @param {*} [data] The data to send
-   * @param {Boolean} [mask] Indicates whether or not to mask `data`
-   * @param {Function} [cb] Callback which is executed when the ping is sent
-   * @public
-   */
-  ping(data, mask, cb) {
-    if (this.readyState === WebSocket.CONNECTING) {
-      throw new Error('WebSocket is not open: readyState 0 (CONNECTING)');
-    }
-
-    if (typeof data === 'function') {
-      cb = data;
-      data = mask = undefined;
-    } else if (typeof mask === 'function') {
-      cb = mask;
-      mask = undefined;
-    }
-
-    if (typeof data === 'number') data = data.toString();
-
-    if (this.readyState !== WebSocket.OPEN) {
-      sendAfterClose(this, data, cb);
-      return;
-    }
-
-    if (mask === undefined) mask = !this._isServer;
-    this._sender.ping(data || EMPTY_BUFFER, mask, cb);
-  }
-
-  /**
-   * Send a pong.
-   *
-   * @param {*} [data] The data to send
-   * @param {Boolean} [mask] Indicates whether or not to mask `data`
-   * @param {Function} [cb] Callback which is executed when the pong is sent
-   * @public
-   */
-  pong(data, mask, cb) {
-    if (this.readyState === WebSocket.CONNECTING) {
-      throw new Error('WebSocket is not open: readyState 0 (CONNECTING)');
-    }
-
-    if (typeof data === 'function') {
-      cb = data;
-      data = mask = undefined;
-    } else if (typeof mask === 'function') {
-      cb = mask;
-      mask = undefined;
-    }
-
-    if (typeof data === 'number') data = data.toString();
-
-    if (this.readyState !== WebSocket.OPEN) {
-      sendAfterClose(this, data, cb);
-      return;
-    }
-
-    if (mask === undefined) mask = !this._isServer;
-    this._sender.pong(data || EMPTY_BUFFER, mask, cb);
-  }
-
-  /**
-   * Send a data message.
-   *
-   * @param {*} data The message to send
-   * @param {Object} [options] Options object
-   * @param {Boolean} [options.compress] Specifies whether or not to compress
-   *     `data`
-   * @param {Boolean} [options.binary] Specifies whether `data` is binary or
-   *     text
-   * @param {Boolean} [options.fin=true] Specifies whether the fragment is the
-   *     last one
-   * @param {Boolean} [options.mask] Specifies whether or not to mask `data`
-   * @param {Function} [cb] Callback which is executed when data is written out
-   * @public
-   */
-  send(data, options, cb) {
-    if (this.readyState === WebSocket.CONNECTING) {
-      throw new Error('WebSocket is not open: readyState 0 (CONNECTING)');
-    }
-
-    if (typeof options === 'function') {
-      cb = options;
-      options = {};
-    }
-
-    if (typeof data === 'number') data = data.toString();
-
-    if (this.readyState !== WebSocket.OPEN) {
-      sendAfterClose(this, data, cb);
-      return;
-    }
-
-    const opts = {
-      binary: typeof data !== 'string',
-      mask: !this._isServer,
-      compress: true,
-      fin: true,
-      ...options
-    };
-
-    if (!this._extensions[PerMessageDeflate.extensionName]) {
-      opts.compress = false;
-    }
-
-    this._sender.send(data || EMPTY_BUFFER, opts, cb);
-  }
-
-  /**
-   * Forcibly close the connection.
-   *
-   * @public
-   */
-  terminate() {
-    if (this.readyState === WebSocket.CLOSED) return;
-    if (this.readyState === WebSocket.CONNECTING) {
-      const msg = 'WebSocket was closed before the connection was established';
-      return abortHandshake(this, this._req, msg);
-    }
-
-    if (this._socket) {
-      this._readyState = WebSocket.CLOSING;
-      this._socket.destroy();
-    }
-  }
-}
-
-readyStates.forEach((readyState, i) => {
-  const descriptor = { enumerable: true, value: i };
-
-  Object.defineProperty(WebSocket.prototype, readyState, descriptor);
-  Object.defineProperty(WebSocket, readyState, descriptor);
-});
-
-[
-  'binaryType',
-  'bufferedAmount',
-  'extensions',
-  'protocol',
-  'readyState',
-  'url'
-].forEach((property) => {
-  Object.defineProperty(WebSocket.prototype, property, { enumerable: true });
-});
-
-//
-// Add the `onopen`, `onerror`, `onclose`, and `onmessage` attributes.
-// See https://html.spec.whatwg.org/multipage/comms.html#the-websocket-interface
-//
-['open', 'error', 'close', 'message'].forEach((method) => {
-  Object.defineProperty(WebSocket.prototype, `on${method}`, {
-    configurable: true,
-    enumerable: true,
-    /**
-     * Return the listener of the event.
-     *
-     * @return {(Function|undefined)} The event listener or `undefined`
-     * @public
-     */
-    get() {
-      const listeners = this.listeners(method);
-      for (let i = 0; i < listeners.length; i++) {
-        if (listeners[i]._listener) return listeners[i]._listener;
-      }
-
-      return undefined;
-    },
-    /**
-     * Add a listener for the event.
-     *
-     * @param {Function} listener The listener to add
-     * @public
-     */
-    set(listener) {
-      const listeners = this.listeners(method);
-      for (let i = 0; i < listeners.length; i++) {
-        //
-        // Remove only the listeners added via `addEventListener`.
-        //
-        if (listeners[i]._listener) this.removeListener(method, listeners[i]);
-      }
-      this.addEventListener(method, listener);
-    }
-  });
-});
-
-WebSocket.prototype.addEventListener = addEventListener;
-WebSocket.prototype.removeEventListener = removeEventListener;
-
-module.exports = WebSocket;
-
-/**
- * Initialize a WebSocket client.
- *
- * @param {WebSocket} websocket The client to initialize
- * @param {(String|url.URL)} address The URL to which to connect
- * @param {String} [protocols] The subprotocols
- * @param {Object} [options] Connection options
- * @param {(Boolean|Object)} [options.perMessageDeflate=true] Enable/disable
- *     permessage-deflate
- * @param {Number} [options.handshakeTimeout] Timeout in milliseconds for the
- *     handshake request
- * @param {Number} [options.protocolVersion=13] Value of the
- *     `Sec-WebSocket-Version` header
- * @param {String} [options.origin] Value of the `Origin` or
- *     `Sec-WebSocket-Origin` header
- * @param {Number} [options.maxPayload=104857600] The maximum allowed message
- *     size
- * @param {Boolean} [options.followRedirects=false] Whether or not to follow
- *     redirects
- * @param {Number} [options.maxRedirects=10] The maximum number of redirects
- *     allowed
- * @private
- */
-function initAsClient(websocket, address, protocols, options) {
-  const opts = {
-    protocolVersion: protocolVersions[1],
-    maxPayload: 100 * 1024 * 1024,
-    perMessageDeflate: true,
-    followRedirects: false,
-    maxRedirects: 10,
-    ...options,
-    createConnection: undefined,
-    socketPath: undefined,
-    hostname: undefined,
-    protocol: undefined,
-    timeout: undefined,
-    method: undefined,
-    host: undefined,
-    path: undefined,
-    port: undefined
-  };
-
-  if (!protocolVersions.includes(opts.protocolVersion)) {
-    throw new RangeError(
-      `Unsupported protocol version: ${opts.protocolVersion} ` +
-        `(supported versions: ${protocolVersions.join(', ')})`
-    );
-  }
-
-  let parsedUrl;
-
-  if (address instanceof URL) {
-    parsedUrl = address;
-    websocket._url = address.href;
-  } else {
-    parsedUrl = new URL(address);
-    websocket._url = address;
-  }
-
-  const isUnixSocket = parsedUrl.protocol === 'ws+unix:';
-
-  if (!parsedUrl.host && (!isUnixSocket || !parsedUrl.pathname)) {
-    throw new Error(`Invalid URL: ${websocket.url}`);
-  }
-
-  const isSecure =
-    parsedUrl.protocol === 'wss:' || parsedUrl.protocol === 'https:';
-  const defaultPort = isSecure ? 443 : 80;
-  const key = randomBytes(16).toString('base64');
-  const get = isSecure ? https.get : http.get;
-  let perMessageDeflate;
-
-  opts.createConnection = isSecure ? tlsConnect : netConnect;
-  opts.defaultPort = opts.defaultPort || defaultPort;
-  opts.port = parsedUrl.port || defaultPort;
-  opts.host = parsedUrl.hostname.startsWith('[')
-    ? parsedUrl.hostname.slice(1, -1)
-    : parsedUrl.hostname;
-  opts.headers = {
-    'Sec-WebSocket-Version': opts.protocolVersion,
-    'Sec-WebSocket-Key': key,
-    Connection: 'Upgrade',
-    Upgrade: 'websocket',
-    ...opts.headers
-  };
-  opts.path = parsedUrl.pathname + parsedUrl.search;
-  opts.timeout = opts.handshakeTimeout;
-
-  if (opts.perMessageDeflate) {
-    perMessageDeflate = new PerMessageDeflate(
-      opts.perMessageDeflate !== true ? opts.perMessageDeflate : {},
-      false,
-      opts.maxPayload
-    );
-    opts.headers['Sec-WebSocket-Extensions'] = format({
-      [PerMessageDeflate.extensionName]: perMessageDeflate.offer()
-    });
-  }
-  if (protocols) {
-    opts.headers['Sec-WebSocket-Protocol'] = protocols;
-  }
-  if (opts.origin) {
-    if (opts.protocolVersion < 13) {
-      opts.headers['Sec-WebSocket-Origin'] = opts.origin;
-    } else {
-      opts.headers.Origin = opts.origin;
-    }
-  }
-  if (parsedUrl.username || parsedUrl.password) {
-    opts.auth = `${parsedUrl.username}:${parsedUrl.password}`;
-  }
-
-  if (isUnixSocket) {
-    const parts = opts.path.split(':');
-
-    opts.socketPath = parts[0];
-    opts.path = parts[1];
-  }
-
-  let req = (websocket._req = get(opts));
-
-  if (opts.timeout) {
-    req.on('timeout', () => {
-      abortHandshake(websocket, req, 'Opening handshake has timed out');
-    });
-  }
-
-  req.on('error', (err) => {
-    if (req === null || req.aborted) return;
-
-    req = websocket._req = null;
-    websocket._readyState = WebSocket.CLOSING;
-    websocket.emit('error', err);
-    websocket.emitClose();
-  });
-
-  req.on('response', (res) => {
-    const location = res.headers.location;
-    const statusCode = res.statusCode;
-
-    if (
-      location &&
-      opts.followRedirects &&
-      statusCode >= 300 &&
-      statusCode < 400
-    ) {
-      if (++websocket._redirects > opts.maxRedirects) {
-        abortHandshake(websocket, req, 'Maximum redirects exceeded');
-        return;
-      }
-
-      req.abort();
-
-      const addr = new URL(location, address);
-
-      initAsClient(websocket, addr, protocols, options);
-    } else if (!websocket.emit('unexpected-response', req, res)) {
-      abortHandshake(
-        websocket,
-        req,
-        `Unexpected server response: ${res.statusCode}`
-      );
-    }
-  });
-
-  req.on('upgrade', (res, socket, head) => {
-    websocket.emit('upgrade', res);
-
-    //
-    // The user may have closed the connection from a listener of the `upgrade`
-    // event.
-    //
-    if (websocket.readyState !== WebSocket.CONNECTING) return;
-
-    req = websocket._req = null;
-
-    const digest = createHash('sha1')
-      .update(key + GUID)
-      .digest('base64');
-
-    if (res.headers['sec-websocket-accept'] !== digest) {
-      abortHandshake(websocket, socket, 'Invalid Sec-WebSocket-Accept header');
-      return;
-    }
-
-    const serverProt = res.headers['sec-websocket-protocol'];
-    const protList = (protocols || '').split(/, */);
-    let protError;
-
-    if (!protocols && serverProt) {
-      protError = 'Server sent a subprotocol but none was requested';
-    } else if (protocols && !serverProt) {
-      protError = 'Server sent no subprotocol';
-    } else if (serverProt && !protList.includes(serverProt)) {
-      protError = 'Server sent an invalid subprotocol';
-    }
-
-    if (protError) {
-      abortHandshake(websocket, socket, protError);
-      return;
-    }
-
-    if (serverProt) websocket._protocol = serverProt;
-
-    if (perMessageDeflate) {
-      try {
-        const extensions = parse(res.headers['sec-websocket-extensions']);
-
-        if (extensions[PerMessageDeflate.extensionName]) {
-          perMessageDeflate.accept(extensions[PerMessageDeflate.extensionName]);
-          websocket._extensions[
-            PerMessageDeflate.extensionName
-          ] = perMessageDeflate;
-        }
-      } catch (err) {
-        abortHandshake(
-          websocket,
-          socket,
-          'Invalid Sec-WebSocket-Extensions header'
-        );
-        return;
-      }
-    }
-
-    websocket.setSocket(socket, head, opts.maxPayload);
-  });
-}
-
-/**
- * Create a `net.Socket` and initiate a connection.
- *
- * @param {Object} options Connection options
- * @return {net.Socket} The newly created socket used to start the connection
- * @private
- */
-function netConnect(options) {
-  options.path = options.socketPath;
-  return net.connect(options);
-}
-
-/**
- * Create a `tls.TLSSocket` and initiate a connection.
- *
- * @param {Object} options Connection options
- * @return {tls.TLSSocket} The newly created socket used to start the connection
- * @private
- */
-function tlsConnect(options) {
-  options.path = undefined;
-
-  if (!options.servername && options.servername !== '') {
-    options.servername = net.isIP(options.host) ? '' : options.host;
-  }
-
-  return tls.connect(options);
-}
-
-/**
- * Abort the handshake and emit an error.
- *
- * @param {WebSocket} websocket The WebSocket instance
- * @param {(http.ClientRequest|net.Socket)} stream The request to abort or the
- *     socket to destroy
- * @param {String} message The error message
- * @private
- */
-function abortHandshake(websocket, stream, message) {
-  websocket._readyState = WebSocket.CLOSING;
-
-  const err = new Error(message);
-  Error.captureStackTrace(err, abortHandshake);
-
-  if (stream.setHeader) {
-    stream.abort();
-    stream.once('abort', websocket.emitClose.bind(websocket));
-    websocket.emit('error', err);
-  } else {
-    stream.destroy(err);
-    stream.once('error', websocket.emit.bind(websocket, 'error'));
-    stream.once('close', websocket.emitClose.bind(websocket));
-  }
-}
-
-/**
- * Handle cases where the `ping()`, `pong()`, or `send()` methods are called
- * when the `readyState` attribute is `CLOSING` or `CLOSED`.
- *
- * @param {WebSocket} websocket The WebSocket instance
- * @param {*} [data] The data to send
- * @param {Function} [cb] Callback
- * @private
- */
-function sendAfterClose(websocket, data, cb) {
-  if (data) {
-    const length = toBuffer(data).length;
-
-    //
-    // The `_bufferedAmount` property is used only when the peer is a client and
-    // the opening handshake fails. Under these circumstances, in fact, the
-    // `setSocket()` method is not called, so the `_socket` and `_sender`
-    // properties are set to `null`.
-    //
-    if (websocket._socket) websocket._sender._bufferedBytes += length;
-    else websocket._bufferedAmount += length;
-  }
-
-  if (cb) {
-    const err = new Error(
-      `WebSocket is not open: readyState ${websocket.readyState} ` +
-        `(${readyStates[websocket.readyState]})`
-    );
-    cb(err);
-  }
-}
-
-/**
- * The listener of the `Receiver` `'conclude'` event.
- *
- * @param {Number} code The status code
- * @param {String} reason The reason for closing
- * @private
- */
-function receiverOnConclude(code, reason) {
-  const websocket = this[kWebSocket];
-
-  websocket._socket.removeListener('data', socketOnData);
-  websocket._socket.resume();
-
-  websocket._closeFrameReceived = true;
-  websocket._closeMessage = reason;
-  websocket._closeCode = code;
-
-  if (code === 1005) websocket.close();
-  else websocket.close(code, reason);
-}
-
-/**
- * The listener of the `Receiver` `'drain'` event.
- *
- * @private
- */
-function receiverOnDrain() {
-  this[kWebSocket]._socket.resume();
-}
-
-/**
- * The listener of the `Receiver` `'error'` event.
- *
- * @param {(RangeError|Error)} err The emitted error
- * @private
- */
-function receiverOnError(err) {
-  const websocket = this[kWebSocket];
-
-  websocket._socket.removeListener('data', socketOnData);
-
-  websocket._readyState = WebSocket.CLOSING;
-  websocket._closeCode = err[kStatusCode];
-  websocket.emit('error', err);
-  websocket._socket.destroy();
-}
-
-/**
- * The listener of the `Receiver` `'finish'` event.
- *
- * @private
- */
-function receiverOnFinish() {
-  this[kWebSocket].emitClose();
-}
-
-/**
- * The listener of the `Receiver` `'message'` event.
- *
- * @param {(String|Buffer|ArrayBuffer|Buffer[])} data The message
- * @private
- */
-function receiverOnMessage(data) {
-  this[kWebSocket].emit('message', data);
-}
-
-/**
- * The listener of the `Receiver` `'ping'` event.
- *
- * @param {Buffer} data The data included in the ping frame
- * @private
- */
-function receiverOnPing(data) {
-  const websocket = this[kWebSocket];
-
-  websocket.pong(data, !websocket._isServer, NOOP);
-  websocket.emit('ping', data);
-}
-
-/**
- * The listener of the `Receiver` `'pong'` event.
- *
- * @param {Buffer} data The data included in the pong frame
- * @private
- */
-function receiverOnPong(data) {
-  this[kWebSocket].emit('pong', data);
-}
-
-/**
- * The listener of the `net.Socket` `'close'` event.
- *
- * @private
- */
-function socketOnClose() {
-  const websocket = this[kWebSocket];
-
-  this.removeListener('close', socketOnClose);
-  this.removeListener('end', socketOnEnd);
-
-  websocket._readyState = WebSocket.CLOSING;
-
-  //
-  // The close frame might not have been received or the `'end'` event emitted,
-  // for example, if the socket was destroyed due to an error. Ensure that the
-  // `receiver` stream is closed after writing any remaining buffered data to
-  // it. If the readable side of the socket is in flowing mode then there is no
-  // buffered data as everything has been already written and `readable.read()`
-  // will return `null`. If instead, the socket is paused, any possible buffered
-  // data will be read as a single chunk and emitted synchronously in a single
-  // `'data'` event.
-  //
-  websocket._socket.read();
-  websocket._receiver.end();
-
-  this.removeListener('data', socketOnData);
-  this[kWebSocket] = undefined;
-
-  clearTimeout(websocket._closeTimer);
-
-  if (
-    websocket._receiver._writableState.finished ||
-    websocket._receiver._writableState.errorEmitted
-  ) {
-    websocket.emitClose();
-  } else {
-    websocket._receiver.on('error', receiverOnFinish);
-    websocket._receiver.on('finish', receiverOnFinish);
-  }
-}
-
-/**
- * The listener of the `net.Socket` `'data'` event.
- *
- * @param {Buffer} chunk A chunk of data
- * @private
- */
-function socketOnData(chunk) {
-  if (!this[kWebSocket]._receiver.write(chunk)) {
-    this.pause();
-  }
-}
-
-/**
- * The listener of the `net.Socket` `'end'` event.
- *
- * @private
- */
-function socketOnEnd() {
-  const websocket = this[kWebSocket];
-
-  websocket._readyState = WebSocket.CLOSING;
-  websocket._receiver.end();
-  this.end();
-}
-
-/**
- * The listener of the `net.Socket` `'error'` event.
- *
- * @private
- */
-function socketOnError() {
-  const websocket = this[kWebSocket];
-
-  this.removeListener('error', socketOnError);
-  this.on('error', NOOP);
-
-  if (websocket) {
-    websocket._readyState = WebSocket.CLOSING;
-    this.destroy();
-  }
-}
-
-
-/***/ }),
-
-/***/ 24:
-/***/ (function(module) {
-
-module.exports = eval("require")("bufferutil");
-
-
-/***/ }),
-
-/***/ 28:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-const { Duplex } = __webpack_require__(413);
-
-/**
- * Emits the `'close'` event on a stream.
- *
- * @param {stream.Duplex} The stream.
- * @private
- */
-function emitClose(stream) {
-  stream.emit('close');
-}
-
-/**
- * The listener of the `'end'` event.
- *
- * @private
- */
-function duplexOnEnd() {
-  if (!this.destroyed && this._writableState.finished) {
-    this.destroy();
-  }
-}
-
-/**
- * The listener of the `'error'` event.
- *
- * @param {Error} err The error
- * @private
- */
-function duplexOnError(err) {
-  this.removeListener('error', duplexOnError);
-  this.destroy();
-  if (this.listenerCount('error') === 0) {
-    // Do not suppress the throwing behavior.
-    this.emit('error', err);
-  }
-}
-
-/**
- * Wraps a `WebSocket` in a duplex stream.
- *
- * @param {WebSocket} ws The `WebSocket` to wrap
- * @param {Object} [options] The options for the `Duplex` constructor
- * @return {stream.Duplex} The duplex stream
- * @public
- */
-function createWebSocketStream(ws, options) {
-  let resumeOnReceiverDrain = true;
-
-  function receiverOnDrain() {
-    if (resumeOnReceiverDrain) ws._socket.resume();
-  }
-
-  if (ws.readyState === ws.CONNECTING) {
-    ws.once('open', function open() {
-      ws._receiver.removeAllListeners('drain');
-      ws._receiver.on('drain', receiverOnDrain);
-    });
-  } else {
-    ws._receiver.removeAllListeners('drain');
-    ws._receiver.on('drain', receiverOnDrain);
-  }
-
-  const duplex = new Duplex({
-    ...options,
-    autoDestroy: false,
-    emitClose: false,
-    objectMode: false,
-    writableObjectMode: false
-  });
-
-  ws.on('message', function message(msg) {
-    if (!duplex.push(msg)) {
-      resumeOnReceiverDrain = false;
-      ws._socket.pause();
-    }
-  });
-
-  ws.once('error', function error(err) {
-    if (duplex.destroyed) return;
-
-    duplex.destroy(err);
-  });
-
-  ws.once('close', function close() {
-    if (duplex.destroyed) return;
-
-    duplex.push(null);
-  });
-
-  duplex._destroy = function (err, callback) {
-    if (ws.readyState === ws.CLOSED) {
-      callback(err);
-      process.nextTick(emitClose, duplex);
-      return;
-    }
-
-    let called = false;
-
-    ws.once('error', function error(err) {
-      called = true;
-      callback(err);
-    });
-
-    ws.once('close', function close() {
-      if (!called) callback(err);
-      process.nextTick(emitClose, duplex);
-    });
-    ws.terminate();
-  };
-
-  duplex._final = function (callback) {
-    if (ws.readyState === ws.CONNECTING) {
-      ws.once('open', function open() {
-        duplex._final(callback);
-      });
-      return;
-    }
-
-    // If the value of the `_socket` property is `null` it means that `ws` is a
-    // client websocket and the handshake failed. In fact, when this happens, a
-    // socket is never assigned to the websocket. Wait for the `'error'` event
-    // that will be emitted by the websocket.
-    if (ws._socket === null) return;
-
-    if (ws._socket._writableState.finished) {
-      callback();
-      if (duplex._readableState.endEmitted) duplex.destroy();
-    } else {
-      ws._socket.once('finish', function finish() {
-        // `duplex` is not destroyed here because the `'end'` event will be
-        // emitted on `duplex` after this `'finish'` event. The EOF signaling
-        // `null` chunk is, in fact, pushed when the websocket emits `'close'`.
-        callback();
-      });
-      ws.close();
-    }
-  };
-
-  duplex._read = function () {
-    if (ws.readyState === ws.OPEN && !resumeOnReceiverDrain) {
-      resumeOnReceiverDrain = true;
-      if (!ws._receiver._writableState.needDrain) ws._socket.resume();
-    }
-  };
-
-  duplex._write = function (chunk, encoding, callback) {
-    if (ws.readyState === ws.CONNECTING) {
-      ws.once('open', function open() {
-        duplex._write(chunk, encoding, callback);
-      });
-      return;
-    }
-
-    ws.send(chunk, callback);
-  };
-
-  duplex.on('end', duplexOnEnd);
-  duplex.on('error', duplexOnError);
-  return duplex;
-}
-
-module.exports = createWebSocketStream;
-
-
-/***/ }),
-
-/***/ 29:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __await = (this && this.__await) || function (v) { return this instanceof __await ? (this.v = v, this) : new __await(v); }
-var __asyncGenerator = (this && this.__asyncGenerator) || function (thisArg, _arguments, generator) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var g = generator.apply(thisArg, _arguments || []), i, q = [];
-    return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i;
-    function verb(n) { if (g[n]) i[n] = function (v) { return new Promise(function (a, b) { q.push([n, v, a, b]) > 1 || resume(n, v); }); }; }
-    function resume(n, v) { try { step(g[n](v)); } catch (e) { settle(q[0][3], e); } }
-    function step(r) { r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r); }
-    function fulfill(value) { resume("next", value); }
-    function reject(value) { resume("throw", value); }
-    function settle(f, v) { if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]); }
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __asyncDelegator = (this && this.__asyncDelegator) || function (o) {
-    var i, p;
-    return i = {}, verb("next"), verb("throw", function (e) { throw e; }), verb("return"), i[Symbol.iterator] = function () { return this; }, i;
-    function verb(n, f) { i[n] = o[n] ? function (v) { return (p = !p) ? { value: __await(o[n](v)), done: n === "return" } : f ? f(v) : v; } : f; }
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.normaliseInput = void 0;
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-/* eslint-disable @typescript-eslint/no-use-before-define */
-const buffer_1 = __webpack_require__(293);
-/**
- * Transform types
- *
- * @remarks
- * This function comes from {@link https://github.com/ipfs/js-ipfs-utils/blob/master/src/files/normalise-input.js}
- * @example
- * Supported types
- * ```yaml
- * // INPUT TYPES
- * Bytes (Buffer|ArrayBuffer|TypedArray) [single file]
- * Bloby (Blob|File) [single file]
- * String [single file]
- * { path, content: Bytes } [single file]
- * { path, content: Bloby } [single file]
- * { path, content: String } [single file]
- * { path, content: Iterable<Number> } [single file]
- * { path, content: Iterable<Bytes> } [single file]
- * { path, content: AsyncIterable<Bytes> } [single file]
- * Iterable<Number> [single file]
- * Iterable<Bytes> [single file]
- * Iterable<Bloby> [multiple files]
- * Iterable<String> [multiple files]
- * Iterable<{ path, content: Bytes }> [multiple files]
- * Iterable<{ path, content: Bloby }> [multiple files]
- * Iterable<{ path, content: String }> [multiple files]
- * Iterable<{ path, content: Iterable<Number> }> [multiple files]
- * Iterable<{ path, content: Iterable<Bytes> }> [multiple files]
- * Iterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
- * AsyncIterable<Bytes> [single file]
- * AsyncIterable<Bloby> [multiple files]
- * AsyncIterable<String> [multiple files]
- * AsyncIterable<{ path, content: Bytes }> [multiple files]
- * AsyncIterable<{ path, content: Bloby }> [multiple files]
- * AsyncIterable<{ path, content: String }> [multiple files]
- * AsyncIterable<{ path, content: Iterable<Number> }> [multiple files]
- * AsyncIterable<{ path, content: Iterable<Bytes> }> [multiple files]
- * AsyncIterable<{ path, content: AsyncIterable<Bytes> }> [multiple files]
- *
- * // OUTPUT
- * AsyncIterable<{ path, content: AsyncIterable<Buffer> }>
- * ```
- *
- * @public
- *
- * @param {Object} input
- * @return AsyncInterable<{ path, content: AsyncIterable<Buffer> }>
- */
-function normaliseInput(input) {
-    // must give us something
-    if (input === null || input === undefined) {
-        throw new Error(`Unexpected input: ${input}`);
-    }
-    // String
-    if (typeof input === 'string' || input instanceof String) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    // Buffer|ArrayBuffer|TypedArray
-    // Blob|File
-    if (isBytes(input) || isBloby(input)) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    // Iterable<?>
-    if (input[Symbol.iterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                const iterator = input[Symbol.iterator]();
-                const first = iterator.next();
-                if (first.done)
-                    return yield __await(iterator
-                    // Iterable<Number>
-                    // Iterable<Bytes>
-                    );
-                // Iterable<Number>
-                // Iterable<Bytes>
-                if (Number.isInteger(first.value) || isBytes(first.value)) {
-                    yield yield __await(toFileObject((function* () {
-                        yield first.value;
-                        yield* iterator;
-                    })()));
-                    return yield __await(void 0);
-                }
-                // Iterable<Bloby>
-                // Iterable<String>
-                // Iterable<{ path, content }>
-                if (isFileObject(first.value) ||
-                    isBloby(first.value) ||
-                    typeof first.value === 'string') {
-                    yield yield __await(toFileObject(first.value));
-                    for (const obj of iterator) {
-                        yield yield __await(toFileObject(obj));
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // window.ReadableStream
-    if (typeof input.getReader === 'function') {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_1, _a;
-                try {
-                    for (var _b = __asyncValues(browserStreamToIt(input)), _c; _c = yield __await(_b.next()), !_c.done;) {
-                        const obj = _c.value;
-                        yield yield __await(toFileObject(obj));
-                    }
-                }
-                catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                finally {
-                    try {
-                        if (_c && !_c.done && (_a = _b.return)) yield __await(_a.call(_b));
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                }
-            });
-        })();
-    }
-    // AsyncIterable<?>
-    if (input[Symbol.asyncIterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_2, _a;
-                const iterator = input[Symbol.asyncIterator]();
-                const first = yield __await(iterator.next());
-                if (first.done)
-                    return yield __await(iterator
-                    // AsyncIterable<Bytes>
-                    );
-                // AsyncIterable<Bytes>
-                if (isBytes(first.value)) {
-                    yield yield __await(toFileObject((function () {
-                        return __asyncGenerator(this, arguments, function* () {
-                            // eslint-disable-line require-await
-                            yield yield __await(first.value);
-                            yield __await(yield* __asyncDelegator(__asyncValues(iterator)));
-                        });
-                    })()));
-                    return yield __await(void 0);
-                }
-                // AsyncIterable<Bloby>
-                // AsyncIterable<String>
-                // AsyncIterable<{ path, content }>
-                if (isFileObject(first.value) ||
-                    isBloby(first.value) ||
-                    typeof first.value === 'string') {
-                    yield yield __await(toFileObject(first.value));
-                    try {
-                        for (var iterator_1 = __asyncValues(iterator), iterator_1_1; iterator_1_1 = yield __await(iterator_1.next()), !iterator_1_1.done;) {
-                            const obj = iterator_1_1.value;
-                            yield yield __await(toFileObject(obj));
-                        }
-                    }
-                    catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                    finally {
-                        try {
-                            if (iterator_1_1 && !iterator_1_1.done && (_a = iterator_1.return)) yield __await(_a.call(iterator_1));
-                        }
-                        finally { if (e_2) throw e_2.error; }
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // { path, content: ? }
-    // Note: Detected _after_ AsyncIterable<?> because Node.js streams have a
-    // `path` property that passes this check.
-    if (isFileObject(input)) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toFileObject(input));
-            });
-        })();
-    }
-    throw new Error('Unexpected input: ' + typeof input);
-}
-exports.normaliseInput = normaliseInput;
-function toFileObject(input) {
-    const obj = {
-        path: input.path || '',
-        mode: input.mode,
-        mtime: input.mtime,
-    };
-    if (input.content) {
-        obj.content = toAsyncIterable(input.content);
-    }
-    else if (!input.path) {
-        // Not already a file object with path or content prop
-        obj.content = toAsyncIterable(input);
-    }
-    return obj;
-}
-function toAsyncIterable(input) {
-    // Bytes | String
-    if (isBytes(input) || typeof input === 'string') {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                yield yield __await(toBuffer(input));
-            });
-        })();
-    }
-    // Bloby
-    if (isBloby(input)) {
-        return blobToAsyncGenerator(input);
-    }
-    // Browser stream
-    if (typeof input.getReader === 'function') {
-        return browserStreamToIt(input);
-    }
-    // Iterator<?>
-    if (input[Symbol.iterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                // eslint-disable-line require-await
-                const iterator = input[Symbol.iterator]();
-                const first = iterator.next();
-                if (first.done)
-                    return yield __await(iterator
-                    // Iterable<Number>
-                    );
-                // Iterable<Number>
-                if (Number.isInteger(first.value)) {
-                    yield yield __await(toBuffer(Array.from((function* () {
-                        yield first.value;
-                        yield* iterator;
-                    })())));
-                    return yield __await(void 0);
-                }
-                // Iterable<Bytes>
-                if (isBytes(first.value)) {
-                    yield yield __await(toBuffer(first.value));
-                    for (const chunk of iterator) {
-                        yield yield __await(toBuffer(chunk));
-                    }
-                    return yield __await(void 0);
-                }
-                throw new Error('Unexpected input: ' + typeof input);
-            });
-        })();
-    }
-    // AsyncIterable<Bytes>
-    if (input[Symbol.asyncIterator]) {
-        return (function () {
-            return __asyncGenerator(this, arguments, function* () {
-                var e_3, _a;
-                try {
-                    for (var input_1 = __asyncValues(input), input_1_1; input_1_1 = yield __await(input_1.next()), !input_1_1.done;) {
-                        const chunk = input_1_1.value;
-                        yield yield __await(toBuffer(chunk));
-                    }
-                }
-                catch (e_3_1) { e_3 = { error: e_3_1 }; }
-                finally {
-                    try {
-                        if (input_1_1 && !input_1_1.done && (_a = input_1.return)) yield __await(_a.call(input_1));
-                    }
-                    finally { if (e_3) throw e_3.error; }
-                }
-            });
-        })();
-    }
-    throw new Error(`Unexpected input: ${input}`);
-}
-function toBuffer(chunk) {
-    return isBytes(chunk) ? chunk : buffer_1.Buffer.from(chunk);
-}
-function isBytes(obj) {
-    return (buffer_1.Buffer.isBuffer(obj) ||
-        ArrayBuffer.isView(obj) ||
-        obj instanceof ArrayBuffer);
-}
-function isBloby(obj) {
-    return (typeof globalThis.Blob !== 'undefined' && obj instanceof globalThis.Blob);
-}
-// An object with a path or content property
-function isFileObject(obj) {
-    return typeof obj === 'object' && (obj.path || obj.content);
-}
-function blobToAsyncGenerator(blob) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-    // @ts-ignore
-    if (typeof blob.stream === 'function') {
-        // firefox < 69 does not support blob.stream()
-        // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-        // @ts-ignore
-        return browserStreamToIt(blob.stream());
-    }
-    return readBlob(blob);
-}
-function browserStreamToIt(stream) {
-    return __asyncGenerator(this, arguments, function* browserStreamToIt_1() {
-        const reader = stream.getReader();
-        while (true) {
-            const result = yield __await(reader.read());
-            if (result.done) {
-                return yield __await(void 0);
-            }
-            yield yield __await(result.value);
-        }
-    });
-}
-function readBlob(blob, options) {
-    return __asyncGenerator(this, arguments, function* readBlob_1() {
-        options = options || {};
-        const reader = new globalThis.FileReader();
-        const chunkSize = options.chunkSize || 1024 * 1024;
-        let offset = options.offset || 0;
-        const getNextChunk = () => new Promise((resolve, reject) => {
-            reader.onloadend = (e) => {
-                var _a;
-                const data = (_a = e.target) === null || _a === void 0 ? void 0 : _a.result;
-                resolve(data.byteLength === 0 ? null : data);
-            };
-            reader.onerror = reject;
-            const end = offset + chunkSize;
-            const slice = blob.slice(offset, end);
-            reader.readAsArrayBuffer(slice);
-            offset = end;
-        });
-        while (true) {
-            const data = yield __await(getNextChunk());
-            if (data == null) {
-                return yield __await(void 0);
-            }
-            yield yield __await(buffer_1.Buffer.from(data));
-        }
-    });
-}
-//# sourceMappingURL=normalize.js.map
-
-/***/ }),
-
-/***/ 49:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-var wrappy = __webpack_require__(11)
-module.exports = wrappy(once)
-module.exports.strict = wrappy(onceStrict)
-
-once.proto = once(function () {
-  Object.defineProperty(Function.prototype, 'once', {
-    value: function () {
-      return once(this)
-    },
-    configurable: true
-  })
-
-  Object.defineProperty(Function.prototype, 'onceStrict', {
-    value: function () {
-      return onceStrict(this)
-    },
-    configurable: true
-  })
-})
-
-function once (fn) {
-  var f = function () {
-    if (f.called) return f.value
-    f.called = true
-    return f.value = fn.apply(this, arguments)
-  }
-  f.called = false
-  return f
-}
-
-function onceStrict (fn) {
-  var f = function () {
-    if (f.called)
-      throw new Error(f.onceError)
-    f.called = true
-    return f.value = fn.apply(this, arguments)
-  }
-  var name = fn.name || 'Function wrapped with `once`'
-  f.onceError = name + " shouldn't be called more than once"
-  f.called = false
-  return f
-}
-
-
-/***/ }),
-
-/***/ 66:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-
-/** @typedef {import('./generated-types').ConstantNumberMap} ConstantNumberMap */
-
-const { baseTable } = __webpack_require__(607)
-
-const constants = /** @type {ConstantNumberMap} */({})
-
-for (const [name, code] of Object.entries(baseTable)) {
-  const constant = name.toUpperCase().replace(/-/g, '_')
-  constants[constant] = code
-}
-
-module.exports = Object.freeze(constants)
-
-
-/***/ }),
-
-/***/ 82:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-// We use any as a valid input type
-/* eslint-disable @typescript-eslint/no-explicit-any */
-Object.defineProperty(exports, "__esModule", { value: true });
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function toCommandValue(input) {
-    if (input === null || input === undefined) {
-        return '';
-    }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
-    }
-    return JSON.stringify(input);
-}
-exports.toCommandValue = toCommandValue;
-//# sourceMappingURL=utils.js.map
-
-/***/ }),
-
-/***/ 87:
-/***/ (function(module) {
-
-module.exports = require("os");
-
-/***/ }),
-
 /***/ 93:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -15315,52 +15680,335 @@ exports.realpath = function realpath(p, cache, cb) {
 
 /***/ }),
 
-/***/ 125:
-/***/ (function(__unusedmodule, exports) {
+/***/ 148:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
 
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ArchiveStatus = exports.PathAccessRole = exports.AbortError = void 0;
-exports.AbortError = new Error('aborted');
-var PathAccessRole;
-(function (PathAccessRole) {
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_UNSPECIFIED"] = 0] = "PATH_ACCESS_ROLE_UNSPECIFIED";
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_READER"] = 1] = "PATH_ACCESS_ROLE_READER";
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_WRITER"] = 2] = "PATH_ACCESS_ROLE_WRITER";
-    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_ADMIN"] = 3] = "PATH_ACCESS_ROLE_ADMIN";
-})(PathAccessRole = exports.PathAccessRole || (exports.PathAccessRole = {}));
-/**
- * Archive job status codes
- */
-var ArchiveStatus;
-(function (ArchiveStatus) {
-    /**
-     * Status is not specified.
-     */
-    ArchiveStatus[ArchiveStatus["Unspecified"] = 0] = "Unspecified";
-    /**
-     * The archive job is queued.
-     */
-    ArchiveStatus[ArchiveStatus["Queued"] = 1] = "Queued";
-    /**
-     * The archive job is executing.
-     */
-    ArchiveStatus[ArchiveStatus["Executing"] = 2] = "Executing";
-    /**
-     * The archive job has failed.
-     */
-    ArchiveStatus[ArchiveStatus["Failed"] = 3] = "Failed";
-    /**
-     * The archive job was canceled.
-     */
-    ArchiveStatus[ArchiveStatus["Canceled"] = 4] = "Canceled";
-    /**
-     * The archive job succeeded.
-     */
-    ArchiveStatus[ArchiveStatus["Success"] = 5] = "Success";
-})(ArchiveStatus = exports.ArchiveStatus || (exports.ArchiveStatus = {}));
-//# sourceMappingURL=types.js.map
+exports.getJSONTree = exports.toDateString = exports.apiConn = exports.execute = void 0;
+const fs_1 = __importDefault(__webpack_require__(747));
+const path_1 = __importDefault(__webpack_require__(622));
+const util_1 = __importDefault(__webpack_require__(669));
+const glob_1 = __importDefault(__webpack_require__(402));
+const api_1 = __webpack_require__(407);
+const context_1 = __webpack_require__(783);
+const grpc_connection_1 = __webpack_require__(556);
+const readFile = util_1.default.promisify(fs_1.default.readFile);
+const globDir = util_1.default.promisify(glob_1.default);
+function chunkBuffer(content) {
+    const size = 1024 * 1024 * 3;
+    const result = [];
+    const len = content.length;
+    let i = 0;
+    while (i < len) {
+        result.push(content.slice(i, (i += size)));
+    }
+    return result;
+}
+class BucketTree {
+    constructor(folders = [], leafs = []) {
+        this.folders = folders;
+        this.leafs = leafs;
+    }
+    removeFolder(folder) {
+        const knownIndex = this.folders.indexOf(folder);
+        if (knownIndex > -1) {
+            this.folders.splice(knownIndex, 1);
+        }
+        return knownIndex;
+    }
+    removeLeaf(path) {
+        const knownIndex = this.leafs.indexOf(path);
+        if (knownIndex > -1) {
+            this.leafs.splice(knownIndex, 1);
+        }
+        return knownIndex;
+    }
+    remove(path) {
+        if (path[0] !== '/')
+            throw new Error('Unsupported path');
+        const knownLeaf = this.removeLeaf(path);
+        if (knownLeaf > -1) {
+            let folder = `${path}`.replace(/\/[^\/]+$/, '');
+            while (folder.length > 0) {
+                // remove last folder
+                this.removeFolder(folder);
+                folder = folder.replace(/\/[^\/]+$/, '');
+            }
+        }
+    }
+    getDeletes() {
+        let dirCount = this.folders.length;
+        let sorted = this.folders.sort((a, b) => a.length - b.length);
+        for (let i = 0; i < dirCount; i++) {
+            const folder = sorted[i];
+            if (!folder)
+                continue;
+            const reindex = false;
+            const folderDeletions = [];
+            for (const look of this.folders) {
+                if (look.startsWith(`${folder}/`)) {
+                    folderDeletions.push(look);
+                }
+            }
+            folderDeletions.forEach((drop) => this.removeFolder(drop));
+            const fileDeleteions = [];
+            for (const look of this.leafs) {
+                if (look.startsWith(`${folder}/`)) {
+                    fileDeleteions.push(look);
+                }
+            }
+            fileDeleteions.forEach((drop) => this.removeLeaf(drop));
+            if (reindex) {
+                sorted = this.folders.sort((a, b) => a.length - b.length);
+                dirCount = this.folders.length;
+            }
+        }
+        return [...this.leafs, ...this.folders];
+    }
+}
+function getNextNode(connection, bucketKey, path) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const tree = yield api_1.bucketsListPath(connection, bucketKey, path);
+        const files = [];
+        const dirs = [];
+        if (tree.item) {
+            for (const obj of tree.item.items) {
+                if (obj.name === '.textileseed')
+                    continue;
+                if (obj.isDir) {
+                    dirs.push(`${path}/${obj.name}`);
+                }
+                else {
+                    files.push(`${path}/${obj.name}`);
+                }
+            }
+        }
+        return { files, dirs };
+    });
+}
+function getTree(connection, bucketKey, path = '/') {
+    return __awaiter(this, void 0, void 0, function* () {
+        const leafs = [];
+        const folders = [];
+        const nodes = [];
+        const { files, dirs } = yield getNextNode(connection, bucketKey, path);
+        leafs.push(...files);
+        folders.push(...dirs);
+        nodes.push(...dirs);
+        while (nodes.length > 0) {
+            const dir = nodes.pop();
+            if (!dir)
+                continue;
+            const { files, dirs } = yield getNextNode(connection, bucketKey, dir);
+            leafs.push(...files);
+            folders.push(...dirs);
+            nodes.push(...dirs);
+        }
+        return new BucketTree(folders, leafs);
+    });
+}
+function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
+    var e_1, _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const target = api.trim() != '' ? api.trim() : undefined;
+        const response = new Map();
+        if (!key || key.trim() === '') {
+            throw Error('Credentials required');
+        }
+        const keyInfo = {
+            key,
+            secret,
+        };
+        const expire = new Date(Date.now() + 1000 * 1800); // 10min expiration
+        const ctx = yield new context_1.Context(target);
+        yield ctx.withKeyInfo(keyInfo, expire);
+        if (thread.trim() === '') {
+            throw Error('Existing thread required');
+        }
+        ctx.withThread(thread);
+        const connection = new grpc_connection_1.GrpcConnection(ctx);
+        if (name.trim() === '') {
+            throw Error('Every bucket needs a name');
+        }
+        const roots = yield api_1.bucketsList(connection);
+        const existing = roots.find((bucket) => bucket.name === name);
+        if (remove === 'true') {
+            if (existing) {
+                yield api_1.bucketsRemove(connection, existing.key);
+                response.set('success', 'true');
+                return response;
+            }
+            else {
+                throw Error('Bucket not found');
+            }
+        }
+        let bucketKey = '';
+        if (existing) {
+            bucketKey = existing.key;
+        }
+        else {
+            const created = yield api_1.bucketsCreate(connection, name);
+            if (!created.root) {
+                throw Error('Failed to create bucket');
+            }
+            bucketKey = created.root.key;
+        }
+        const pathTree = yield getTree(connection, bucketKey, '');
+        const cwd = path_1.default.join(home, dir);
+        const options = {
+            cwd,
+            nodir: true,
+        };
+        const files = yield globDir(pattern, options);
+        if (files.length === 0) {
+            throw Error(`No files found: ${dir}`);
+        }
+        let streams = [];
+        for (const file of files) {
+            pathTree.remove(`/${file}`);
+            const stream = fs_1.default.createReadStream(path_1.default.join(cwd, file), {
+                highWaterMark: api_1.CHUNK_SIZE,
+            });
+            streams.push({
+                path: file,
+                content: stream,
+            });
+        }
+        // avoid requesting new head on every push path
+        let root = yield api_1.bucketsRoot(connection, bucketKey);
+        let raw;
+        try {
+            for (var _b = __asyncValues(api_1.bucketsPushPaths(connection, bucketKey, streams, { root })), _c; _c = yield _b.next(), !_c.done;) {
+                raw = _c.value;
+                root = raw.root;
+            }
+        }
+        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        finally {
+            try {
+                if (_c && !_c.done && (_a = _b.return)) yield _a.call(_b);
+            }
+            finally { if (e_1) throw e_1.error; }
+        }
+        if (!raw) {
+            throw Error(`Failed to push data`);
+        }
+        // ensure latest root
+        root = yield api_1.bucketsRoot(connection, bucketKey);
+        for (const orphan of pathTree.getDeletes()) {
+            const rm = yield api_1.bucketsRemovePath(connection, bucketKey, orphan, { root });
+            root = rm.root;
+        }
+        const links = yield api_1.bucketsLinks(connection, bucketKey, '/');
+        const ipfs = !root ? '' : typeof root == 'string' ? root : root.path;
+        response.set('ipfs', ipfs.replace('/ipfs/', ''));
+        response.set('ipfsUrl', `https://hub.textile.io${ipfs}`);
+        const ipnsData = links.ipns.split('/');
+        const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : '';
+        response.set('ipns', ipns);
+        response.set('ipnsUrl', `${links.ipns}`);
+        response.set('www', `${links.www}`);
+        response.set('hub', `${links.url}`);
+        response.set('key', `${bucketKey}`);
+        return response;
+    });
+}
+exports.execute = execute;
+function apiConn(key, secret, thread, target) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const keyInfo = {
+            key,
+            secret,
+        };
+        const expire = new Date(Date.now() + 1000 * 1800); // 10min expiration
+        const ctx = yield new context_1.Context(target);
+        yield ctx.withKeyInfo(keyInfo, expire);
+        if (thread.trim() === '') {
+            throw Error('Existing thread required');
+        }
+        ctx.withThread(thread);
+        const conn = new grpc_connection_1.GrpcConnection(ctx);
+        return conn;
+    });
+}
+exports.apiConn = apiConn;
+function toDateString(date) {
+    var d = new Date(date / 1000000);
+    return d.toLocaleDateString("en-US");
+}
+exports.toDateString = toDateString;
+function getJSONTree(connection, bucketKey, name, path = '/') {
+    return __awaiter(this, void 0, void 0, function* () {
+        const res = {
+            key: bucketKey,
+            path: "/",
+            name: name,
+            type: "root",
+            children: []
+        };
+        const { files, dirs } = yield getNextNode(connection, bucketKey, path);
+        for (const file of files) {
+            res.children.push({
+                path: file.split('/').reverse()[0],
+                name: file,
+                type: "file",
+                children: []
+            });
+        }
+        for (const dir of dirs) {
+            const path = yield jsonPath(connection, bucketKey, dir);
+            res.children.push(path);
+        }
+        return res;
+    });
+}
+exports.getJSONTree = getJSONTree;
+function jsonPath(connection, bucketKey, dir) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const dirNode = {
+            name: dir.split('/').reverse()[0],
+            path: dir,
+            type: "directory",
+            children: []
+        };
+        const { files, dirs } = yield getNextNode(connection, bucketKey, dir);
+        for (const file of files) {
+            dirNode.children.push({
+                name: file.split('/').reverse()[0],
+                path: file,
+                type: "file",
+                children: []
+            });
+        }
+        for (const dir of dirs) {
+            const path = yield jsonPath(connection, bucketKey, dir);
+            dirNode.children.push(path);
+        }
+        return dirNode;
+    });
+}
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -16327,265 +16975,6 @@ exports.SlidingBuffer = SlidingBuffer;
 
 /***/ }),
 
-/***/ 156:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.execute = void 0;
-const fs_1 = __importDefault(__webpack_require__(747));
-const path_1 = __importDefault(__webpack_require__(622));
-const util_1 = __importDefault(__webpack_require__(669));
-const glob_1 = __importDefault(__webpack_require__(402));
-const api_1 = __webpack_require__(582);
-const context_1 = __webpack_require__(783);
-const grpc_connection_1 = __webpack_require__(556);
-const readFile = util_1.default.promisify(fs_1.default.readFile);
-const globDir = util_1.default.promisify(glob_1.default);
-function chunkBuffer(content) {
-    const size = 1024 * 1024 * 3;
-    const result = [];
-    const len = content.length;
-    let i = 0;
-    while (i < len) {
-        result.push(content.slice(i, (i += size)));
-    }
-    return result;
-}
-class BucketTree {
-    constructor(folders = [], leafs = []) {
-        this.folders = folders;
-        this.leafs = leafs;
-    }
-    removeFolder(folder) {
-        const knownIndex = this.folders.indexOf(folder);
-        if (knownIndex > -1) {
-            this.folders.splice(knownIndex, 1);
-        }
-        return knownIndex;
-    }
-    removeLeaf(path) {
-        const knownIndex = this.leafs.indexOf(path);
-        if (knownIndex > -1) {
-            this.leafs.splice(knownIndex, 1);
-        }
-        return knownIndex;
-    }
-    remove(path) {
-        if (path[0] !== '/')
-            throw new Error('Unsupported path');
-        const knownLeaf = this.removeLeaf(path);
-        if (knownLeaf > -1) {
-            let folder = `${path}`.replace(/\/[^\/]+$/, '');
-            while (folder.length > 0) {
-                // remove last folder
-                this.removeFolder(folder);
-                folder = folder.replace(/\/[^\/]+$/, '');
-            }
-        }
-    }
-    getDeletes() {
-        let dirCount = this.folders.length;
-        let sorted = this.folders.sort((a, b) => a.length - b.length);
-        for (let i = 0; i < dirCount; i++) {
-            const folder = sorted[i];
-            if (!folder)
-                continue;
-            const reindex = false;
-            const folderDeletions = [];
-            for (const look of this.folders) {
-                if (look.startsWith(`${folder}/`)) {
-                    folderDeletions.push(look);
-                }
-            }
-            folderDeletions.forEach((drop) => this.removeFolder(drop));
-            const fileDeleteions = [];
-            for (const look of this.leafs) {
-                if (look.startsWith(`${folder}/`)) {
-                    fileDeleteions.push(look);
-                }
-            }
-            fileDeleteions.forEach((drop) => this.removeLeaf(drop));
-            if (reindex) {
-                sorted = this.folders.sort((a, b) => a.length - b.length);
-                dirCount = this.folders.length;
-            }
-        }
-        return [...this.leafs, ...this.folders];
-    }
-}
-function getNextNode(connection, bucketKey, path) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const tree = yield api_1.bucketsListPath(connection, bucketKey, path);
-        const files = [];
-        const dirs = [];
-        if (tree.item) {
-            for (const obj of tree.item.items) {
-                if (obj.name === '.textileseed')
-                    continue;
-                if (obj.isDir) {
-                    dirs.push(`${path}/${obj.name}`);
-                }
-                else {
-                    files.push(`${path}/${obj.name}`);
-                }
-            }
-        }
-        return { files, dirs };
-    });
-}
-function getTree(connection, bucketKey, path = '/') {
-    return __awaiter(this, void 0, void 0, function* () {
-        const leafs = [];
-        const folders = [];
-        const nodes = [];
-        const { files, dirs } = yield getNextNode(connection, bucketKey, path);
-        leafs.push(...files);
-        folders.push(...dirs);
-        nodes.push(...dirs);
-        while (nodes.length > 0) {
-            const dir = nodes.pop();
-            if (!dir)
-                continue;
-            const { files, dirs } = yield getNextNode(connection, bucketKey, dir);
-            leafs.push(...files);
-            folders.push(...dirs);
-            nodes.push(...dirs);
-        }
-        return new BucketTree(folders, leafs);
-    });
-}
-function execute(api, key, secret, thread, name, remove, pattern, dir, home) {
-    var e_1, _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        const target = api.trim() != '' ? api.trim() : undefined;
-        const response = new Map();
-        if (!key || key.trim() === '') {
-            throw Error('Credentials required');
-        }
-        const keyInfo = {
-            key,
-            secret,
-        };
-        const expire = new Date(Date.now() + 1000 * 1800); // 10min expiration
-        const ctx = yield new context_1.Context(target);
-        yield ctx.withKeyInfo(keyInfo, expire);
-        if (thread.trim() === '') {
-            throw Error('Existing thread required');
-        }
-        ctx.withThread(thread);
-        const connection = new grpc_connection_1.GrpcConnection(ctx);
-        if (name.trim() === '') {
-            throw Error('Every bucket needs a name');
-        }
-        const roots = yield api_1.bucketsList(connection);
-        const existing = roots.find((bucket) => bucket.name === name);
-        if (remove === 'true') {
-            if (existing) {
-                yield api_1.bucketsRemove(connection, existing.key);
-                response.set('success', 'true');
-                return response;
-            }
-            else {
-                throw Error('Bucket not found');
-            }
-        }
-        let bucketKey = '';
-        if (existing) {
-            bucketKey = existing.key;
-        }
-        else {
-            const created = yield api_1.bucketsCreate(connection, name);
-            if (!created.root) {
-                throw Error('Failed to create bucket');
-            }
-            bucketKey = created.root.key;
-        }
-        const pathTree = yield getTree(connection, bucketKey, '');
-        const cwd = path_1.default.join(home, dir);
-        const options = {
-            cwd,
-            nodir: true,
-        };
-        const files = yield globDir(pattern, options);
-        if (files.length === 0) {
-            throw Error(`No files found: ${dir}`);
-        }
-        let streams = [];
-        for (const file of files) {
-            pathTree.remove(`/${file}`);
-            const stream = fs_1.default.createReadStream(path_1.default.join(cwd, file), {
-                highWaterMark: api_1.CHUNK_SIZE,
-            });
-            streams.push({
-                path: file,
-                content: stream,
-            });
-        }
-        // avoid requesting new head on every push path
-        let root = yield api_1.bucketsRoot(connection, bucketKey);
-        let raw;
-        try {
-            for (var _b = __asyncValues(api_1.bucketsPushPaths(connection, bucketKey, streams, { root })), _c; _c = yield _b.next(), !_c.done;) {
-                raw = _c.value;
-                root = raw.root;
-            }
-        }
-        catch (e_1_1) { e_1 = { error: e_1_1 }; }
-        finally {
-            try {
-                if (_c && !_c.done && (_a = _b.return)) yield _a.call(_b);
-            }
-            finally { if (e_1) throw e_1.error; }
-        }
-        if (!raw) {
-            throw Error(`Failed to push data`);
-        }
-        // ensure latest root
-        root = yield api_1.bucketsRoot(connection, bucketKey);
-        for (const orphan of pathTree.getDeletes()) {
-            const rm = yield api_1.bucketsRemovePath(connection, bucketKey, orphan, { root });
-            root = rm.root;
-        }
-        const links = yield api_1.bucketsLinks(connection, bucketKey, '/');
-        const ipfs = !root ? '' : typeof root == 'string' ? root : root.path;
-        response.set('ipfs', ipfs);
-        response.set('ipfsUrl', `https://hub.textile.io/ipfs/${ipfs}`);
-        const ipnsData = links.ipns.split('/');
-        const ipns = ipnsData.length > 0 ? ipnsData[ipnsData.length - 1] : '';
-        response.set('ipns', ipns);
-        response.set('ipnsUrl', `${links.ipns}`);
-        response.set('www', `${links.www}`);
-        response.set('hub', `${links.url}`);
-        response.set('key', `${bucketKey}`);
-        return response;
-    });
-}
-exports.execute = execute;
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
 /***/ 188:
 /***/ (function(__unusedmodule, exports) {
 
@@ -17151,7 +17540,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(__webpack_require__(470));
-const buck_util_1 = __webpack_require__(156);
+const buckr_1 = __webpack_require__(148);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         const api = core.getInput('api') || '';
@@ -17164,7 +17553,7 @@ function run() {
         const dir = core.getInput('path') || '';
         const home = core.getInput('home') || './';
         try {
-            const result = yield buck_util_1.execute(api, key, secret, thread, bucketName, remove, pattern, dir, home);
+            const result = yield buckr_1.execute(api, key, secret, thread, bucketName, remove, pattern, dir, home);
             result.forEach((value, key) => core.setOutput(key, value));
         }
         catch (error) {
@@ -19671,886 +20060,6 @@ module.exports = drain
 
 /***/ }),
 
-/***/ 322:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-// package: api.bucketsd.pb
-// file: api/bucketsd/pb/bucketsd.proto
-
-var api_bucketsd_pb_bucketsd_pb = __webpack_require__(3);
-var grpc = __webpack_require__(837).grpc;
-
-var APIService = (function () {
-  function APIService() {}
-  APIService.serviceName = "api.bucketsd.pb.APIService";
-  return APIService;
-}());
-
-APIService.List = {
-  methodName: "List",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.ListRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.ListResponse
-};
-
-APIService.Create = {
-  methodName: "Create",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.CreateRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.CreateResponse
-};
-
-APIService.Root = {
-  methodName: "Root",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.RootRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.RootResponse
-};
-
-APIService.Links = {
-  methodName: "Links",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.LinksRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.LinksResponse
-};
-
-APIService.ListPath = {
-  methodName: "ListPath",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.ListPathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.ListPathResponse
-};
-
-APIService.ListIpfsPath = {
-  methodName: "ListIpfsPath",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.ListIpfsPathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.ListIpfsPathResponse
-};
-
-APIService.PushPath = {
-  methodName: "PushPath",
-  service: APIService,
-  requestStream: true,
-  responseStream: true,
-  requestType: api_bucketsd_pb_bucketsd_pb.PushPathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.PushPathResponse
-};
-
-APIService.PushPaths = {
-  methodName: "PushPaths",
-  service: APIService,
-  requestStream: true,
-  responseStream: true,
-  requestType: api_bucketsd_pb_bucketsd_pb.PushPathsRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.PushPathsResponse
-};
-
-APIService.PullPath = {
-  methodName: "PullPath",
-  service: APIService,
-  requestStream: false,
-  responseStream: true,
-  requestType: api_bucketsd_pb_bucketsd_pb.PullPathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.PullPathResponse
-};
-
-APIService.PullIpfsPath = {
-  methodName: "PullIpfsPath",
-  service: APIService,
-  requestStream: false,
-  responseStream: true,
-  requestType: api_bucketsd_pb_bucketsd_pb.PullIpfsPathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.PullIpfsPathResponse
-};
-
-APIService.SetPath = {
-  methodName: "SetPath",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.SetPathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.SetPathResponse
-};
-
-APIService.Remove = {
-  methodName: "Remove",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.RemoveRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.RemoveResponse
-};
-
-APIService.RemovePath = {
-  methodName: "RemovePath",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.RemovePathRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.RemovePathResponse
-};
-
-APIService.PushPathAccessRoles = {
-  methodName: "PushPathAccessRoles",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.PushPathAccessRolesRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.PushPathAccessRolesResponse
-};
-
-APIService.PullPathAccessRoles = {
-  methodName: "PullPathAccessRoles",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.PullPathAccessRolesRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.PullPathAccessRolesResponse
-};
-
-APIService.DefaultArchiveConfig = {
-  methodName: "DefaultArchiveConfig",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.DefaultArchiveConfigRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.DefaultArchiveConfigResponse
-};
-
-APIService.SetDefaultArchiveConfig = {
-  methodName: "SetDefaultArchiveConfig",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.SetDefaultArchiveConfigRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.SetDefaultArchiveConfigResponse
-};
-
-APIService.Archive = {
-  methodName: "Archive",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.ArchiveRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.ArchiveResponse
-};
-
-APIService.Archives = {
-  methodName: "Archives",
-  service: APIService,
-  requestStream: false,
-  responseStream: false,
-  requestType: api_bucketsd_pb_bucketsd_pb.ArchivesRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.ArchivesResponse
-};
-
-APIService.ArchiveWatch = {
-  methodName: "ArchiveWatch",
-  service: APIService,
-  requestStream: false,
-  responseStream: true,
-  requestType: api_bucketsd_pb_bucketsd_pb.ArchiveWatchRequest,
-  responseType: api_bucketsd_pb_bucketsd_pb.ArchiveWatchResponse
-};
-
-exports.APIService = APIService;
-
-function APIServiceClient(serviceHost, options) {
-  this.serviceHost = serviceHost;
-  this.options = options || {};
-}
-
-APIServiceClient.prototype.list = function list(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.List, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.create = function create(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.Create, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.root = function root(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.Root, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.links = function links(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.Links, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.listPath = function listPath(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.ListPath, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.listIpfsPath = function listIpfsPath(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.ListIpfsPath, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.pushPath = function pushPath(metadata) {
-  var listeners = {
-    data: [],
-    end: [],
-    status: []
-  };
-  var client = grpc.client(APIService.PushPath, {
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport
-  });
-  client.onEnd(function (status, statusMessage, trailers) {
-    listeners.status.forEach(function (handler) {
-      handler({ code: status, details: statusMessage, metadata: trailers });
-    });
-    listeners.end.forEach(function (handler) {
-      handler({ code: status, details: statusMessage, metadata: trailers });
-    });
-    listeners = null;
-  });
-  client.onMessage(function (message) {
-    listeners.data.forEach(function (handler) {
-      handler(message);
-    })
-  });
-  client.start(metadata);
-  return {
-    on: function (type, handler) {
-      listeners[type].push(handler);
-      return this;
-    },
-    write: function (requestMessage) {
-      client.send(requestMessage);
-      return this;
-    },
-    end: function () {
-      client.finishSend();
-    },
-    cancel: function () {
-      listeners = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.pushPaths = function pushPaths(metadata) {
-  var listeners = {
-    data: [],
-    end: [],
-    status: []
-  };
-  var client = grpc.client(APIService.PushPaths, {
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport
-  });
-  client.onEnd(function (status, statusMessage, trailers) {
-    listeners.status.forEach(function (handler) {
-      handler({ code: status, details: statusMessage, metadata: trailers });
-    });
-    listeners.end.forEach(function (handler) {
-      handler({ code: status, details: statusMessage, metadata: trailers });
-    });
-    listeners = null;
-  });
-  client.onMessage(function (message) {
-    listeners.data.forEach(function (handler) {
-      handler(message);
-    })
-  });
-  client.start(metadata);
-  return {
-    on: function (type, handler) {
-      listeners[type].push(handler);
-      return this;
-    },
-    write: function (requestMessage) {
-      client.send(requestMessage);
-      return this;
-    },
-    end: function () {
-      client.finishSend();
-    },
-    cancel: function () {
-      listeners = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.pullPath = function pullPath(requestMessage, metadata) {
-  var listeners = {
-    data: [],
-    end: [],
-    status: []
-  };
-  var client = grpc.invoke(APIService.PullPath, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onMessage: function (responseMessage) {
-      listeners.data.forEach(function (handler) {
-        handler(responseMessage);
-      });
-    },
-    onEnd: function (status, statusMessage, trailers) {
-      listeners.status.forEach(function (handler) {
-        handler({ code: status, details: statusMessage, metadata: trailers });
-      });
-      listeners.end.forEach(function (handler) {
-        handler({ code: status, details: statusMessage, metadata: trailers });
-      });
-      listeners = null;
-    }
-  });
-  return {
-    on: function (type, handler) {
-      listeners[type].push(handler);
-      return this;
-    },
-    cancel: function () {
-      listeners = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.pullIpfsPath = function pullIpfsPath(requestMessage, metadata) {
-  var listeners = {
-    data: [],
-    end: [],
-    status: []
-  };
-  var client = grpc.invoke(APIService.PullIpfsPath, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onMessage: function (responseMessage) {
-      listeners.data.forEach(function (handler) {
-        handler(responseMessage);
-      });
-    },
-    onEnd: function (status, statusMessage, trailers) {
-      listeners.status.forEach(function (handler) {
-        handler({ code: status, details: statusMessage, metadata: trailers });
-      });
-      listeners.end.forEach(function (handler) {
-        handler({ code: status, details: statusMessage, metadata: trailers });
-      });
-      listeners = null;
-    }
-  });
-  return {
-    on: function (type, handler) {
-      listeners[type].push(handler);
-      return this;
-    },
-    cancel: function () {
-      listeners = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.setPath = function setPath(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.SetPath, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.remove = function remove(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.Remove, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.removePath = function removePath(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.RemovePath, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.pushPathAccessRoles = function pushPathAccessRoles(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.PushPathAccessRoles, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.pullPathAccessRoles = function pullPathAccessRoles(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.PullPathAccessRoles, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.defaultArchiveConfig = function defaultArchiveConfig(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.DefaultArchiveConfig, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.setDefaultArchiveConfig = function setDefaultArchiveConfig(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.SetDefaultArchiveConfig, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.archive = function archive(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.Archive, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.archives = function archives(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(APIService.Archives, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-APIServiceClient.prototype.archiveWatch = function archiveWatch(requestMessage, metadata) {
-  var listeners = {
-    data: [],
-    end: [],
-    status: []
-  };
-  var client = grpc.invoke(APIService.ArchiveWatch, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onMessage: function (responseMessage) {
-      listeners.data.forEach(function (handler) {
-        handler(responseMessage);
-      });
-    },
-    onEnd: function (status, statusMessage, trailers) {
-      listeners.status.forEach(function (handler) {
-        handler({ code: status, details: statusMessage, metadata: trailers });
-      });
-      listeners.end.forEach(function (handler) {
-        handler({ code: status, details: statusMessage, metadata: trailers });
-      });
-      listeners = null;
-    }
-  });
-  return {
-    on: function (type, handler) {
-      listeners[type].push(handler);
-      return this;
-    },
-    cancel: function () {
-      listeners = null;
-      client.close();
-    }
-  };
-};
-
-exports.APIServiceClient = APIServiceClient;
-
-
-
-/***/ }),
-
 /***/ 330:
 /***/ (function(module) {
 
@@ -22157,6 +21666,867 @@ Glob.prototype._stat2 = function (f, abs, er, stat, cb) {
 
 /***/ }),
 
+/***/ 407:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchives = exports.bucketsArchive = exports.bucketsSetDefaultArchiveConfig = exports.bucketsDefaultArchiveConfig = exports.bucketsPullPathAccessRoles = exports.bucketsPushPathAccessRoles = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPaths = exports.bucketsPushPath = exports.bucketsMovePath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.genChunks = exports.CHUNK_SIZE = void 0;
+const grpc_web_1 = __webpack_require__(837);
+const repeater_1 = __webpack_require__(154);
+const bucketsd_pb_1 = __webpack_require__(91);
+const bucketsd_pb_service_1 = __webpack_require__(499);
+const context_1 = __webpack_require__(783);
+const grpc_transport_1 = __webpack_require__(282);
+const cids_1 = __importDefault(__webpack_require__(437));
+const it_drain_1 = __importDefault(__webpack_require__(319));
+const loglevel_1 = __importDefault(__webpack_require__(104));
+// @ts-expect-error
+const paramap_it_1 = __importDefault(__webpack_require__(994));
+const types_1 = __webpack_require__(636);
+const normalize_1 = __webpack_require__(46);
+const logger = loglevel_1.default.getLogger('buckets-api');
+function fromPbRootObject(root) {
+    return {
+        key: root.getKey(),
+        name: root.getName(),
+        path: root.getPath(),
+        createdAt: root.getCreatedAt(),
+        updatedAt: root.getUpdatedAt(),
+        thread: root.getThread(),
+    };
+}
+function fromPbRootObjectNullable(root) {
+    if (!root)
+        return;
+    return fromPbRootObject(root);
+}
+function fromPbMetadata(metadata) {
+    if (!metadata)
+        return;
+    const roles = metadata.getRolesMap();
+    const typedRoles = new Map();
+    roles.forEach((entry, key) => typedRoles.set(key, entry));
+    const response = {
+        updatedAt: metadata.getUpdatedAt(),
+        roles: typedRoles,
+    };
+    return response;
+}
+exports.CHUNK_SIZE = 1024;
+function fromPbPathItem(item) {
+    const list = item.getItemsList();
+    return {
+        cid: item.getCid(),
+        name: item.getName(),
+        path: item.getPath(),
+        size: item.getSize(),
+        isDir: item.getIsDir(),
+        items: list ? list.map(fromPbPathItem) : [],
+        count: item.getItemsCount(),
+        metadata: fromPbMetadata(item.getMetadata()),
+    };
+}
+function fromPbPathItemNullable(item) {
+    if (!item)
+        return;
+    return fromPbPathItem(item);
+}
+function fromProtoArchiveRenew(item) {
+    return Object.assign({}, item);
+}
+function fromProtoArchiveConfig(item) {
+    return Object.assign(Object.assign({}, item), { countryCodes: item.countryCodesList, excludedMiners: item.excludedMinersList, trustedMiners: item.trustedMinersList, renew: item.renew ? fromProtoArchiveRenew(item.renew) : undefined });
+}
+function toProtoArchiveConfig(config) {
+    const protoConfig = new bucketsd_pb_1.ArchiveConfig();
+    protoConfig.setCountryCodesList(config.countryCodes);
+    protoConfig.setDealMinDuration(config.dealMinDuration);
+    protoConfig.setDealStartOffset(config.dealStartOffset);
+    protoConfig.setExcludedMinersList(config.excludedMiners);
+    protoConfig.setFastRetrieval(config.fastRetrieval);
+    protoConfig.setMaxPrice(config.maxPrice);
+    protoConfig.setRepFactor(config.repFactor);
+    protoConfig.setTrustedMinersList(config.trustedMiners);
+    if (config.renew) {
+        const renew = new bucketsd_pb_1.ArchiveRenew();
+        renew.setEnabled(config.renew.enabled);
+        renew.setThreshold(config.renew.threshold);
+        protoConfig.setRenew(renew);
+    }
+    return protoConfig;
+}
+function fromPbDealInfo(item) {
+    return Object.assign({}, item);
+}
+function fromPbArchiveStatus(item) {
+    switch (item) {
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_CANCELED:
+            return types_1.ArchiveStatus.Canceled;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_EXECUTING:
+            return types_1.ArchiveStatus.Executing;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_FAILED:
+            return types_1.ArchiveStatus.Failed;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_QUEUED:
+            return types_1.ArchiveStatus.Queued;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_SUCCESS:
+            return types_1.ArchiveStatus.Success;
+        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_UNSPECIFIED:
+            return types_1.ArchiveStatus.Unspecified;
+        default:
+            throw new Error('unknown status');
+    }
+}
+function fromPbArchive(item) {
+    return Object.assign(Object.assign({}, item), { 
+        // TODO: standardize units coming from server.
+        createdAt: new Date(item.createdAt * 1000), status: fromPbArchiveStatus(item.archiveStatus), dealInfo: item.dealInfoList.map(fromPbDealInfo) });
+}
+/**
+ * Ensures that a Root | string | undefined is converted into a string
+ */
+function ensureRootString(api, key, root, ctx) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        if (root) {
+            return typeof root === 'string' ? root : root.path;
+        }
+        else {
+            /* eslint-disable  @typescript-eslint/no-use-before-define */
+            const root = yield bucketsRoot(api, key, ctx);
+            return (_a = root === null || root === void 0 ? void 0 : root.path) !== null && _a !== void 0 ? _a : '';
+        }
+    });
+}
+function* genChunks(value, size) {
+    return yield* Array.from(Array(Math.ceil(value.byteLength / size)), (_, i) => value.slice(i * size, i * size + size));
+}
+exports.genChunks = genChunks;
+/**
+ * Creates a new bucket.
+ * @public
+ * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
+ * @param isPrivate encrypt the bucket contents (default `false`)
+ * @param cid (optional) Bootstrap the bucket with a UnixFS Cid from the IPFS network
+ * @example
+ * Creates a Bucket called "app-name-files"
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const create = async (buckets: Buckets) => {
+ *     return buckets.create("app-name-files")
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsCreate(api, name, isPrivate = false, cid, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('create request');
+        const req = new bucketsd_pb_1.CreateRequest();
+        req.setName(name);
+        if (cid) {
+            req.setBootstrapCid(cid);
+        }
+        req.setPrivate(isPrivate);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Create, req, ctx);
+        const links = res.getLinks();
+        return {
+            seed: res.getSeed_asU8(),
+            seedCid: res.getSeedCid(),
+            root: fromPbRootObjectNullable(res.getRoot()),
+            links: links ? links.toObject() : undefined,
+        };
+    });
+}
+exports.bucketsCreate = bucketsCreate;
+/**
+ * Returns the bucket root CID
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
+ */
+function bucketsRoot(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('root request');
+        const req = new bucketsd_pb_1.RootRequest();
+        req.setKey(key);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Root, req, ctx);
+        return fromPbRootObjectNullable(res.getRoot());
+    });
+}
+exports.bucketsRoot = bucketsRoot;
+/**
+ * Returns a list of bucket links.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @example
+ * Generate the HTTP, IPNS, and IPFS links for a Bucket
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const getLinks = async (buckets: Buckets) => {
+ *    const links = buckets.links(bucketKey)
+ *    return links.ipfs
+ * }
+ *
+ * const getIpfs = async (buckets: Buckets) => {
+ *    const links = buckets.links(bucketKey)
+ *    return links.ipfs
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsLinks(api, key, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('link request');
+        const req = new bucketsd_pb_1.LinksRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Links, req, ctx);
+        return res.toObject();
+    });
+}
+exports.bucketsLinks = bucketsLinks;
+/**
+ * Returns a list of all bucket roots.
+ * @example
+ * Find an existing Bucket named "app-name-files"
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const exists = async (buckets: Buckets) => {
+ *     const roots = await buckets.list();
+ *     return roots.find((bucket) => bucket.name ===  "app-name-files")
+ * }
+ * ```
+ *
+ * @internal
+ */
+function bucketsList(api, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list request');
+        const req = new bucketsd_pb_1.ListRequest();
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.List, req, ctx);
+        const roots = res.getRootsList();
+        const map = roots ? roots.map((m) => m).map((m) => fromPbRootObject(m)) : [];
+        return map;
+    });
+}
+exports.bucketsList = bucketsList;
+/**
+ * Returns information about a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ *
+ * @internal
+ */
+function bucketsListPath(api, key, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list path request');
+        const req = new bucketsd_pb_1.ListPathRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListPath, req, ctx);
+        return {
+            item: fromPbPathItemNullable(res.getItem()),
+            root: fromPbRootObjectNullable(res.getRoot()),
+        };
+    });
+}
+exports.bucketsListPath = bucketsListPath;
+/**
+ * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
+ * @param path UnixFS path
+ *
+ * @internal
+ */
+function bucketsListIpfsPath(api, path, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('list path request');
+        const req = new bucketsd_pb_1.ListIpfsPathRequest();
+        req.setPath(path);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListIpfsPath, req, ctx);
+        return fromPbPathItemNullable(res.getItem());
+    });
+}
+exports.bucketsListIpfsPath = bucketsListIpfsPath;
+/**
+ * Move a file or subpath to a new path.
+ * @internal
+ */
+function bucketsMovePath(api, key, fromPath, toPath, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const request = new bucketsd_pb_1.MovePathRequest();
+        request.setKey(key);
+        request.setFromPath(fromPath);
+        request.setToPath(toPath);
+        yield api.unary(bucketsd_pb_service_1.APIService.MovePath, request, ctx);
+    });
+}
+exports.bucketsMovePath = bucketsMovePath;
+/**
+ * Pushes a file to a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param input The input file/stream/object.
+ * @param opts Options to control response stream.
+ * @remarks
+ * This will return the resolved path and the bucket's new root path.
+ * @example
+ * Push a file to the root of a bucket
+ * ```typescript
+ * import { Buckets } from '@textile/hub'
+ *
+ * const pushFile = async (content: string, bucketKey: string) => {
+ *    const file = { path: '/index.html', content: Buffer.from(content) }
+ *    return await buckets.pushPath(bucketKey!, 'index.html', file)
+ * }
+ * ```
+ * @internal
+ */
+function bucketsPushPath(api, key, path, input, opts, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            var e_1, _a;
+            var _b;
+            // Only process the first input if there are more than one
+            const source = (yield normalize_1.normaliseInput(input).next()).value;
+            if (!source) {
+                return reject(types_1.AbortError);
+            }
+            const clientjs = new bucketsd_pb_service_1.APIServiceClient(api.serviceHost, api.rpcOptions);
+            const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            const stream = clientjs.pushPath(metadata);
+            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
+                opts.signal.addEventListener('abort', () => {
+                    stream.cancel();
+                    return reject(types_1.AbortError);
+                });
+            }
+            stream.on('data', (message) => {
+                var _a, _b, _c, _d;
+                // Let's just make sure we haven't aborted this outside this function
+                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
+                    stream.cancel();
+                    return reject(types_1.AbortError);
+                }
+                if (message.hasEvent()) {
+                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
+                    if (event === null || event === void 0 ? void 0 : event.path) {
+                        // TODO: Is there an standard library/tool for this step in JS?
+                        const pth = event.path.startsWith('/ipfs/')
+                            ? event.path.split('/ipfs/')[1]
+                            : event.path;
+                        const cid = new cids_1.default(pth);
+                        const res = {
+                            path: {
+                                path: `/ipfs/${cid === null || cid === void 0 ? void 0 : cid.toString()}`,
+                                cid,
+                                root: cid,
+                                remainder: '',
+                            },
+                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
+                        };
+                        return resolve(res);
+                    }
+                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
+                    }
+                }
+                else {
+                    return reject(new Error('Invalid reply'));
+                }
+            });
+            stream.on('end', (status) => {
+                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
+                    return reject(new Error(status.details));
+                }
+                else {
+                    return reject(new Error('undefined result'));
+                }
+            });
+            stream.on('status', (status) => {
+                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
+                    return reject(new Error(status.details));
+                }
+                else {
+                    return reject(new Error('undefined result'));
+                }
+            });
+            const head = new bucketsd_pb_1.PushPathRequest.Header();
+            head.setPath(source.path || path);
+            head.setKey(key);
+            // Setting root here ensures pushes will error if root is out of date
+            const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+            head.setRoot(root);
+            const req = new bucketsd_pb_1.PushPathRequest();
+            req.setHeader(head);
+            stream.write(req);
+            if (source.content) {
+                try {
+                    for (var _c = __asyncValues(source.content), _d; _d = yield _c.next(), !_d.done;) {
+                        const chunk = _d.value;
+                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
+                            // Let's just make sure we haven't aborted this outside this function
+                            try {
+                                // Should already have been handled
+                                stream.cancel();
+                            }
+                            catch (_e) { } // noop
+                            return reject(types_1.AbortError);
+                        }
+                        // Naively chunk into chunks smaller than CHUNK_SIZE bytes
+                        for (const chunklet of genChunks(chunk, exports.CHUNK_SIZE)) {
+                            const part = new bucketsd_pb_1.PushPathRequest();
+                            part.setChunk(chunklet);
+                            stream.write(part);
+                        }
+                    }
+                }
+                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                finally {
+                    try {
+                        if (_d && !_d.done && (_a = _c.return)) yield _a.call(_c);
+                    }
+                    finally { if (e_1) throw e_1.error; }
+                }
+            }
+            stream.end();
+        }));
+    });
+}
+exports.bucketsPushPath = bucketsPushPath;
+/**
+ * Pushes an iterable of files to a bucket.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param input The input array of file/stream/objects.
+ * @param opts Options to control response stream.
+ * @internal
+ */
+function bucketsPushPaths(api, key, input, opts, ctx) {
+    return new repeater_1.Repeater((push, stop) => __awaiter(this, void 0, void 0, function* () {
+        const clientjs = new bucketsd_pb_service_1.APIServiceClient(api.serviceHost, api.rpcOptions);
+        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+        const stream = clientjs.pushPaths(metadata);
+        if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
+            opts.signal.addEventListener('abort', () => {
+                stream.cancel();
+                throw types_1.AbortError;
+            });
+        }
+        stream.on('data', (message) => {
+            var _a;
+            // Let's just make sure we haven't aborted this outside this function
+            if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
+                stream.cancel();
+                return stop(types_1.AbortError);
+            }
+            const obj = {
+                path: message.getPath(),
+                root: fromPbRootObjectNullable(message.getRoot()),
+                cid: new cids_1.default(message.getCid()),
+                pinned: message.getPinned(),
+                size: message.getSize(),
+            };
+            push(obj);
+        });
+        stream.on('end', (status) => {
+            if (status && status.code !== grpc_web_1.grpc.Code.OK) {
+                return stop(new Error(status.details));
+            }
+            return stop();
+        });
+        stream.on('status', (status) => {
+            if (status && status.code !== grpc_web_1.grpc.Code.OK) {
+                return stop(new Error(status.details));
+            }
+            return stop();
+        });
+        const head = new bucketsd_pb_1.PushPathsRequest.Header();
+        head.setKey(key);
+        // Setting root here ensures pushes will error if root is out of date
+        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+        head.setRoot(root);
+        const req = new bucketsd_pb_1.PushPathsRequest();
+        req.setHeader(head);
+        stream.write(req);
+        // Map the following over the top level inputs for parallel pushes
+        const mapper = ({ path, content }) => { var content_1, content_1_1; return __awaiter(this, void 0, void 0, function* () {
+            var e_2, _a;
+            var _b;
+            const req = new bucketsd_pb_1.PushPathsRequest();
+            const chunk = new bucketsd_pb_1.PushPathsRequest.Chunk();
+            chunk.setPath(path);
+            if (content) {
+                try {
+                    for (content_1 = __asyncValues(content); content_1_1 = yield content_1.next(), !content_1_1.done;) {
+                        const data = content_1_1.value;
+                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
+                            // Let's just make sure we haven't aborted this outside this function
+                            try {
+                                // Should already have been handled
+                                stream.cancel();
+                            }
+                            catch (_c) { } // noop
+                            return stop(types_1.AbortError);
+                        }
+                        // Naively chunk into chunks smaller than CHUNK_SIZE bytes
+                        for (const chunklet of genChunks(data, exports.CHUNK_SIZE)) {
+                            chunk.setData(chunklet);
+                            req.setChunk(chunk);
+                            stream.write(req);
+                        }
+                    }
+                }
+                catch (e_2_1) { e_2 = { error: e_2_1 }; }
+                finally {
+                    try {
+                        if (content_1_1 && !content_1_1.done && (_a = content_1.return)) yield _a.call(content_1);
+                    }
+                    finally { if (e_2) throw e_2.error; }
+                }
+            }
+            // Close out the file
+            const final = new bucketsd_pb_1.PushPathsRequest.Chunk();
+            final.setPath(path);
+            req.setChunk(final);
+            stream.write(req);
+        }); };
+        // We don't care about the top level order, progress is labeled by path
+        yield it_drain_1.default(paramap_it_1.default(normalize_1.normaliseInput(input), mapper, { ordered: false }));
+        stream.end();
+    }));
+}
+exports.bucketsPushPaths = bucketsPushPaths;
+/**
+ * Sets a file at a given bucket path.
+ * @internal
+ */
+function bucketsSetPath(api, key, path, cid, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const request = new bucketsd_pb_1.SetPathRequest();
+        request.setKey(key);
+        request.setPath(path);
+        request.setCid(cid);
+        yield api.unary(bucketsd_pb_service_1.APIService.SetPath, request, ctx);
+    });
+}
+exports.bucketsSetPath = bucketsSetPath;
+/**
+ * Pulls the bucket path, returning the bytes of the given file.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
+ */
+function bucketsPullPath(api, key, path, opts, ctx) {
+    return new repeater_1.Repeater((push, stop) => {
+        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+        const request = new bucketsd_pb_1.PullPathRequest();
+        request.setKey(key);
+        request.setPath(path);
+        let written = 0;
+        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullPath, {
+            host: api.serviceHost,
+            transport: api.rpcOptions.transport,
+            debug: api.rpcOptions.debug,
+            request,
+            metadata,
+            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
+                const chunk = res.getChunk_asU8();
+                written += chunk.byteLength;
+                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                    opts.progress(written);
+                }
+                push(chunk);
+            }),
+            onEnd: (status, message) => __awaiter(this, void 0, void 0, function* () {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    stop(new Error(message));
+                }
+                stop();
+            }),
+        });
+        // Cleanup afterwards
+        stop.then(() => resp.close());
+    });
+}
+exports.bucketsPullPath = bucketsPullPath;
+/**
+ * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param opts Options to control response stream. Currently only supports a progress function.
+ *
+ * @internal
+ */
+function bucketsPullIpfsPath(api, path, opts, ctx) {
+    return new repeater_1.Repeater((push, stop) => {
+        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+        const request = new bucketsd_pb_1.PullIpfsPathRequest();
+        request.setPath(path);
+        let written = 0;
+        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullIpfsPath, {
+            host: api.serviceHost,
+            transport: api.rpcOptions.transport,
+            debug: api.rpcOptions.debug,
+            request,
+            metadata,
+            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
+                const chunk = res.getChunk_asU8();
+                push(chunk);
+                written += chunk.byteLength;
+                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
+                    opts.progress(written);
+                }
+            }),
+            onEnd: (status, message) => __awaiter(this, void 0, void 0, function* () {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    stop(new Error(message));
+                }
+                stop();
+            }),
+        });
+        stop.then(() => resp.close());
+    });
+}
+exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
+/**
+ * Removes an entire bucket. Files and directories will be unpinned.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ *
+ * @internal
+ */
+function bucketsRemove(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove request');
+        const req = new bucketsd_pb_1.RemoveRequest();
+        req.setKey(key);
+        yield api.unary(bucketsd_pb_service_1.APIService.Remove, req, ctx);
+        return;
+    });
+}
+exports.bucketsRemove = bucketsRemove;
+/**
+ * Returns information about a bucket path.
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param path A file/object (sub)-path within a bucket.
+ * @param root optional to specify a root
+ *
+ * @internal
+ */
+function bucketsRemovePath(api, key, path, opts, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new bucketsd_pb_1.RemovePathRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
+        req.setRoot(root);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.RemovePath, req, ctx);
+        return {
+            pinned: res.getPinned(),
+            root: fromPbRootObjectNullable(res.getRoot()),
+        };
+    });
+}
+exports.bucketsRemovePath = bucketsRemovePath;
+function bucketsPushPathAccessRoles(api, key, path, roles, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new bucketsd_pb_1.PushPathAccessRolesRequest();
+        req.setKey(key);
+        req.setPath(path);
+        roles.forEach((value, key) => req.getRolesMap().set(key, value));
+        yield api.unary(bucketsd_pb_service_1.APIService.PushPathAccessRoles, req, ctx);
+        return;
+    });
+}
+exports.bucketsPushPathAccessRoles = bucketsPushPathAccessRoles;
+function bucketsPullPathAccessRoles(api, key, path = '/', ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('remove path request');
+        const req = new bucketsd_pb_1.PullPathAccessRolesRequest();
+        req.setKey(key);
+        req.setPath(path);
+        const response = yield api.unary(bucketsd_pb_service_1.APIService.PullPathAccessRoles, req, ctx);
+        const roles = response.getRolesMap();
+        const typedRoles = new Map();
+        roles.forEach((entry, key) => typedRoles.set(key, entry));
+        return typedRoles;
+    });
+}
+exports.bucketsPullPathAccessRoles = bucketsPullPathAccessRoles;
+/**
+ * @internal
+ */
+function bucketsDefaultArchiveConfig(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('default archive config request');
+        const req = new bucketsd_pb_1.DefaultArchiveConfigRequest();
+        req.setKey(key);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.DefaultArchiveConfig, req, ctx);
+        const config = res.getArchiveConfig();
+        if (!config) {
+            throw new Error('no archive config returned');
+        }
+        return fromProtoArchiveConfig(config.toObject());
+    });
+}
+exports.bucketsDefaultArchiveConfig = bucketsDefaultArchiveConfig;
+/**
+ * @internal
+ */
+function bucketsSetDefaultArchiveConfig(api, key, config, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('set default archive config request');
+        const req = new bucketsd_pb_1.SetDefaultArchiveConfigRequest();
+        req.setKey(key);
+        req.setArchiveConfig(toProtoArchiveConfig(config));
+        yield api.unary(bucketsd_pb_service_1.APIService.SetDefaultArchiveConfig, req, ctx);
+        return;
+    });
+}
+exports.bucketsSetDefaultArchiveConfig = bucketsSetDefaultArchiveConfig;
+/**
+ * archive creates a Filecoin bucket archive.
+ * @internal
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ * @param options Options that control the behavior of the bucket archive
+ */
+function bucketsArchive(api, key, options, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive request');
+        const req = new bucketsd_pb_1.ArchiveRequest();
+        req.setKey(key);
+        if (options === null || options === void 0 ? void 0 : options.archiveConfig) {
+            req.setArchiveConfig(toProtoArchiveConfig(options.archiveConfig));
+        }
+        yield api.unary(bucketsd_pb_service_1.APIService.Archive, req, ctx);
+        return;
+    });
+}
+exports.bucketsArchive = bucketsArchive;
+/**
+ * @internal
+ */
+function bucketsArchives(api, key, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archives request');
+        const req = new bucketsd_pb_1.ArchivesRequest();
+        req.setKey(key);
+        const res = yield api.unary(bucketsd_pb_service_1.APIService.Archives, req, ctx);
+        const current = res.toObject().current;
+        return {
+            current: current ? fromPbArchive(current) : undefined,
+            history: res.toObject().historyList.map(fromPbArchive),
+        };
+    });
+}
+exports.bucketsArchives = bucketsArchives;
+/**
+ * archiveWatch watches status events from a Filecoin bucket archive.
+ * @internal
+ * @param key Unique (IPNS compatible) identifier key for a bucket.
+ */
+function bucketsArchiveWatch(api, key, callback, ctx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        logger.debug('archive watch request');
+        const req = new bucketsd_pb_1.ArchiveWatchRequest();
+        req.setKey(key);
+        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+        const res = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.ArchiveWatch, {
+            host: api.context.host,
+            request: req,
+            metadata,
+            onMessage: (rec) => {
+                const response = {
+                    id: rec.getJsPbMessageId(),
+                    msg: rec.getMsg(),
+                };
+                callback(response);
+            },
+            onEnd: (status, message /** _trailers: grpc.Metadata */) => {
+                if (status !== grpc_web_1.grpc.Code.OK) {
+                    return callback(undefined, new Error(message));
+                }
+                callback();
+            },
+        });
+        return res.close.bind(res);
+    });
+}
+exports.bucketsArchiveWatch = bucketsArchiveWatch;
+/**
+ * Raw API connected needed by Buckets CI code (compile friendly)
+ * see more https://github.com/textileio/github-action-buckets
+ */
+class BucketsGrpcClient {
+    /**
+     * Creates a new gRPC client instance for accessing the Textile Buckets API.
+     * @param context The context to use for interacting with the APIs. Can be modified later.
+     */
+    constructor(context = new context_1.Context(), debug = false) {
+        this.context = context;
+        this.serviceHost = context.host;
+        this.rpcOptions = {
+            transport: grpc_transport_1.WebsocketTransport(),
+            debug,
+        };
+    }
+    unary(methodDescriptor, req, ctx) {
+        return new Promise((resolve, reject) => {
+            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
+            grpc_web_1.grpc.unary(methodDescriptor, {
+                request: req,
+                host: this.serviceHost,
+                transport: this.rpcOptions.transport,
+                debug: this.rpcOptions.debug,
+                metadata,
+                onEnd: (res) => {
+                    const { status, statusMessage, message } = res;
+                    if (status === grpc_web_1.grpc.Code.OK) {
+                        if (message) {
+                            resolve(message);
+                        }
+                        else {
+                            resolve();
+                        }
+                    }
+                    else {
+                        reject(new Error(statusMessage));
+                    }
+                },
+            });
+        });
+    }
+}
+exports.BucketsGrpcClient = BucketsGrpcClient;
+//# sourceMappingURL=index.js.map
+
+/***/ }),
+
 /***/ 413:
 /***/ (function(module) {
 
@@ -22970,6 +23340,926 @@ exports.getState = getState;
 
 /***/ }),
 
+/***/ 499:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+// package: api.bucketsd.pb
+// file: api/bucketsd/pb/bucketsd.proto
+
+var api_bucketsd_pb_bucketsd_pb = __webpack_require__(91);
+var grpc = __webpack_require__(837).grpc;
+
+var APIService = (function () {
+  function APIService() {}
+  APIService.serviceName = "api.bucketsd.pb.APIService";
+  return APIService;
+}());
+
+APIService.List = {
+  methodName: "List",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.ListRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.ListResponse
+};
+
+APIService.Create = {
+  methodName: "Create",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.CreateRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.CreateResponse
+};
+
+APIService.Root = {
+  methodName: "Root",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.RootRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.RootResponse
+};
+
+APIService.Links = {
+  methodName: "Links",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.LinksRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.LinksResponse
+};
+
+APIService.ListPath = {
+  methodName: "ListPath",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.ListPathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.ListPathResponse
+};
+
+APIService.ListIpfsPath = {
+  methodName: "ListIpfsPath",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.ListIpfsPathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.ListIpfsPathResponse
+};
+
+APIService.PushPath = {
+  methodName: "PushPath",
+  service: APIService,
+  requestStream: true,
+  responseStream: true,
+  requestType: api_bucketsd_pb_bucketsd_pb.PushPathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.PushPathResponse
+};
+
+APIService.PushPaths = {
+  methodName: "PushPaths",
+  service: APIService,
+  requestStream: true,
+  responseStream: true,
+  requestType: api_bucketsd_pb_bucketsd_pb.PushPathsRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.PushPathsResponse
+};
+
+APIService.PullPath = {
+  methodName: "PullPath",
+  service: APIService,
+  requestStream: false,
+  responseStream: true,
+  requestType: api_bucketsd_pb_bucketsd_pb.PullPathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.PullPathResponse
+};
+
+APIService.PullIpfsPath = {
+  methodName: "PullIpfsPath",
+  service: APIService,
+  requestStream: false,
+  responseStream: true,
+  requestType: api_bucketsd_pb_bucketsd_pb.PullIpfsPathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.PullIpfsPathResponse
+};
+
+APIService.SetPath = {
+  methodName: "SetPath",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.SetPathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.SetPathResponse
+};
+
+APIService.MovePath = {
+  methodName: "MovePath",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.MovePathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.MovePathResponse
+};
+
+APIService.Remove = {
+  methodName: "Remove",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.RemoveRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.RemoveResponse
+};
+
+APIService.RemovePath = {
+  methodName: "RemovePath",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.RemovePathRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.RemovePathResponse
+};
+
+APIService.PushPathAccessRoles = {
+  methodName: "PushPathAccessRoles",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.PushPathAccessRolesRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.PushPathAccessRolesResponse
+};
+
+APIService.PullPathAccessRoles = {
+  methodName: "PullPathAccessRoles",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.PullPathAccessRolesRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.PullPathAccessRolesResponse
+};
+
+APIService.DefaultArchiveConfig = {
+  methodName: "DefaultArchiveConfig",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.DefaultArchiveConfigRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.DefaultArchiveConfigResponse
+};
+
+APIService.SetDefaultArchiveConfig = {
+  methodName: "SetDefaultArchiveConfig",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.SetDefaultArchiveConfigRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.SetDefaultArchiveConfigResponse
+};
+
+APIService.Archive = {
+  methodName: "Archive",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.ArchiveRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.ArchiveResponse
+};
+
+APIService.Archives = {
+  methodName: "Archives",
+  service: APIService,
+  requestStream: false,
+  responseStream: false,
+  requestType: api_bucketsd_pb_bucketsd_pb.ArchivesRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.ArchivesResponse
+};
+
+APIService.ArchiveWatch = {
+  methodName: "ArchiveWatch",
+  service: APIService,
+  requestStream: false,
+  responseStream: true,
+  requestType: api_bucketsd_pb_bucketsd_pb.ArchiveWatchRequest,
+  responseType: api_bucketsd_pb_bucketsd_pb.ArchiveWatchResponse
+};
+
+exports.APIService = APIService;
+
+function APIServiceClient(serviceHost, options) {
+  this.serviceHost = serviceHost;
+  this.options = options || {};
+}
+
+APIServiceClient.prototype.list = function list(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.List, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.create = function create(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.Create, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.root = function root(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.Root, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.links = function links(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.Links, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.listPath = function listPath(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.ListPath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.listIpfsPath = function listIpfsPath(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.ListIpfsPath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.pushPath = function pushPath(metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.client(APIService.PushPath, {
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport
+  });
+  client.onEnd(function (status, statusMessage, trailers) {
+    listeners.status.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners.end.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners = null;
+  });
+  client.onMessage(function (message) {
+    listeners.data.forEach(function (handler) {
+      handler(message);
+    })
+  });
+  client.start(metadata);
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    write: function (requestMessage) {
+      client.send(requestMessage);
+      return this;
+    },
+    end: function () {
+      client.finishSend();
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.pushPaths = function pushPaths(metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.client(APIService.PushPaths, {
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport
+  });
+  client.onEnd(function (status, statusMessage, trailers) {
+    listeners.status.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners.end.forEach(function (handler) {
+      handler({ code: status, details: statusMessage, metadata: trailers });
+    });
+    listeners = null;
+  });
+  client.onMessage(function (message) {
+    listeners.data.forEach(function (handler) {
+      handler(message);
+    })
+  });
+  client.start(metadata);
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    write: function (requestMessage) {
+      client.send(requestMessage);
+      return this;
+    },
+    end: function () {
+      client.finishSend();
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.pullPath = function pullPath(requestMessage, metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.invoke(APIService.PullPath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onMessage: function (responseMessage) {
+      listeners.data.forEach(function (handler) {
+        handler(responseMessage);
+      });
+    },
+    onEnd: function (status, statusMessage, trailers) {
+      listeners.status.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners.end.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners = null;
+    }
+  });
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.pullIpfsPath = function pullIpfsPath(requestMessage, metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.invoke(APIService.PullIpfsPath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onMessage: function (responseMessage) {
+      listeners.data.forEach(function (handler) {
+        handler(responseMessage);
+      });
+    },
+    onEnd: function (status, statusMessage, trailers) {
+      listeners.status.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners.end.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners = null;
+    }
+  });
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.setPath = function setPath(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.SetPath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.movePath = function movePath(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.MovePath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.remove = function remove(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.Remove, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.removePath = function removePath(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.RemovePath, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.pushPathAccessRoles = function pushPathAccessRoles(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.PushPathAccessRoles, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.pullPathAccessRoles = function pullPathAccessRoles(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.PullPathAccessRoles, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.defaultArchiveConfig = function defaultArchiveConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.DefaultArchiveConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.setDefaultArchiveConfig = function setDefaultArchiveConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.SetDefaultArchiveConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.archive = function archive(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.Archive, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.archives = function archives(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(APIService.Archives, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+APIServiceClient.prototype.archiveWatch = function archiveWatch(requestMessage, metadata) {
+  var listeners = {
+    data: [],
+    end: [],
+    status: []
+  };
+  var client = grpc.invoke(APIService.ArchiveWatch, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onMessage: function (responseMessage) {
+      listeners.data.forEach(function (handler) {
+        handler(responseMessage);
+      });
+    },
+    onEnd: function (status, statusMessage, trailers) {
+      listeners.status.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners.end.forEach(function (handler) {
+        handler({ code: status, details: statusMessage, metadata: trailers });
+      });
+      listeners = null;
+    }
+  });
+  return {
+    on: function (type, handler) {
+      listeners[type].push(handler);
+      return this;
+    },
+    cancel: function () {
+      listeners = null;
+      client.close();
+    }
+  };
+};
+
+exports.APIServiceClient = APIServiceClient;
+
+
+
+/***/ }),
+
 /***/ 507:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -23358,853 +24648,6 @@ exports.isValidStatusCode = (code) => {
   );
 };
 
-
-/***/ }),
-
-/***/ 582:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __asyncValues = (this && this.__asyncValues) || function (o) {
-    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-    var m = o[Symbol.asyncIterator], i;
-    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
-    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
-    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BucketsGrpcClient = exports.bucketsArchiveWatch = exports.bucketsArchives = exports.bucketsArchive = exports.bucketsSetDefaultArchiveConfig = exports.bucketsDefaultArchiveConfig = exports.bucketsPullPathAccessRoles = exports.bucketsPushPathAccessRoles = exports.bucketsRemovePath = exports.bucketsRemove = exports.bucketsPullIpfsPath = exports.bucketsPullPath = exports.bucketsSetPath = exports.bucketsPushPaths = exports.bucketsPushPath = exports.bucketsListIpfsPath = exports.bucketsListPath = exports.bucketsList = exports.bucketsLinks = exports.bucketsRoot = exports.bucketsCreate = exports.genChunks = exports.CHUNK_SIZE = void 0;
-const grpc_web_1 = __webpack_require__(837);
-const repeater_1 = __webpack_require__(154);
-const bucketsd_pb_1 = __webpack_require__(3);
-const bucketsd_pb_service_1 = __webpack_require__(322);
-const context_1 = __webpack_require__(783);
-const grpc_transport_1 = __webpack_require__(282);
-const cids_1 = __importDefault(__webpack_require__(437));
-const it_drain_1 = __importDefault(__webpack_require__(319));
-const loglevel_1 = __importDefault(__webpack_require__(104));
-// @ts-expect-error
-const paramap_it_1 = __importDefault(__webpack_require__(994));
-const types_1 = __webpack_require__(125);
-const normalize_1 = __webpack_require__(29);
-const logger = loglevel_1.default.getLogger('buckets-api');
-function fromPbRootObject(root) {
-    return {
-        key: root.getKey(),
-        name: root.getName(),
-        path: root.getPath(),
-        createdAt: root.getCreatedAt(),
-        updatedAt: root.getUpdatedAt(),
-        thread: root.getThread(),
-    };
-}
-function fromPbRootObjectNullable(root) {
-    if (!root)
-        return;
-    return fromPbRootObject(root);
-}
-function fromPbMetadata(metadata) {
-    if (!metadata)
-        return;
-    const roles = metadata.getRolesMap();
-    const typedRoles = new Map();
-    roles.forEach((entry, key) => typedRoles.set(key, entry));
-    const response = {
-        updatedAt: metadata.getUpdatedAt(),
-        roles: typedRoles,
-    };
-    return response;
-}
-exports.CHUNK_SIZE = 1024;
-function fromPbPathItem(item) {
-    const list = item.getItemsList();
-    return {
-        cid: item.getCid(),
-        name: item.getName(),
-        path: item.getPath(),
-        size: item.getSize(),
-        isDir: item.getIsDir(),
-        items: list ? list.map(fromPbPathItem) : [],
-        count: item.getItemsCount(),
-        metadata: fromPbMetadata(item.getMetadata()),
-    };
-}
-function fromPbPathItemNullable(item) {
-    if (!item)
-        return;
-    return fromPbPathItem(item);
-}
-function fromProtoArchiveRenew(item) {
-    return Object.assign({}, item);
-}
-function fromProtoArchiveConfig(item) {
-    return Object.assign(Object.assign({}, item), { countryCodes: item.countryCodesList, excludedMiners: item.excludedMinersList, trustedMiners: item.trustedMinersList, renew: item.renew ? fromProtoArchiveRenew(item.renew) : undefined });
-}
-function toProtoArchiveConfig(config) {
-    const protoConfig = new bucketsd_pb_1.ArchiveConfig();
-    protoConfig.setCountryCodesList(config.countryCodes);
-    protoConfig.setDealMinDuration(config.dealMinDuration);
-    protoConfig.setDealStartOffset(config.dealStartOffset);
-    protoConfig.setExcludedMinersList(config.excludedMiners);
-    protoConfig.setFastRetrieval(config.fastRetrieval);
-    protoConfig.setMaxPrice(config.maxPrice);
-    protoConfig.setRepFactor(config.repFactor);
-    protoConfig.setTrustedMinersList(config.trustedMiners);
-    if (config.renew) {
-        const renew = new bucketsd_pb_1.ArchiveRenew();
-        renew.setEnabled(config.renew.enabled);
-        renew.setThreshold(config.renew.threshold);
-        protoConfig.setRenew(renew);
-    }
-    return protoConfig;
-}
-function fromPbDealInfo(item) {
-    return Object.assign({}, item);
-}
-function fromPbArchiveStatus(item) {
-    switch (item) {
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_CANCELED:
-            return types_1.ArchiveStatus.Canceled;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_EXECUTING:
-            return types_1.ArchiveStatus.Executing;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_FAILED:
-            return types_1.ArchiveStatus.Failed;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_QUEUED:
-            return types_1.ArchiveStatus.Queued;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_SUCCESS:
-            return types_1.ArchiveStatus.Success;
-        case bucketsd_pb_1.ArchiveStatus.ARCHIVE_STATUS_UNSPECIFIED:
-            return types_1.ArchiveStatus.Unspecified;
-        default:
-            throw new Error('unknown status');
-    }
-}
-function fromPbArchive(item) {
-    return Object.assign(Object.assign({}, item), { 
-        // TODO: standardize units coming from server.
-        createdAt: new Date(item.createdAt * 1000), status: fromPbArchiveStatus(item.archiveStatus), dealInfo: item.dealInfoList.map(fromPbDealInfo) });
-}
-/**
- * Ensures that a Root | string | undefined is converted into a string
- */
-function ensureRootString(api, key, root, ctx) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        if (root) {
-            return typeof root === 'string' ? root : root.path;
-        }
-        else {
-            /* eslint-disable  @typescript-eslint/no-use-before-define */
-            const root = yield bucketsRoot(api, key, ctx);
-            return (_a = root === null || root === void 0 ? void 0 : root.path) !== null && _a !== void 0 ? _a : '';
-        }
-    });
-}
-function* genChunks(value, size) {
-    return yield* Array.from(Array(Math.ceil(value.byteLength / size)), (_, i) => value.slice(i * size, i * size + size));
-}
-exports.genChunks = genChunks;
-/**
- * Creates a new bucket.
- * @public
- * @param name Human-readable bucket name. It is only meant to help identify a bucket in a UI and is not unique.
- * @param isPrivate encrypt the bucket contents (default `false`)
- * @param cid (optional) Bootstrap the bucket with a UnixFS Cid from the IPFS network
- * @example
- * Creates a Bucket called "app-name-files"
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const create = async (buckets: Buckets) => {
- *     return buckets.create("app-name-files")
- * }
- * ```
- *
- * @internal
- */
-function bucketsCreate(api, name, isPrivate = false, cid, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('create request');
-        const req = new bucketsd_pb_1.CreateRequest();
-        req.setName(name);
-        if (cid) {
-            req.setBootstrapCid(cid);
-        }
-        req.setPrivate(isPrivate);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Create, req, ctx);
-        const links = res.getLinks();
-        return {
-            seed: res.getSeed_asU8(),
-            seedCid: res.getSeedCid(),
-            root: fromPbRootObjectNullable(res.getRoot()),
-            links: links ? links.toObject() : undefined,
-        };
-    });
-}
-exports.bucketsCreate = bucketsCreate;
-/**
- * Returns the bucket root CID
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- *
- * @internal
- */
-function bucketsRoot(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('root request');
-        const req = new bucketsd_pb_1.RootRequest();
-        req.setKey(key);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Root, req, ctx);
-        return fromPbRootObjectNullable(res.getRoot());
-    });
-}
-exports.bucketsRoot = bucketsRoot;
-/**
- * Returns a list of bucket links.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @example
- * Generate the HTTP, IPNS, and IPFS links for a Bucket
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const getLinks = async (buckets: Buckets) => {
- *    const links = buckets.links(bucketKey)
- *    return links.ipfs
- * }
- *
- * const getIpfs = async (buckets: Buckets) => {
- *    const links = buckets.links(bucketKey)
- *    return links.ipfs
- * }
- * ```
- *
- * @internal
- */
-function bucketsLinks(api, key, path, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('link request');
-        const req = new bucketsd_pb_1.LinksRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Links, req, ctx);
-        return res.toObject();
-    });
-}
-exports.bucketsLinks = bucketsLinks;
-/**
- * Returns a list of all bucket roots.
- * @example
- * Find an existing Bucket named "app-name-files"
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const exists = async (buckets: Buckets) => {
- *     const roots = await buckets.list();
- *     return roots.find((bucket) => bucket.name ===  "app-name-files")
- * }
- * ```
- *
- * @internal
- */
-function bucketsList(api, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('list request');
-        const req = new bucketsd_pb_1.ListRequest();
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.List, req, ctx);
-        const roots = res.getRootsList();
-        const map = roots ? roots.map((m) => m).map((m) => fromPbRootObject(m)) : [];
-        return map;
-    });
-}
-exports.bucketsList = bucketsList;
-/**
- * Returns information about a bucket path.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- *
- * @internal
- */
-function bucketsListPath(api, key, path, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('list path request');
-        const req = new bucketsd_pb_1.ListPathRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListPath, req, ctx);
-        return {
-            item: fromPbPathItemNullable(res.getItem()),
-            root: fromPbRootObjectNullable(res.getRoot()),
-        };
-    });
-}
-exports.bucketsListPath = bucketsListPath;
-/**
- * listIpfsPath returns items at a particular path in a UnixFS path living in the IPFS network.
- * @param path UnixFS path
- *
- * @internal
- */
-function bucketsListIpfsPath(api, path, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('list path request');
-        const req = new bucketsd_pb_1.ListIpfsPathRequest();
-        req.setPath(path);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.ListIpfsPath, req, ctx);
-        return fromPbPathItemNullable(res.getItem());
-    });
-}
-exports.bucketsListIpfsPath = bucketsListIpfsPath;
-/**
- * Pushes a file to a bucket path.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- * @param input The input file/stream/object.
- * @param opts Options to control response stream.
- * @remarks
- * This will return the resolved path and the bucket's new root path.
- * @example
- * Push a file to the root of a bucket
- * ```typescript
- * import { Buckets } from '@textile/hub'
- *
- * const pushFile = async (content: string, bucketKey: string) => {
- *    const file = { path: '/index.html', content: Buffer.from(content) }
- *    return await buckets.pushPath(bucketKey!, 'index.html', file)
- * }
- * ```
- * @internal
- */
-function bucketsPushPath(api, key, path, input, opts, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-            var e_1, _a;
-            var _b;
-            // Only process the first input if there are more than one
-            const source = (yield normalize_1.normaliseInput(input).next()).value;
-            if (!source) {
-                return reject(types_1.AbortError);
-            }
-            const clientjs = new bucketsd_pb_service_1.APIServiceClient(api.serviceHost, api.rpcOptions);
-            const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            const stream = clientjs.pushPath(metadata);
-            if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
-                opts.signal.addEventListener('abort', () => {
-                    stream.cancel();
-                    return reject(types_1.AbortError);
-                });
-            }
-            stream.on('data', (message) => {
-                var _a, _b, _c, _d;
-                // Let's just make sure we haven't aborted this outside this function
-                if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
-                    stream.cancel();
-                    return reject(types_1.AbortError);
-                }
-                if (message.hasEvent()) {
-                    const event = (_b = message.getEvent()) === null || _b === void 0 ? void 0 : _b.toObject();
-                    if (event === null || event === void 0 ? void 0 : event.path) {
-                        // TODO: Is there an standard library/tool for this step in JS?
-                        const pth = event.path.startsWith('/ipfs/')
-                            ? event.path.split('/ipfs/')[1]
-                            : event.path;
-                        const cid = new cids_1.default(pth);
-                        const res = {
-                            path: {
-                                path: `/ipfs/${cid === null || cid === void 0 ? void 0 : cid.toString()}`,
-                                cid,
-                                root: cid,
-                                remainder: '',
-                            },
-                            root: (_d = (_c = event.root) === null || _c === void 0 ? void 0 : _c.path) !== null && _d !== void 0 ? _d : '',
-                        };
-                        return resolve(res);
-                    }
-                    else if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                        opts.progress(event === null || event === void 0 ? void 0 : event.bytes);
-                    }
-                }
-                else {
-                    return reject(new Error('Invalid reply'));
-                }
-            });
-            stream.on('end', (status) => {
-                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
-                    return reject(new Error(status.details));
-                }
-                else {
-                    return reject(new Error('undefined result'));
-                }
-            });
-            stream.on('status', (status) => {
-                if (status && status.code !== grpc_web_1.grpc.Code.OK) {
-                    return reject(new Error(status.details));
-                }
-                else {
-                    return reject(new Error('undefined result'));
-                }
-            });
-            const head = new bucketsd_pb_1.PushPathRequest.Header();
-            head.setPath(source.path || path);
-            head.setKey(key);
-            // Setting root here ensures pushes will error if root is out of date
-            const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
-            head.setRoot(root);
-            const req = new bucketsd_pb_1.PushPathRequest();
-            req.setHeader(head);
-            stream.write(req);
-            if (source.content) {
-                try {
-                    for (var _c = __asyncValues(source.content), _d; _d = yield _c.next(), !_d.done;) {
-                        const chunk = _d.value;
-                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
-                            // Let's just make sure we haven't aborted this outside this function
-                            try {
-                                // Should already have been handled
-                                stream.cancel();
-                            }
-                            catch (_e) { } // noop
-                            return reject(types_1.AbortError);
-                        }
-                        // Naively chunk into chunks smaller than CHUNK_SIZE bytes
-                        for (const chunklet of genChunks(chunk, exports.CHUNK_SIZE)) {
-                            const part = new bucketsd_pb_1.PushPathRequest();
-                            part.setChunk(chunklet);
-                            stream.write(part);
-                        }
-                    }
-                }
-                catch (e_1_1) { e_1 = { error: e_1_1 }; }
-                finally {
-                    try {
-                        if (_d && !_d.done && (_a = _c.return)) yield _a.call(_c);
-                    }
-                    finally { if (e_1) throw e_1.error; }
-                }
-            }
-            stream.end();
-        }));
-    });
-}
-exports.bucketsPushPath = bucketsPushPath;
-/**
- * Pushes an iterable of files to a bucket.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param input The input array of file/stream/objects.
- * @param opts Options to control response stream.
- * @internal
- */
-function bucketsPushPaths(api, key, input, opts, ctx) {
-    return new repeater_1.Repeater((push, stop) => __awaiter(this, void 0, void 0, function* () {
-        const clientjs = new bucketsd_pb_service_1.APIServiceClient(api.serviceHost, api.rpcOptions);
-        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const stream = clientjs.pushPaths(metadata);
-        if ((opts === null || opts === void 0 ? void 0 : opts.signal) !== undefined) {
-            opts.signal.addEventListener('abort', () => {
-                stream.cancel();
-                throw types_1.AbortError;
-            });
-        }
-        stream.on('data', (message) => {
-            var _a;
-            // Let's just make sure we haven't aborted this outside this function
-            if ((_a = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _a === void 0 ? void 0 : _a.aborted) {
-                stream.cancel();
-                return stop(types_1.AbortError);
-            }
-            const obj = {
-                path: message.getPath(),
-                root: fromPbRootObjectNullable(message.getRoot()),
-                cid: new cids_1.default(message.getCid()),
-                pinned: message.getPinned(),
-                size: message.getSize(),
-            };
-            push(obj);
-        });
-        stream.on('end', (status) => {
-            if (status && status.code !== grpc_web_1.grpc.Code.OK) {
-                return stop(new Error(status.details));
-            }
-            return stop();
-        });
-        stream.on('status', (status) => {
-            if (status && status.code !== grpc_web_1.grpc.Code.OK) {
-                return stop(new Error(status.details));
-            }
-            return stop();
-        });
-        const head = new bucketsd_pb_1.PushPathsRequest.Header();
-        head.setKey(key);
-        // Setting root here ensures pushes will error if root is out of date
-        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
-        head.setRoot(root);
-        const req = new bucketsd_pb_1.PushPathsRequest();
-        req.setHeader(head);
-        stream.write(req);
-        // Map the following over the top level inputs for parallel pushes
-        const mapper = ({ path, content }) => { var content_1, content_1_1; return __awaiter(this, void 0, void 0, function* () {
-            var e_2, _a;
-            var _b;
-            const req = new bucketsd_pb_1.PushPathsRequest();
-            const chunk = new bucketsd_pb_1.PushPathsRequest.Chunk();
-            chunk.setPath(path);
-            if (content) {
-                try {
-                    for (content_1 = __asyncValues(content); content_1_1 = yield content_1.next(), !content_1_1.done;) {
-                        const data = content_1_1.value;
-                        if ((_b = opts === null || opts === void 0 ? void 0 : opts.signal) === null || _b === void 0 ? void 0 : _b.aborted) {
-                            // Let's just make sure we haven't aborted this outside this function
-                            try {
-                                // Should already have been handled
-                                stream.cancel();
-                            }
-                            catch (_c) { } // noop
-                            return stop(types_1.AbortError);
-                        }
-                        // Naively chunk into chunks smaller than CHUNK_SIZE bytes
-                        for (const chunklet of genChunks(data, exports.CHUNK_SIZE)) {
-                            chunk.setData(chunklet);
-                            req.setChunk(chunk);
-                            stream.write(req);
-                        }
-                    }
-                }
-                catch (e_2_1) { e_2 = { error: e_2_1 }; }
-                finally {
-                    try {
-                        if (content_1_1 && !content_1_1.done && (_a = content_1.return)) yield _a.call(content_1);
-                    }
-                    finally { if (e_2) throw e_2.error; }
-                }
-            }
-            // Close out the file
-            const final = new bucketsd_pb_1.PushPathsRequest.Chunk();
-            final.setPath(path);
-            req.setChunk(final);
-            stream.write(req);
-        }); };
-        // We don't care about the top level order, progress is labeled by path
-        yield it_drain_1.default(paramap_it_1.default(normalize_1.normaliseInput(input), mapper, { ordered: false }));
-        stream.end();
-    }));
-}
-exports.bucketsPushPaths = bucketsPushPaths;
-/**
- * Sets a file at a given bucket path.
- * @internal
- */
-function bucketsSetPath(api, key, path, cid, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const request = new bucketsd_pb_1.SetPathRequest();
-        request.setKey(key);
-        request.setPath(path);
-        request.setCid(cid);
-        yield api.unary(bucketsd_pb_service_1.APIService.SetPath, request, ctx);
-    });
-}
-exports.bucketsSetPath = bucketsSetPath;
-/**
- * Pulls the bucket path, returning the bytes of the given file.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- * @param opts Options to control response stream. Currently only supports a progress function.
- *
- * @internal
- */
-function bucketsPullPath(api, key, path, opts, ctx) {
-    return new repeater_1.Repeater((push, stop) => {
-        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const request = new bucketsd_pb_1.PullPathRequest();
-        request.setKey(key);
-        request.setPath(path);
-        let written = 0;
-        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullPath, {
-            host: api.serviceHost,
-            transport: api.rpcOptions.transport,
-            debug: api.rpcOptions.debug,
-            request,
-            metadata,
-            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
-                const chunk = res.getChunk_asU8();
-                written += chunk.byteLength;
-                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                    opts.progress(written);
-                }
-                push(chunk);
-            }),
-            onEnd: (status, message) => __awaiter(this, void 0, void 0, function* () {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    stop(new Error(message));
-                }
-                stop();
-            }),
-        });
-        // Cleanup afterwards
-        stop.then(() => resp.close());
-    });
-}
-exports.bucketsPullPath = bucketsPullPath;
-/**
- * pullIpfsPath pulls the path from a remote UnixFS dag, writing it to writer if it's a file.
- * @param path A file/object (sub)-path within a bucket.
- * @param opts Options to control response stream. Currently only supports a progress function.
- *
- * @internal
- */
-function bucketsPullIpfsPath(api, path, opts, ctx) {
-    return new repeater_1.Repeater((push, stop) => {
-        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const request = new bucketsd_pb_1.PullIpfsPathRequest();
-        request.setPath(path);
-        let written = 0;
-        const resp = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.PullIpfsPath, {
-            host: api.serviceHost,
-            transport: api.rpcOptions.transport,
-            debug: api.rpcOptions.debug,
-            request,
-            metadata,
-            onMessage: (res) => __awaiter(this, void 0, void 0, function* () {
-                const chunk = res.getChunk_asU8();
-                push(chunk);
-                written += chunk.byteLength;
-                if (opts === null || opts === void 0 ? void 0 : opts.progress) {
-                    opts.progress(written);
-                }
-            }),
-            onEnd: (status, message) => __awaiter(this, void 0, void 0, function* () {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    stop(new Error(message));
-                }
-                stop();
-            }),
-        });
-        stop.then(() => resp.close());
-    });
-}
-exports.bucketsPullIpfsPath = bucketsPullIpfsPath;
-/**
- * Removes an entire bucket. Files and directories will be unpinned.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- *
- * @internal
- */
-function bucketsRemove(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove request');
-        const req = new bucketsd_pb_1.RemoveRequest();
-        req.setKey(key);
-        yield api.unary(bucketsd_pb_service_1.APIService.Remove, req, ctx);
-        return;
-    });
-}
-exports.bucketsRemove = bucketsRemove;
-/**
- * Returns information about a bucket path.
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param path A file/object (sub)-path within a bucket.
- * @param root optional to specify a root
- *
- * @internal
- */
-function bucketsRemovePath(api, key, path, opts, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove path request');
-        const req = new bucketsd_pb_1.RemovePathRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const root = yield ensureRootString(api, key, opts === null || opts === void 0 ? void 0 : opts.root, ctx);
-        req.setRoot(root);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.RemovePath, req, ctx);
-        return {
-            pinned: res.getPinned(),
-            root: fromPbRootObjectNullable(res.getRoot()),
-        };
-    });
-}
-exports.bucketsRemovePath = bucketsRemovePath;
-function bucketsPushPathAccessRoles(api, key, path, roles, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove path request');
-        const req = new bucketsd_pb_1.PushPathAccessRolesRequest();
-        req.setKey(key);
-        req.setPath(path);
-        roles.forEach((value, key) => req.getRolesMap().set(key, value));
-        yield api.unary(bucketsd_pb_service_1.APIService.PushPathAccessRoles, req, ctx);
-        return;
-    });
-}
-exports.bucketsPushPathAccessRoles = bucketsPushPathAccessRoles;
-function bucketsPullPathAccessRoles(api, key, path = '/', ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('remove path request');
-        const req = new bucketsd_pb_1.PullPathAccessRolesRequest();
-        req.setKey(key);
-        req.setPath(path);
-        const response = yield api.unary(bucketsd_pb_service_1.APIService.PullPathAccessRoles, req, ctx);
-        const roles = response.getRolesMap();
-        const typedRoles = new Map();
-        roles.forEach((entry, key) => typedRoles.set(key, entry));
-        return typedRoles;
-    });
-}
-exports.bucketsPullPathAccessRoles = bucketsPullPathAccessRoles;
-/**
- * @internal
- */
-function bucketsDefaultArchiveConfig(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('default archive config request');
-        const req = new bucketsd_pb_1.DefaultArchiveConfigRequest();
-        req.setKey(key);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.DefaultArchiveConfig, req, ctx);
-        const config = res.getArchiveConfig();
-        if (!config) {
-            throw new Error('no archive config returned');
-        }
-        return fromProtoArchiveConfig(config.toObject());
-    });
-}
-exports.bucketsDefaultArchiveConfig = bucketsDefaultArchiveConfig;
-/**
- * @internal
- */
-function bucketsSetDefaultArchiveConfig(api, key, config, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('set default archive config request');
-        const req = new bucketsd_pb_1.SetDefaultArchiveConfigRequest();
-        req.setKey(key);
-        req.setArchiveConfig(toProtoArchiveConfig(config));
-        yield api.unary(bucketsd_pb_service_1.APIService.SetDefaultArchiveConfig, req, ctx);
-        return;
-    });
-}
-exports.bucketsSetDefaultArchiveConfig = bucketsSetDefaultArchiveConfig;
-/**
- * archive creates a Filecoin bucket archive.
- * @internal
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- * @param options Options that control the behavior of the bucket archive
- */
-function bucketsArchive(api, key, options, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('archive request');
-        const req = new bucketsd_pb_1.ArchiveRequest();
-        req.setKey(key);
-        if (options === null || options === void 0 ? void 0 : options.archiveConfig) {
-            req.setArchiveConfig(toProtoArchiveConfig(options.archiveConfig));
-        }
-        yield api.unary(bucketsd_pb_service_1.APIService.Archive, req, ctx);
-        return;
-    });
-}
-exports.bucketsArchive = bucketsArchive;
-/**
- * @internal
- */
-function bucketsArchives(api, key, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('archives request');
-        const req = new bucketsd_pb_1.ArchivesRequest();
-        req.setKey(key);
-        const res = yield api.unary(bucketsd_pb_service_1.APIService.Archives, req, ctx);
-        const current = res.toObject().current;
-        return {
-            current: current ? fromPbArchive(current) : undefined,
-            history: res.toObject().historyList.map(fromPbArchive),
-        };
-    });
-}
-exports.bucketsArchives = bucketsArchives;
-/**
- * archiveWatch watches status events from a Filecoin bucket archive.
- * @internal
- * @param key Unique (IPNS compatible) identifier key for a bucket.
- */
-function bucketsArchiveWatch(api, key, callback, ctx) {
-    return __awaiter(this, void 0, void 0, function* () {
-        logger.debug('archive watch request');
-        const req = new bucketsd_pb_1.ArchiveWatchRequest();
-        req.setKey(key);
-        const metadata = Object.assign(Object.assign({}, api.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-        const res = grpc_web_1.grpc.invoke(bucketsd_pb_service_1.APIService.ArchiveWatch, {
-            host: api.context.host,
-            request: req,
-            metadata,
-            onMessage: (rec) => {
-                const response = {
-                    id: rec.getJsPbMessageId(),
-                    msg: rec.getMsg(),
-                };
-                callback(response);
-            },
-            onEnd: (status, message /** _trailers: grpc.Metadata */) => {
-                if (status !== grpc_web_1.grpc.Code.OK) {
-                    return callback(undefined, new Error(message));
-                }
-                callback();
-            },
-        });
-        return res.close.bind(res);
-    });
-}
-exports.bucketsArchiveWatch = bucketsArchiveWatch;
-/**
- * Raw API connected needed by Buckets CI code (compile friendly)
- * see more https://github.com/textileio/github-action-buckets
- */
-class BucketsGrpcClient {
-    /**
-     * Creates a new gRPC client instance for accessing the Textile Buckets API.
-     * @param context The context to use for interacting with the APIs. Can be modified later.
-     */
-    constructor(context = new context_1.Context(), debug = false) {
-        this.context = context;
-        this.serviceHost = context.host;
-        this.rpcOptions = {
-            transport: grpc_transport_1.WebsocketTransport(),
-            debug,
-        };
-    }
-    unary(methodDescriptor, req, ctx) {
-        return new Promise((resolve, reject) => {
-            const metadata = Object.assign(Object.assign({}, this.context.toJSON()), ctx === null || ctx === void 0 ? void 0 : ctx.toJSON());
-            grpc_web_1.grpc.unary(methodDescriptor, {
-                request: req,
-                host: this.serviceHost,
-                transport: this.rpcOptions.transport,
-                debug: this.rpcOptions.debug,
-                metadata,
-                onEnd: (res) => {
-                    const { status, statusMessage, message } = res;
-                    if (status === grpc_web_1.grpc.Code.OK) {
-                        if (message) {
-                            resolve(message);
-                        }
-                        else {
-                            resolve();
-                        }
-                    }
-                    else {
-                        reject(new Error(statusMessage));
-                    }
-                },
-            });
-        });
-    }
-}
-exports.BucketsGrpcClient = BucketsGrpcClient;
-//# sourceMappingURL=index.js.map
 
 /***/ }),
 
@@ -25251,6 +25694,55 @@ module.exports = Base
 /***/ (function(module) {
 
 module.exports = require("net");
+
+/***/ }),
+
+/***/ 636:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ArchiveStatus = exports.PathAccessRole = exports.AbortError = void 0;
+exports.AbortError = new Error('aborted');
+var PathAccessRole;
+(function (PathAccessRole) {
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_UNSPECIFIED"] = 0] = "PATH_ACCESS_ROLE_UNSPECIFIED";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_READER"] = 1] = "PATH_ACCESS_ROLE_READER";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_WRITER"] = 2] = "PATH_ACCESS_ROLE_WRITER";
+    PathAccessRole[PathAccessRole["PATH_ACCESS_ROLE_ADMIN"] = 3] = "PATH_ACCESS_ROLE_ADMIN";
+})(PathAccessRole = exports.PathAccessRole || (exports.PathAccessRole = {}));
+/**
+ * Archive job status codes
+ */
+var ArchiveStatus;
+(function (ArchiveStatus) {
+    /**
+     * Status is not specified.
+     */
+    ArchiveStatus[ArchiveStatus["Unspecified"] = 0] = "Unspecified";
+    /**
+     * The archive job is queued.
+     */
+    ArchiveStatus[ArchiveStatus["Queued"] = 1] = "Queued";
+    /**
+     * The archive job is executing.
+     */
+    ArchiveStatus[ArchiveStatus["Executing"] = 2] = "Executing";
+    /**
+     * The archive job has failed.
+     */
+    ArchiveStatus[ArchiveStatus["Failed"] = 3] = "Failed";
+    /**
+     * The archive job was canceled.
+     */
+    ArchiveStatus[ArchiveStatus["Canceled"] = 4] = "Canceled";
+    /**
+     * The archive job succeeded.
+     */
+    ArchiveStatus[ArchiveStatus["Success"] = 5] = "Success";
+})(ArchiveStatus = exports.ArchiveStatus || (exports.ArchiveStatus = {}));
+//# sourceMappingURL=types.js.map
 
 /***/ }),
 

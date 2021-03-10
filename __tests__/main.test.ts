@@ -8,7 +8,7 @@ import * as pb from '@textile/hub-grpc/api/hubd/pb/hubd_pb'
 import { WebsocketTransport } from '@textile/grpc-transport'
 import { APIServiceClient, ServiceError } from '@textile/hub-grpc/api/hubd/pb/hubd_pb_service'
 import { Buckets } from '@textile/buckets'
-import { execute } from '@textile/buck-util'
+import { execute } from '@textile/buckr'
 
 jest.setTimeout(60000)
 
