@@ -39,7 +39,7 @@
     "@textile/buckets": "^6.0.2",
     "@textile/context": "^0.11.1",
     "@textile/hub-grpc": "2.6.0",
-    "@textile/security": "^0.8.1",
+    "@textile/security": "^0.9.0",
     "@textile/grpc-transport": "^0.4.0",
     "@textile/grpc-connection": "^2.4.1",
     "@types/glob": "^7.1.1",
