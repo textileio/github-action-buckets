@@ -33,7 +33,7 @@
     "@textile/buck-util": "1.0.4",
     "glob": "^7.1.6",
     "isomorphic-ws": "^4.0.1",
-    "ws": "^7.3.0"
+    "ws": "^8.0.0"
   },
   "devDependencies": {
     "@textile/buckets": "^6.0.2",
